@@ -4,6 +4,8 @@ import subprocess
 from aiohttp import web
 from server import PromptServer
 
+__version__ = "2.3.0"
+
 from .nodes.queue_control import setup_queue_control_routes, tray_manager
 from .nodes.lora_loader import (
     FolderLoraLoader,
@@ -22,6 +24,7 @@ from .nodes.prompt_iterator import PromptQueueIterator
 from .nodes.prompt_counter import PromptCounter
 from .nodes.text_replacer import MultiTextReplacer
 from .nodes.text_split import LeafFlowTextSplit
+from .nodes.local_runner import RunLocalFileNode
 from .nodes.utils import (
     get_leafflow_user_dir,
     get_env_setting,
@@ -45,6 +48,7 @@ NODE_CLASS_MAPPINGS = {
     "PromptCounter": PromptCounter,
     "MultiTextReplacer": MultiTextReplacer,
     "LeafFlowTextSplit": LeafFlowTextSplit,
+    "RunLocalFileNode": RunLocalFileNode,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -62,7 +66,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "PromptQueueIterator": "🍃 🔄 Prompt Queue Iterator",
     "PromptCounter": "🍃 📝 Prompt Counter",
     "MultiTextReplacer": "🍃 🔤 Multi Text Replacer",
-    "LeafFlowTextSplit": "🍃 ✂️ Text Split"
+    "LeafFlowTextSplit": "🍃 ✂️ Text Split",
+    "RunLocalFileNode": "🍃 ⚡ Run Local File"
 }
 
 WEB_DIRECTORY = "./web"
@@ -83,7 +88,10 @@ ENV_FILE = os.path.join(USER_DIR, ".env")
 
 routes = server.routes
 
-print("[ComfyUI-LeafFlow] 🍃 Loaded 13 nodes & visual endpoints successfully.")
+try:
+    print(f"[ComfyUI-LeafFlow] 🍃 Loaded {len(NODE_CLASS_MAPPINGS)} nodes & visual endpoints successfully (v{__version__}).")
+except UnicodeEncodeError:
+    print(f"[ComfyUI-LeafFlow] Loaded {len(NODE_CLASS_MAPPINGS)} nodes & visual endpoints successfully (v{__version__}).")
 
 @routes.get("/leafflow/get_image_prompt")
 @routes.get("/leafflow/view_image_prompt")
@@ -138,6 +146,9 @@ async def get_settings(request):
     enable_tray = os.getenv("ENABLE_TRAY_ICON", "false").lower() in ["true", "1", "yes"]
     enable_assets_restore = os.getenv("ENABLE_ASSETS_RESTORE", "true").lower() in ["true", "1", "yes"]
     restore_assets_count = int(os.getenv("RESTORE_ASSETS_COUNT", "64"))
+    enable_process_management = os.getenv("ALLOW_PROCESS_MANAGEMENT", "false").lower() in ["true", "1", "yes"]
+    enable_local_file_execution = os.getenv("ENABLE_LOCAL_FILE_EXECUTION", "true").lower() in ["true", "1", "yes"]
+    allow_any_script_path = os.getenv("ALLOW_ANY_SCRIPT_PATH", "false").lower() in ["true", "1", "yes"]
     if os.path.exists(ENV_FILE):
         try:
             with open(ENV_FILE, "r", encoding="utf-8") as f:
@@ -156,6 +167,12 @@ async def get_settings(request):
                             restore_assets_count = int(line.split("=", 1)[1].strip())
                         except Exception:
                             pass
+                    elif line.startswith("ALLOW_PROCESS_MANAGEMENT="):
+                        enable_process_management = line.split("=", 1)[1].strip().lower() in ["true", "1", "yes"]
+                    elif line.startswith("ENABLE_LOCAL_FILE_EXECUTION="):
+                        enable_local_file_execution = line.split("=", 1)[1].strip().lower() in ["true", "1", "yes"]
+                    elif line.startswith("ALLOW_ANY_SCRIPT_PATH="):
+                        allow_any_script_path = line.split("=", 1)[1].strip().lower() in ["true", "1", "yes"]
         except Exception:
             pass
     return web.json_response({
@@ -163,7 +180,10 @@ async def get_settings(request):
         "tmdb_api_key": tmdb_key,
         "enable_tray_icon": enable_tray,
         "enable_assets_restore": enable_assets_restore,
-        "restore_assets_count": restore_assets_count
+        "restore_assets_count": restore_assets_count,
+        "enable_process_management": enable_process_management,
+        "enable_local_file_execution": enable_local_file_execution,
+        "allow_any_script_path": allow_any_script_path
     })
 
 def _clean_env_val(v):
@@ -191,6 +211,9 @@ async def save_settings(request):
         restore_assets_count = _clean_env_val(data.get("restore_assets_count"))
         clear_prompt_iterator_on_launch = _clean_env_val(data.get("clear_prompt_iterator_on_launch"))
         restored_state = _clean_env_val(data.get("persistent_queue_restored_state"))
+        enable_process_management = _clean_env_val(data.get("enable_process_management"))
+        enable_local_file_execution = _clean_env_val(data.get("enable_local_file_execution"))
+        allow_any_script_path = _clean_env_val(data.get("allow_any_script_path"))
 
         lines = []
         if os.path.exists(ENV_FILE):
@@ -214,6 +237,9 @@ async def save_settings(request):
         has_restore_count = False
         has_clear_prompt_iterator = False
         has_restored_state = False
+        has_process_mgmt = False
+        has_local_file_exec = False
+        has_allow_any_path = False
 
         for line in lines:
             if line.strip().startswith("CIVITAI_API_KEY=") and civitai_key is not None:
@@ -255,6 +281,15 @@ async def save_settings(request):
             elif line.strip().startswith("PERSISTENT_QUEUE_RESTORED_STATE=") and restored_state is not None:
                 new_lines.append(f"PERSISTENT_QUEUE_RESTORED_STATE={restored_state}\n")
                 has_restored_state = True
+            elif line.strip().startswith("ALLOW_PROCESS_MANAGEMENT=") and enable_process_management is not None:
+                new_lines.append(f"ALLOW_PROCESS_MANAGEMENT={enable_process_management}\n")
+                has_process_mgmt = True
+            elif line.strip().startswith("ENABLE_LOCAL_FILE_EXECUTION=") and enable_local_file_execution is not None:
+                new_lines.append(f"ENABLE_LOCAL_FILE_EXECUTION={enable_local_file_execution}\n")
+                has_local_file_exec = True
+            elif line.strip().startswith("ALLOW_ANY_SCRIPT_PATH=") and allow_any_script_path is not None:
+                new_lines.append(f"ALLOW_ANY_SCRIPT_PATH={allow_any_script_path}\n")
+                has_allow_any_path = True
             else:
                 new_lines.append(line)
 
@@ -284,6 +319,12 @@ async def save_settings(request):
             new_lines.append(f"CLEAR_PROMPT_ITERATOR_ON_LAUNCH={clear_prompt_iterator_on_launch}\n")
         if not has_restored_state and restored_state is not None:
             new_lines.append(f"PERSISTENT_QUEUE_RESTORED_STATE={restored_state}\n")
+        if not has_process_mgmt and enable_process_management is not None:
+            new_lines.append(f"ALLOW_PROCESS_MANAGEMENT={enable_process_management}\n")
+        if not has_local_file_exec and enable_local_file_execution is not None:
+            new_lines.append(f"ENABLE_LOCAL_FILE_EXECUTION={enable_local_file_execution}\n")
+        if not has_allow_any_path and allow_any_script_path is not None:
+            new_lines.append(f"ALLOW_ANY_SCRIPT_PATH={allow_any_script_path}\n")
 
         with open(ENV_FILE, "w", encoding="utf-8") as f:
             f.writelines(new_lines)
@@ -300,6 +341,12 @@ async def save_settings(request):
             tray_manager.set_enabled(tray_enabled_bool)
         if enable_assets_restore is not None:
             os.environ["ENABLE_ASSETS_RESTORE"] = str(enable_assets_restore)
+        if enable_process_management is not None:
+            os.environ["ALLOW_PROCESS_MANAGEMENT"] = str(enable_process_management)
+        if enable_local_file_execution is not None:
+            os.environ["ENABLE_LOCAL_FILE_EXECUTION"] = str(enable_local_file_execution)
+        if allow_any_script_path is not None:
+            os.environ["ALLOW_ANY_SCRIPT_PATH"] = str(allow_any_script_path)
         if restore_assets_count is not None:
             os.environ["RESTORE_ASSETS_COUNT"] = str(restore_assets_count)
         if clear_prompt_iterator_on_launch is not None:
@@ -362,7 +409,7 @@ async def export_debug_profile(request):
         debug_profile = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "package": "ComfyUI-LeafFlow",
-            "version": "2.1.0",
+            "version": __version__,
             "system": {
                 "os": platform.system(),
                 "os_release": platform.release(),
@@ -386,6 +433,9 @@ async def export_debug_profile(request):
                 "restore_assets_count": get_env_setting("RESTORE_ASSETS_COUNT", "64"),
                 "clear_prompt_iterator_on_launch": get_env_setting("CLEAR_PROMPT_ITERATOR_ON_LAUNCH", "false"),
                 "persistent_queue_restored_state": get_env_setting("PERSISTENT_QUEUE_RESTORED_STATE", "Match Default"),
+                "allow_process_management": get_env_setting("ALLOW_PROCESS_MANAGEMENT", "false"),
+                "enable_local_file_execution": get_env_setting("ENABLE_LOCAL_FILE_EXECUTION", "true"),
+                "allow_any_script_path": get_env_setting("ALLOW_ANY_SCRIPT_PATH", "false"),
                 "civitai_api_key_configured": bool(civitai_key and civitai_key.strip()),
                 "tmdb_api_key_configured": bool(tmdb_key and tmdb_key.strip()),
             },

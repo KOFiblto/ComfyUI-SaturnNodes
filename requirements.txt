@@ -1,4 +1,4 @@
 Pillow
 piexif
 numpy
-pystray
+# pystray  # Optional: install manually if desktop system tray icon integration is enabled

@@ -1,10 +1,13 @@
 [project]
 name = "comfyui-leafflow"
 description = "Essential workflow controls, mid-generation pausing, real-time queue persistence, folder watcher, and visual model loaders for ComfyUI."
-version = "2.2.0"
+version = "2.3.0"
 readme = "README.md"
 license = "MIT"
-dependencies = ["pillow", "numpy", "piexif", "pystray"]
+dependencies = ["pillow", "numpy", "piexif"]
+
+[project.optional-dependencies]
+tray = ["pystray"]
 
 [project.urls]
 Repository = "https://github.com/KOFiblto/ComfyUI-LeafFlow"

@@ -192,23 +192,30 @@ class AssetsRestoreManager:
 
                     # Ingest into modern ComfyUI asset database if --enable-assets is active
                     try:
-                        from app.assets.services.ingest import register_file_in_place
-                        res = register_file_in_place(abs_path=filepath, name=filename, tags=["output"])
-                        if res and hasattr(res, "ref") and res.ref and hasattr(res.ref, "id"):
-                            try:
-                                from app.database.db import create_session, init_db
-                                from app.assets.database.queries import set_reference_metadata
-                                init_db()
-                                with create_session() as session:
-                                    set_reference_metadata(session, reference_id=res.ref.id, metadata={
-                                        "jobId": prompt_id,
-                                        "nodeId": output_node_id,
-                                        "filename": filename,
-                                        "subfolder": subfolder
-                                    })
-                                    session.commit()
-                            except Exception:
-                                pass
+                        import importlib
+                        ingest_mod = importlib.import_module("app.assets.services.ingest")
+                        register_file_in_place = getattr(ingest_mod, "register_file_in_place", None)
+                        if register_file_in_place:
+                            res = register_file_in_place(abs_path=filepath, name=filename, tags=["output"])
+                            if res and hasattr(res, "ref") and res.ref and hasattr(res.ref, "id"):
+                                try:
+                                    db_mod = importlib.import_module("app.database.db")
+                                    queries_mod = importlib.import_module("app.assets.database.queries")
+                                    init_db = getattr(db_mod, "init_db", None)
+                                    create_session = getattr(db_mod, "create_session", None)
+                                    set_reference_metadata = getattr(queries_mod, "set_reference_metadata", None)
+                                    if init_db and create_session and set_reference_metadata:
+                                        init_db()
+                                        with create_session() as session:
+                                            set_reference_metadata(session, reference_id=res.ref.id, metadata={
+                                                "jobId": prompt_id,
+                                                "nodeId": output_node_id,
+                                                "filename": filename,
+                                                "subfolder": subfolder
+                                            })
+                                            session.commit()
+                                except Exception:
+                                    pass
                     except Exception:
                         pass
 

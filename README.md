@@ -284,6 +284,29 @@ Splits text into two parts at a specified delimiter. Supports forward (from star
 - **`delimiter_found`** (`BOOLEAN`): True if delimiter was found, False otherwise.
 </details>
 
+<details>
+<summary><b>🍃 ⚡ Run Local File</b> (<code>RunLocalFileNode</code>)</summary>
+
+#### Overview
+Safely executes a local script or executable (`.bat`, `.cmd`, `.ps1`, `.exe` on Windows; `.sh` or binaries on Linux/macOS) with command-line parameters and working directory control. Built with multi-layered security guards to ensure malicious workflows or dropped images cannot execute code without explicit authorization.
+
+#### Inputs & Widgets
+- **`file_path`** (`STRING`): Path to the executable or script (e.g. `scripts/process.bat`). Confined to `ComfyUI/scripts/` or `user/default/LeafFlow/scripts/` by default.
+- **`security_consent`** (`BOOLEAN`): Mandatory safety verification checkbox. Must be checked to arm execution. **Automatically disarmed whenever an external workflow or image is loaded.**
+- **`parameters`** (`STRING`, Multiline, Optional): Command-line arguments. Supports spaces and standard quoting (parsed safely via `shlex` without shell expansion).
+- **`working_directory`** (`STRING`, Optional): Execution working directory (`cwd`). Defaults to the folder containing the script if left blank.
+- **`run_mode`** (`COMBO`): `Synchronous (Wait for Output)` vs `Asynchronous (Background)`.
+- **`timeout`** (`INT`): Maximum execution time in seconds for synchronous mode (`0` = no timeout). If exceeded, the process tree is cleanly terminated via OS process management.
+- **`trigger`** (`*`, Optional Wildcard): Input wire allowing you to connect any workflow data to order execution.
+
+#### Outputs
+- **`stdout`** (`STRING`): Captured standard output stream.
+- **`stderr`** (`STRING`): Captured standard error stream.
+- **`exit_code`** (`INT`): Process exit return code (`0` = success, `-1` = blocked / timed out).
+- **`success`** (`BOOLEAN`): `True` if `exit_code == 0`, `False` otherwise.
+- **`passthrough`** (`*`): Passes input `trigger` data through untouched to downstream nodes.
+</details>
+
 ---
 
 ## ⚙️ ComfyUI Settings Menu Reference
@@ -327,6 +350,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`Toolbar Button Unpaused Color`** (`text`, *Default: `#16a34a`*): Hex color for the toolbar unpaused/running state.
 - **`Toolbar Button Paused Color`** (`text`, *Default: `#ea580c`*): Hex color for the toolbar paused state.
 - **`Enable System Tray Icon`** (`boolean`, *Default: false*): Displays an OS system tray icon with real-time queue status colors and outside-browser controls.
+- **`Allow Process Management (Restart / Shutdown)`** (`boolean`, *Default: false*): Opt-in authorization allowing server restart and shutdown actions from the LeafFlow sidebar and API. Disabled by default for maximum security.
 </details>
 
 <details open>
@@ -359,14 +383,24 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
   - **Works Standalone or with PersistentQueue:** Operates client-side via `localStorage` when standalone, and syncs with `PersistentQueue` to retain batch relationships after server restarts.
 </details>
 
+<details open>
+<summary><b>9. 🛡️ Security & Script Execution</b></summary>
+
+- **`Allow Local File Execution`** (`boolean`, *Default: true*): Master toggle controlling whether the *Run Local File* node is permitted to execute local scripts or executables.
+- **`Allow Scripts Outside Approved Folders`** (`boolean`, *Default: false*): By default, script execution is strictly confined to `ComfyUI/scripts/` and `user/default/LeafFlow/scripts/`. Enable this option to permit running executables from any filesystem location.
+</details>
+
 ---
 
 ## 🔒 Security & Privacy
 
-- **Local-Only Enforced Endpoints:** Power actions (`/leafflow/power/*`), settings updates (`/leafflow/settings`), and queue sync routes are strictly protected with loopback verification (`127.0.0.1` / `::1`), rejecting external network requests with `403 Forbidden`.
-- **Directory Confinement:** Image loading and thumbnail routes are strictly confined to ComfyUI `input`, `output`, and `temp` directories with traversal guards.
+- **Local Runner Sandbox & Auto-Disarm:** The `Run Local File` node enforces explicit `security_consent` authorization, is confined to `ComfyUI/scripts/` by default, never uses `shell=True`, terminates whole process trees on timeout, and **automatically disarms itself whenever an external workflow or image is loaded**, protecting users against malicious workflow injection.
+- **Process Management Opt-In:** Process restart and shutdown controls are disabled by default (`ALLOW_PROCESS_MANAGEMENT=false`) and require explicit user activation in settings.
+- **Universal Loopback Protection:** All server control endpoints (`/leafflow/power/*`), settings updates (`/leafflow/settings`), and queue endpoints (`/pause_queue/*`, `/persistent_queue/claim`) strictly verify loopback origin (`127.0.0.1` / `::1`), rejecting external network requests with `403 Forbidden`.
+- **Directory Traversal Protection:** Image loading and thumbnail routes are strictly confined to ComfyUI `input`, `output`, and `temp` directories with traversal guards.
+- **Optional Headless Dependencies:** System tray desktop integration (`pystray`) is an optional dependency, ensuring cloud containers (Docker, Colab, RunPod) run with zero dependency errors.
 - **Opt-In Scraping:** Civitai and TMDB network scraping are opt-in and disabled by default.
-- **Zero Runtime Package Installs:** No `install.py` or dynamic `pip` execution; all standard dependencies (`Pillow`, `piexif`, `numpy`, `pystray`) are cleanly declared in `requirements.txt`.
+- **Zero Runtime Package Installs:** No `install.py` or dynamic `pip` execution; all standard dependencies are cleanly declared in `requirements.txt`.
 - **Local Environment:** All API keys and settings are stored locally in `.env` (excluded from git commits via `.gitignore`).
 - **Atomic File Writes:** Safe atomic writes (`.tmp` + `os.replace`) prevent JSON corruption during sudden crashes.
 

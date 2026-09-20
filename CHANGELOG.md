@@ -5,6 +5,40 @@ All notable changes to `ComfyUI-LeafFlow` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-09-20
+
+### Added
+- **🍃 ⚡ "Run Local File" Node (`RunLocalFileNode`)**:
+  - Executes local scripts and binaries (`.bat`, `.cmd`, `.ps1`, `.exe` on Windows; `.sh` and executables on Linux/macOS) directly within ComfyUI workflows.
+  - Parameter arguments supporting multi-line or standard quotes (`shlex` tokenized, safe non-shell execution).
+  - Configurable working directory (`cwd`), defaulting to the script's directory if unspecified.
+  - **Synchronous Mode**: Captures `stdout`, `stderr`, `exit_code`, and `success` boolean outputs, with real-time ComfyUI cancel button interrupt handling and configurable execution timeout.
+  - **Asynchronous Mode**: Detaches process to run in the background without blocking the ComfyUI generation queue.
+  - Optional `trigger` wildcard input and `passthrough` wildcard output for sequencing file execution in any pipeline.
+  - **Multi-Layered Security Sandbox**:
+    - Confined strictly to `ComfyUI/scripts/` and `user/default/LeafFlow/scripts/` by default.
+    - Never invokes `shell=True` (eliminating command chaining and command injection vulnerabilities).
+    - Recursive process tree termination on timeout or cancellation (uses `taskkill /F /T` on Windows to prevent orphaned background processes).
+    - **Guaranteed Automatic Disarm on Load**: External workflows or dropped image metadata containing `RunLocalFileNode` automatically reset `security_consent = false` in the frontend, preventing arbitrary execution without manual user authorization.
+    - Visual node status indicator (`[ARMED]` in emerald green vs `[DISARMED]` in red) and canvas warning ribbon.
+    - Global toggle setting (`LeafFlow.9 - 🛡️ Security.01_AllowLocalFileExecution`).
+    - Optional un-restricting setting (`LeafFlow.9 - 🛡️ Security.02_AllowAnyScriptPath`).
+
+### Fixed & Compliance
+- **Dynamic Node Count**: Replaced hardcoded node count in startup banner with dynamic `len(NODE_CLASS_MAPPINGS)` (now reporting all 16 registered nodes).
+- **Universal Synchronized Versioning**: Version `2.3.0` synchronized across `__init__.py`, `pyproject.toml`, `/leafflow/debug/export`, `README.md`, and `CHANGELOG.md`.
+- **Process Management Security Toggle**: Server restart and shutdown controls are now disabled by default (`ALLOW_PROCESS_MANAGEMENT=false`). If disabled, attempts to trigger restart/shutdown via the UI or API return HTTP 403 with clear instructions.
+- **Optional `pystray` Dependency**: Made `pystray` an optional extra (`[project.optional-dependencies] tray = ["pystray"]`) and removed all runtime `pip install` subprocess calls, ensuring zero crashes on headless cloud servers, Docker, or Google Colab.
+- **Universal Loopback Protection**: Added `is_local_request(request)` validation to all legacy queue endpoints (`/pause_queue/*` and `/persistent_queue/claim`).
+- **Windows Console Unicode Safety**: Added `UnicodeEncodeError` guard around startup emoji printing for legacy Windows terminals.
+- **Clean Dynamic Imports**: Replaced static imports of desktop private `app.*` in `assets_restore.py` with dynamic `importlib.import_module` calls.
+- **Cleaned Dead Code**: Removed orphaned canvas classes from `queue_control.py`.
+
+### Testing
+- Comprehensive automated test coverage expanded to **97 unit tests** covering all nodes, security guards, process controls, and local runner execution.
+
+---
+
 ## [2.2.0] - 2026-09-08
 
 > ⚠️ **Important Frontend Compatibility Notice**:

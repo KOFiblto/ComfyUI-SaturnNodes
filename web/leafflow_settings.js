@@ -531,6 +531,22 @@ app.registerExtension({
             }
         });
 
+        // 4.7 Allow Process Management (Restart / Shutdown)
+        app.ui.settings.addSetting({
+            id: "LeafFlow.4 - ⏸️ Pause Controls.07_AllowProcessManagement",
+            name: "Allow Process Management (Restart / Shutdown)",
+            type: "boolean",
+            defaultValue: false,
+            tooltip: "Enables server restart and shutdown actions from the LeafFlow power controls. Disabled by default for security.",
+            onChange(value) {
+                api.fetchApi("/leafflow/settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ enable_process_management: value ? "true" : "false" })
+                }).catch(() => {});
+            }
+        });
+
 
         // =========================================================================
         // GRUPPE 5: 5 - 💾 Persistent Queue (Auto-Recovery)
@@ -679,6 +695,42 @@ app.registerExtension({
             type: "boolean",
             defaultValue: true,
             tooltip: "When queueing multi-item batches, snapshots prompt and node inputs (like text and LoRAs) in the background so mid-queue canvas edits do not corrupt queued items. Random seeds continue to randomize."
+        });
+
+        // =========================================================================
+        // GRUPPE 9: 9 - 🛡️ Security & Script Execution
+        // =========================================================================
+
+        // 9.1 Allow Local File Execution
+        app.ui.settings.addSetting({
+            id: "LeafFlow.9 - 🛡️ Security.01_AllowLocalFileExecution",
+            name: "Allow Local File Execution",
+            type: "boolean",
+            defaultValue: true,
+            tooltip: "Controls whether the '🍃 ⚡ Run Local File' node is permitted to run executable files (.bat, .ps1, .exe, .sh). When disabled, execution is blocked even if the node is armed.",
+            onChange(value) {
+                api.fetchApi("/leafflow/settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ enable_local_file_execution: value ? "true" : "false" })
+                }).catch(() => {});
+            }
+        });
+
+        // 9.2 Allow Scripts Outside Approved Folders
+        app.ui.settings.addSetting({
+            id: "LeafFlow.9 - 🛡️ Security.02_AllowAnyScriptPath",
+            name: "Allow Scripts Outside Approved Folders",
+            type: "boolean",
+            defaultValue: false,
+            tooltip: "By default, scripts can only run from 'ComfyUI/scripts/' or 'user/default/LeafFlow/scripts/' to prevent arbitrary system file execution. Enable this only if you need to run binaries from other directories.",
+            onChange(value) {
+                api.fetchApi("/leafflow/settings", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ allow_any_script_path: value ? "true" : "false" })
+                }).catch(() => {});
+            }
         });
     }
 });

@@ -234,7 +234,7 @@ function openConfirmModal(title, message, onConfirm, isDanger = false) {
     btnRow.style.marginTop = "8px";
 
     const cancelBtn = document.createElement("button");
-    cancelBtn.textContent = "Cancel";
+    cancelBtn.textContent = onConfirm ? "Cancel" : "Close";
     cancelBtn.style.padding = "8px 16px";
     cancelBtn.style.borderRadius = "6px";
     cancelBtn.style.border = "1px solid #52525b";
@@ -243,30 +243,55 @@ function openConfirmModal(title, message, onConfirm, isDanger = false) {
     cancelBtn.style.cursor = "pointer";
     cancelBtn.onclick = () => overlay.remove();
 
-    const confirmBtn = document.createElement("button");
-    confirmBtn.textContent = "Confirm";
-    confirmBtn.style.padding = "8px 16px";
-    confirmBtn.style.borderRadius = "6px";
-    confirmBtn.style.border = "none";
-    confirmBtn.style.fontWeight = "600";
-    confirmBtn.style.cursor = "pointer";
-    if (isDanger) {
-        confirmBtn.style.background = "#dc2626";
-        confirmBtn.style.color = "#ffffff";
+    if (onConfirm) {
+        const confirmBtn = document.createElement("button");
+        confirmBtn.textContent = "Confirm";
+        confirmBtn.style.padding = "8px 16px";
+        confirmBtn.style.borderRadius = "6px";
+        confirmBtn.style.border = "none";
+        confirmBtn.style.fontWeight = "600";
+        confirmBtn.style.cursor = "pointer";
+        if (isDanger) {
+            confirmBtn.style.background = "#dc2626";
+            confirmBtn.style.color = "#ffffff";
+        } else {
+            confirmBtn.style.background = "#2563eb";
+            confirmBtn.style.color = "#ffffff";
+        }
+
+        confirmBtn.onclick = async () => {
+            overlay.remove();
+            await onConfirm();
+        };
+
+        btnRow.append(cancelBtn, confirmBtn);
     } else {
-        confirmBtn.style.background = "#2563eb";
-        confirmBtn.style.color = "#ffffff";
+        btnRow.append(cancelBtn);
     }
-
-    confirmBtn.onclick = async () => {
-        overlay.remove();
-        if (onConfirm) await onConfirm();
-    };
-
-    btnRow.append(cancelBtn, confirmBtn);
     modal.append(header, desc, btnRow);
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
+}
+
+function checkProcessManagementEnabled() {
+    if (currentPowerState.enabled === false) {
+        if (app.extensionManager?.toast?.add) {
+            app.extensionManager.toast.add({
+                severity: "warn",
+                summary: "🍃 Process Management Disabled",
+                detail: "Enable 'Allow Process Management' in LeafFlow settings to restart or shut down ComfyUI.",
+                life: 7000
+            });
+        }
+        openConfirmModal(
+            "Process Management Disabled",
+            "Server restart and shutdown controls are currently disabled for security.\n\nTo enable them, go to ComfyUI Settings ⚙️ -> LeafFlow -> Pause Controls -> Turn ON 'Allow Process Management (Restart / Shutdown)'.",
+            null,
+            false
+        );
+        return false;
+    }
+    return true;
 }
 
 function closePowerPopup() {
@@ -345,10 +370,24 @@ function showPowerSidePopup(anchorElement) {
     restartItem.onclick = (e) => {
         e.stopPropagation();
         closePowerPopup();
+        if (!checkProcessManagementEnabled()) return;
         openConfirmModal(
             "Restart ComfyUI Immediately?",
             "Are you sure you want to restart ComfyUI immediately? Any active prompt generation will be interrupted.",
             async () => {
+                const resp = await api.fetchApi("/leafflow/power/restart", { method: "POST" });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    if (app.extensionManager?.toast?.add) {
+                        app.extensionManager.toast.add({
+                            severity: "error",
+                            summary: "🍃 Restart Failed",
+                            detail: err.error || "Failed to trigger restart.",
+                            life: 6000
+                        });
+                    }
+                    return;
+                }
                 if (app.extensionManager?.toast?.add) {
                     app.extensionManager.toast.add({
                         severity: "warn",
@@ -357,7 +396,6 @@ function showPowerSidePopup(anchorElement) {
                         life: 8000
                     });
                 }
-                await api.fetchApi("/leafflow/power/restart", { method: "POST" });
                 setTimeout(() => window.location.reload(), 2500);
             },
             true
@@ -377,10 +415,24 @@ function showPowerSidePopup(anchorElement) {
     shutdownItem.onclick = (e) => {
         e.stopPropagation();
         closePowerPopup();
+        if (!checkProcessManagementEnabled()) return;
         openConfirmModal(
             "Shutdown ComfyUI Server?",
             "Are you sure you want to SHUT DOWN the ComfyUI server immediately? The process will exit.",
             async () => {
+                const resp = await api.fetchApi("/leafflow/power/shutdown", { method: "POST" });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    if (app.extensionManager?.toast?.add) {
+                        app.extensionManager.toast.add({
+                            severity: "error",
+                            summary: "🍃 Shutdown Failed",
+                            detail: err.error || "Failed to trigger shutdown.",
+                            life: 6000
+                        });
+                    }
+                    return;
+                }
                 if (app.extensionManager?.toast?.add) {
                     app.extensionManager.toast.add({
                         severity: "error",
@@ -389,7 +441,6 @@ function showPowerSidePopup(anchorElement) {
                         life: 6000
                     });
                 }
-                await api.fetchApi("/leafflow/power/shutdown", { method: "POST" });
             },
             true
         );
@@ -413,15 +464,28 @@ function showPowerSidePopup(anchorElement) {
     restartQueueItem.onclick = (e) => {
         e.stopPropagation();
         closePowerPopup();
+        if (!checkProcessManagementEnabled()) return;
         openConfirmModal(
             "Schedule Restart After Queue Finish?",
             "ComfyUI will wait until all remaining prompts in the queue finish and the system returns to idle before restarting. (Note: If queue is paused, it will not restart).",
             async () => {
-                await api.fetchApi("/leafflow/power/arm", {
+                const resp = await api.fetchApi("/leafflow/power/arm", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ action: "restart" })
                 });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    if (app.extensionManager?.toast?.add) {
+                        app.extensionManager.toast.add({
+                            severity: "error",
+                            summary: "🍃 Scheduling Failed",
+                            detail: err.error || "Failed to schedule restart.",
+                            life: 6000
+                        });
+                    }
+                    return;
+                }
                 await fetchPowerStatus();
                 if (app.extensionManager?.toast?.add) {
                     app.extensionManager.toast.add({
@@ -448,15 +512,28 @@ function showPowerSidePopup(anchorElement) {
     shutdownQueueItem.onclick = (e) => {
         e.stopPropagation();
         closePowerPopup();
+        if (!checkProcessManagementEnabled()) return;
         openConfirmModal(
             "Schedule Shutdown After Queue Finish?",
             "ComfyUI will wait until all queued prompts complete and the system returns to idle before shutting down completely.",
             async () => {
-                await api.fetchApi("/leafflow/power/arm", {
+                const resp = await api.fetchApi("/leafflow/power/arm", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ action: "shutdown" })
                 });
+                if (!resp.ok) {
+                    const err = await resp.json().catch(() => ({}));
+                    if (app.extensionManager?.toast?.add) {
+                        app.extensionManager.toast.add({
+                            severity: "error",
+                            summary: "🍃 Scheduling Failed",
+                            detail: err.error || "Failed to schedule shutdown.",
+                            life: 6000
+                        });
+                    }
+                    return;
+                }
                 await fetchPowerStatus();
                 if (app.extensionManager?.toast?.add) {
                     app.extensionManager.toast.add({

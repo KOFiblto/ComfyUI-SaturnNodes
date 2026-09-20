@@ -31,27 +31,9 @@ def is_persistent_queue_enabled():
     val = get_env_setting("ENABLE_PERSISTENT_QUEUE", "true").lower()
     return val in ["true", "1", "yes"]
 
-class PauseQueueNode:
-    @classmethod
-    def INPUT_TYPES(s):
-        return {"required": {}}
-    RETURN_TYPES = ()
-    FUNCTION = "noop"
-    CATEGORY = QUEUE_CATEGORY
-    DESCRIPTION = "Settings & status anchor for Pause Queue toolbar features."
-    def noop(self):
-        return ()
-
-class PersistentQueueNode:
-    @classmethod
-    def INPUT_TYPES(s):
-        return {"required": {}}
-    RETURN_TYPES = ()
-    FUNCTION = "noop"
-    CATEGORY = QUEUE_CATEGORY
-    DESCRIPTION = "Settings & status anchor for Persistent Queue auto-recovery features."
-    def noop(self):
-        return ()
+def is_process_management_enabled():
+    val = get_env_setting("ALLOW_PROCESS_MANAGEMENT", "false").lower()
+    return val in ["true", "1", "yes"]
 
 class PauseQueueManager:
     def __init__(self):
@@ -71,57 +53,68 @@ class PauseQueueManager:
     def patch_all(self):
         if self._patched:
             return
-        server = PromptServer.instance
+        server = getattr(PromptServer, "instance", None)
+        if not server:
+            print("[LeafFlow] Queue control: Skipped pause patching (PromptServer instance not ready).")
+            return
 
-        if hasattr(server, "prompt_queue"):
-            queue = server.prompt_queue
-            original_get = queue.get
+        if not hasattr(server, "prompt_queue") or not hasattr(server.prompt_queue, "get"):
+            print("[LeafFlow] Queue control: Skipped patching prompt_queue.get (incompatible ComfyUI version).")
+            return
 
-            def patched_get(*args, **kwargs):
-                while True:
-                    if self.paused:
-                        if not self.is_waiting:
-                            self.is_waiting = True
-                            print("[PauseQueue] Workflow paused after this run: Current workflow finished, queue paused.")
-                            self.notify_clients()
-                        while self.paused:
-                            self.event.wait(0.2)
-                        self.is_waiting = False
-                        self.notify_clients()
+        queue = server.prompt_queue
+        original_get = queue.get
 
-                    item = original_get(*args, **kwargs)
-
-                    if self.paused:
-                        if not self.is_waiting:
-                            self.is_waiting = True
-                            print("[PauseQueue] Workflow paused after this run: Current workflow finished, queue paused.")
-                            self.notify_clients()
-                        while self.paused:
-                            self.event.wait(0.2)
-                        self.is_waiting = False
-                        self.notify_clients()
-
-                    return item
-
-            queue.get = patched_get
-
-        original_send_sync = server.send_sync
-
-        def patched_send_sync(event, data, sid=None):
-            if event == "executing" and isinstance(data, dict) and data.get("node") is not None:
-                if self.paused and self.mode == "instantly":
+        def patched_get(*args, **kwargs):
+            while True:
+                if self.paused:
                     if not self.is_waiting:
                         self.is_waiting = True
-                        print(f"[PauseQueue] Workflow Paused Instant: Paused before executing node '{data.get('node')}'.")
+                        print("[PauseQueue] Workflow paused after this run: Current workflow finished, queue paused.")
                         self.notify_clients()
-                    while self.paused and self.mode == "instantly":
+                    while self.paused:
                         self.event.wait(0.2)
                     self.is_waiting = False
                     self.notify_clients()
-            return original_send_sync(event, data, sid)
 
-        server.send_sync = patched_send_sync
+                item = original_get(*args, **kwargs)
+
+                if self.paused:
+                    if not self.is_waiting:
+                        self.is_waiting = True
+                        print("[PauseQueue] Workflow paused after this run: Current workflow finished, queue paused.")
+                        self.notify_clients()
+                    while self.paused:
+                        self.event.wait(0.2)
+                    self.is_waiting = False
+                    self.notify_clients()
+
+                return item
+
+        queue.get = patched_get
+
+        if hasattr(server, "send_sync") and callable(server.send_sync):
+            original_send_sync = server.send_sync
+
+            def patched_send_sync(event, data, sid=None):
+                if event == "executing" and isinstance(data, dict) and data.get("node") is not None:
+                    if self.paused and self.mode == "instantly":
+                        if not self.is_waiting:
+                            self.is_waiting = True
+                            print(f"[PauseQueue] Workflow Paused Instant: Paused before executing node '{data.get('node')}'.")
+                            self.notify_clients()
+                        while self.paused and self.mode == "instantly":
+                            self.event.wait(0.2)
+                        self.is_waiting = False
+                        self.notify_clients()
+                return original_send_sync(event, data, sid)
+
+            server.send_sync = patched_send_sync
+        else:
+            print("[LeafFlow] Queue control: Skipped patching send_sync (not found on server).")
+
         self._patched = True
+        print("[LeafFlow] Queue control: Pause manager initialized successfully.")
 
     def is_currently_executing(self):
         try:
@@ -285,11 +278,15 @@ class PersistentQueueManager:
     def patch_server(self):
         if self._patched:
             return
-        server = PromptServer.instance
-        if not hasattr(server, "prompt_queue"):
+        server = getattr(PromptServer, "instance", None)
+        if not server or not hasattr(server, "prompt_queue"):
+            print("[LeafFlow] Queue control: Skipped persistent queue patching (prompt_queue not found on server).")
             return
 
         queue = server.prompt_queue
+        if not hasattr(queue, "put") or not hasattr(queue, "task_done"):
+            print("[LeafFlow] Queue control: Skipped persistent queue patching (incompatible queue interface).")
+            return
 
         # 1. Patch queue.put
         original_put = queue.put
@@ -359,7 +356,7 @@ class PersistentQueueManager:
         server.send_sync = patched_send_sync
 
         self._patched = True
-        print("[PersistentQueue] Server queue hooks patched successfully.")
+        print("[LeafFlow] Queue control: Persistent queue manager initialized successfully.")
 
     def restore_queue(self, active_client_id=None):
         if self.has_claimed_once:
@@ -462,6 +459,9 @@ class PowerControlManager:
     def arm(self, action):
         with self.lock:
             if action in ["restart", "shutdown"]:
+                if not is_process_management_enabled():
+                    print(f"[LeafFlow Power] Arm rejected: Process Management is disabled in LeafFlow settings.")
+                    return False
                 self.pending_action = action
                 import time
                 self.armed_at = time.time()
@@ -471,13 +471,15 @@ class PowerControlManager:
                 self.armed_at = None
                 print("[LeafFlow Power] Cancelled armed queue power action.")
         self.notify_clients()
+        return True
 
     def get_status(self):
         with self.lock:
             return {
                 "pending_action": self.pending_action,
                 "armed_at": self.armed_at,
-                "is_paused": getattr(self.pause_manager, "paused", False) or getattr(self.pause_manager, "is_waiting", False)
+                "is_paused": getattr(self.pause_manager, "paused", False) or getattr(self.pause_manager, "is_waiting", False),
+                "enabled": is_process_management_enabled()
             }
 
     def notify_clients(self):
@@ -489,6 +491,11 @@ class PowerControlManager:
     def check_and_execute(self):
         with self.lock:
             if not self.pending_action or self._executing:
+                return
+
+            # CRITICAL: If process management is disabled, cancel and abort
+            if not is_process_management_enabled():
+                self.pending_action = None
                 return
 
             # CRITICAL: If pause mode is active or waiting, DO NOT execute!
@@ -516,6 +523,10 @@ class PowerControlManager:
                     self.execute_shutdown()
 
     def execute_restart(self):
+        if not is_process_management_enabled():
+            print("[LeafFlow Power] Rejected restart: Process Management is disabled in LeafFlow settings.")
+            return False
+
         def _run():
             import subprocess, sys, os, time
             print("[LeafFlow Power] Restarting ComfyUI server process...")
@@ -534,14 +545,20 @@ class PowerControlManager:
             time.sleep(0.4)
             os._exit(0)
         threading.Thread(target=_run, daemon=True).start()
+        return True
 
     def execute_shutdown(self):
+        if not is_process_management_enabled():
+            print("[LeafFlow Power] Rejected shutdown: Process Management is disabled in LeafFlow settings.")
+            return False
+
         def _run():
             import os, time
             print("[LeafFlow Power] Shutting down ComfyUI server...")
             time.sleep(0.6)
             os._exit(0)
         threading.Thread(target=_run, daemon=True).start()
+        return True
 
 pause_manager = PauseQueueManager()
 persistent_manager = PersistentQueueManager()
@@ -571,6 +588,11 @@ def setup_queue_control_routes(server):
     async def arm_power_action(request):
         if not is_local_request(request):
             return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_process_management_enabled():
+            return web.json_response({
+                "error": "Process Management is disabled. Enable 'Allow Process Management' in LeafFlow settings to use restart or shutdown.",
+                "enabled": False
+            }, status=403)
         try:
             data = await request.json()
         except Exception:
@@ -583,6 +605,11 @@ def setup_queue_control_routes(server):
     async def trigger_restart(request):
         if not is_local_request(request):
             return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_process_management_enabled():
+            return web.json_response({
+                "error": "Process Management is disabled. Enable 'Allow Process Management' in LeafFlow settings to use restart.",
+                "enabled": False
+            }, status=403)
         power_manager.execute_restart()
         return web.json_response({"status": "restarting"})
 
@@ -590,6 +617,11 @@ def setup_queue_control_routes(server):
     async def trigger_shutdown(request):
         if not is_local_request(request):
             return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_process_management_enabled():
+            return web.json_response({
+                "error": "Process Management is disabled. Enable 'Allow Process Management' in LeafFlow settings to use shutdown.",
+                "enabled": False
+            }, status=403)
         power_manager.execute_shutdown()
         return web.json_response({"status": "shutting_down"})
 
@@ -635,6 +667,8 @@ def setup_queue_control_routes(server):
 
     @routes.get("/pause_queue/status")
     async def get_status(request):
+        if not is_local_request(request):
+            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
         pause_manager.patch_all()
         return web.json_response({
             "paused": pause_manager.paused,
@@ -644,6 +678,8 @@ def setup_queue_control_routes(server):
 
     @routes.post("/pause_queue/toggle")
     async def toggle_pause(request):
+        if not is_local_request(request):
+            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
         try:
             data = await request.json()
         except Exception:
@@ -659,6 +695,8 @@ def setup_queue_control_routes(server):
 
     @routes.post("/pause_queue/mode")
     async def set_mode_route(request):
+        if not is_local_request(request):
+            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
         try:
             data = await request.json()
         except Exception:
@@ -673,6 +711,8 @@ def setup_queue_control_routes(server):
 
     @routes.post("/pause_queue/continue")
     async def continue_queue(request):
+        if not is_local_request(request):
+            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
         pause_manager.set_pause(False)
         return web.json_response({
             "paused": pause_manager.paused,
@@ -682,6 +722,8 @@ def setup_queue_control_routes(server):
 
     @routes.post("/persistent_queue/claim")
     async def claim_queue(request):
+        if not is_local_request(request):
+            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
         try:
             data = await request.json()
             client_id = data.get("client_id")

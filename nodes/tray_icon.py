@@ -21,7 +21,13 @@ def get_env_setting(key, default_val):
 
 def is_tray_icon_enabled():
     val = get_env_setting("ENABLE_TRAY_ICON", "false").lower()
-    return val in ["true", "1", "yes"]
+    if val not in ["true", "1", "yes"]:
+        return False
+    try:
+        import pystray
+        return True
+    except ImportError:
+        return False
 
 class TrayIconManager:
     def __init__(self, pause_manager=None):
@@ -172,15 +178,8 @@ class TrayIconManager:
             try:
                 import pystray
             except ImportError:
-                try:
-                    import subprocess
-                    print("[LeafFlow] pystray is not installed. Auto-installing pystray...")
-                    subprocess.check_call([sys.executable, "-m", "pip", "install", "pystray"])
-                    import pystray
-                    print("[LeafFlow] Successfully auto-installed pystray.")
-                except Exception as e:
-                    print(f"[LeafFlow] Failed to auto-install pystray: {e}. System tray icon cannot start.")
-                    return
+                print("[LeafFlow] System tray icon disabled: 'pystray' is not installed. Install pystray ('pip install pystray') to enable system tray support.")
+                return
 
             _, color, symbol, title = self.get_status_info()
             icon_img = self.create_icon_image(color, symbol)
