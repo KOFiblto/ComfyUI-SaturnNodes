@@ -290,6 +290,9 @@ Splits text into two parts at a specified delimiter. Supports forward (from star
 #### Overview
 Safely executes a local script or executable (`.bat`, `.cmd`, `.ps1`, `.exe` on Windows; `.sh` or binaries on Linux/macOS) with command-line parameters and working directory control. Built with multi-layered security guards to ensure malicious workflows or dropped images cannot execute code without explicit authorization.
 
+> [!IMPORTANT]
+> **Scripts Directory Restriction**: For operator security, this node can **ONLY execute scripts and binaries located inside the `ComfyUI/scripts/` directory** (e.g. `ComfyUI/scripts/my_script.bat`). Relative subfolders (such as `subfolder/process.sh`) are supported as long as they resolve inside `ComfyUI/scripts/`. Absolute paths (e.g. `C:\...` or `/bin/...`) and directory traversal sequences (`..`) are permanently blocked.
+
 #### Inputs & Widgets
 - **`file_path`** (`STRING`): Relative path to the executable or script (e.g. `process.bat`, `subfolder/script.sh`). Strictly confined to `ComfyUI/scripts/` with absolute path and traversal (`..`) rejection.
 - **`parameters`** (`STRING`, Multiline, Optional): Command-line arguments. Supports spaces and standard quoting (parsed safely via `shlex` without shell expansion).

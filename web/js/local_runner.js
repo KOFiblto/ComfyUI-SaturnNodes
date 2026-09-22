@@ -132,15 +132,19 @@ app.registerExtension({
             const isArmed = Boolean(node._isAuthorized && node._authExpiresAt > now);
 
             ctx.save();
-            ctx.font = "bold 10px sans-serif";
             ctx.textAlign = "center";
+            ctx.font = "italic 9px sans-serif";
+            ctx.fillStyle = "#9ca3af";
+            ctx.fillText("📂 Script Location: ComfyUI/scripts/", node.size[0] / 2, node.size[1] - 19);
+
+            ctx.font = "bold 10px sans-serif";
             if (!isArmed) {
                 ctx.fillStyle = "#ef4444";
-                ctx.fillText("🛡️ DISARMED: Click 'Authorize Run' to execute", node.size[0] / 2, node.size[1] - 8);
+                ctx.fillText("🛡️ DISARMED: Click 'Authorize Run' to execute", node.size[0] / 2, node.size[1] - 7);
             } else {
                 const rem = Math.max(0, Math.ceil((node._authExpiresAt - now) / 60000));
                 ctx.fillStyle = "#10b981";
-                ctx.fillText(`⚡ ARMED (${rem}m left) - Consumed on run`, node.size[0] / 2, node.size[1] - 8);
+                ctx.fillText(`⚡ ARMED (${rem}m left) - Consumed on run`, node.size[0] / 2, node.size[1] - 7);
             }
             ctx.restore();
         };

@@ -664,7 +664,7 @@ app.registerExtension({
             name: "Allow Local File Execution",
             type: "boolean",
             defaultValue: false,
-            tooltip: "Controls whether the '🍃 ⚡ Run Local File' node is permitted to run executable files (.bat, .ps1, .exe, .sh). Disabled by default for operator security. When disabled, execution is blocked even if the node is armed.",
+            tooltip: "Controls whether the '🍃 ⚡ Run Local File' node is permitted to run executable files (.bat, .ps1, .exe, .sh). Disabled by default for operator security. When enabled, scripts are strictly confined to the 'ComfyUI/scripts/' directory. Execution is blocked if this setting is disabled or if the node is not interactively authorized.",
             onChange(value) {
                 postLeafFlowSettings({ enable_local_file_execution: value ? "true" : "false" });
             }

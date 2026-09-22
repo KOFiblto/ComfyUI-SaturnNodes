@@ -215,19 +215,22 @@ class RunLocalFileNode:
                 "file_path": ("STRING", {
                     "default": "",
                     "multiline": False,
-                    "placeholder": "Relative script path inside ComfyUI/scripts/ (e.g. run.bat or convert.sh)"
+                    "placeholder": "Relative script path inside ComfyUI/scripts/ (e.g. run.bat or convert.sh)",
+                    "tooltip": "Script or binary to execute. MUST be located inside 'ComfyUI/scripts/'. Subfolders (e.g. tools/process.bat) are permitted. Absolute paths and directory traversal ('..') are strictly blocked."
                 }),
             },
             "optional": {
                 "parameters": ("STRING", {
                     "default": "",
                     "multiline": True,
-                    "placeholder": "Command-line arguments (e.g. --input file.png --quality 95)"
+                    "placeholder": "Command-line arguments (e.g. --input file.png --quality 95)",
+                    "tooltip": "Optional command-line arguments passed to the script. Parsed safely without shell expansion."
                 }),
                 "working_directory": ("STRING", {
                     "default": "",
                     "multiline": False,
-                    "placeholder": "Working directory inside ComfyUI/scripts/. Leave empty to use script directory."
+                    "placeholder": "Working directory inside ComfyUI/scripts/. Leave empty to use script directory.",
+                    "tooltip": "Execution working directory. MUST be located inside 'ComfyUI/scripts/'. Leave empty to default to the script's own folder."
                 }),
                 "run_mode": (
                     ["Synchronous (Wait for Output)", "Asynchronous (Background)"],
