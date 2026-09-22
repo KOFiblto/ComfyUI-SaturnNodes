@@ -32,7 +32,7 @@ class MultiTextReplacer:
     RETURN_TYPES = ("STRING", "INT")
     RETURN_NAMES = ("text", "replaced_count")
     FUNCTION = "replace_text"
-    CATEGORY = "🍃 LeafFlow/Utils"
+    CATEGORY = "🪐 SaturnNodes/Utils"
     DESCRIPTION = "Searches input text for multiple search targets specified in a comma-separated list or regex, and replaces all matches with a replacement string."
 
     def replace_text(

@@ -1,4 +1,4 @@
-PREVIEW_CATEGORY = "🍃 LeafFlow/Previews"
+PREVIEW_CATEGORY = "🪐 SaturnNodes/Previews"
 
 class PreviewLatentLiveNode:
     @classmethod

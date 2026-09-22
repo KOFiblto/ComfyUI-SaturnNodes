@@ -1,8 +1,8 @@
-# 🍃 ComfyUI-LeafFlow
+# 🪐 ComfyUI-SaturnNodes
 
 A unified custom node suite for **ComfyUI** featuring real-time queue controls, mid-generation pausing, queue crash recovery, visual model pickers, live latent canvas previews, folder automation, prompt utilities, and resolution tools.
 
-> ⚠️ **Notice**: Fully compatible with both **ComfyUI Frontend V2 (Nodes 2.0 / Vue UI)** and **Classic ComfyUI Frontend (Nodes 1.0 / LiteGraph)**.
+> **Notice**: Fully compatible with both **ComfyUI Frontend V2 (Nodes 2.0 / Vue UI)** and **Classic ComfyUI Frontend (Nodes 1.0 / LiteGraph)**.
 
 ---
 
@@ -11,7 +11,7 @@ A unified custom node suite for **ComfyUI** featuring real-time queue controls, 
 Expand any node below to view its description, inputs, outputs, and usage documentation.
 
 <details>
-<summary><b>🍃 📁 LoRA Loader (Folder)</b> (<code>FolderLoraLoader</code>)</summary>
+<summary><b>🪐 📁 LoRA Loader (Folder)</b> (<code>FolderLoraLoader</code>)</summary>
 
 #### Overview
 Loads a LoRA by folder path using raw filename matching or formatted names with customizable output formatting options.
@@ -33,7 +33,7 @@ Loads a LoRA by folder path using raw filename matching or formatted names with 
 </details>
 
 <details>
-<summary><b>🍃 ✨ LoRA Loader (Pretty)</b> (<code>FolderLoraLoaderPretty</code>)</summary>
+<summary><b>🪐 ✨ LoRA Loader (Pretty)</b> (<code>FolderLoraLoaderPretty</code>)</summary>
 
 #### Overview
 Loads a LoRA using formatted pretty names (e.g. `Ana De Armas V1` instead of `krea2_Ana-De-Armas_v1.safetensors`).
@@ -53,7 +53,7 @@ Loads a LoRA using formatted pretty names (e.g. `Ana De Armas V1` instead of `kr
 </details>
 
 <details>
-<summary><b>🍃 🖼️ Visual LoRA Loader</b> (<code>VisualLoraLoader</code> / alias <code>FolderLoraLoaderVisualPrettyV2</code>)</summary>
+<summary><b>🪐 🖼️ Visual LoRA Loader</b> (<code>VisualLoraLoader</code> / alias <code>FolderLoraLoaderVisualPrettyV2</code>)</summary>
 
 #### Overview
 Visual thumbnail browser for LoRAs with Civitai SHA256 search & TMDB auto-scraping, popularity rank badges (🔥), multi-selection support, and independent per-node thumbnail zoom sizing.
@@ -75,7 +75,7 @@ Visual thumbnail browser for LoRAs with Civitai SHA256 search & TMDB auto-scrapi
 </details>
 
 <details>
-<summary><b>🍃 📷 Visual Image Loader</b> (<code>VisualImageLoader</code> / alias <code>ImageLoaderVisualPrettyV2</code>)</summary>
+<summary><b>🪐 📷 Visual Image Loader</b> (<code>VisualImageLoader</code> / alias <code>ImageLoaderVisualPrettyV2</code>)</summary>
 
 #### Overview
 Visual thumbnail browser for image folders with instant preview selection, independent per-node thumbnail zoom sizing, and EXIF positive prompt metadata extraction. Path access is strictly confined to ComfyUI `input`, `output`, and `temp` directories for safe operation.
@@ -94,7 +94,7 @@ Visual thumbnail browser for image folders with instant preview selection, indep
 </details>
 
 <details>
-<summary><b>🍃 📂 Load Image From Folder</b> (<code>LoadImageFromFolder</code>)</summary>
+<summary><b>🪐 📂 Load Image From Folder</b> (<code>LoadImageFromFolder</code>)</summary>
 
 #### Overview
 Monitors a folder for incoming images, loads the target image into a PyTorch tensor, with an optional toggle to delete the image after loading.
@@ -113,7 +113,7 @@ Monitors a folder for incoming images, loads the target image into a PyTorch ten
 </details>
 
 <details>
-<summary><b>🍃 ⏱️ Recent Outputs</b> (<code>LoadRecentOutputs</code>)</summary>
+<summary><b>🪐 ⏱️ Recent Outputs</b> (<code>LoadRecentOutputs</code>)</summary>
 
 #### Overview
 Loads the N newest images from an output directory with step-through index selection.
@@ -128,21 +128,21 @@ Loads the N newest images from an output directory with step-through index selec
 </details>
 
 <details>
-<summary><b>🍃 👁️ Live Latent Preview</b> (<code>PreviewLatentLiveNode</code>)</summary>
+<summary><b>🪐 👁️ Live Latent Preview</b> (<code>PreviewLatentLiveNode</code>)</summary>
 
 #### Overview
 Canvas rendering node that listens to sampler WebSocket latent binary streams and displays real-time live previews on the canvas during generation.
 
 #### Inputs & Outputs
-- **Category**: `LeafFlow/Previews`
+- **Category**: `🪐 SaturnNodes/Previews`
 - **Output Node**: True
 </details>
 
 <details>
-<summary><b>🍃 ⏸️ LeafFlow Decision</b> (<code>LeafFlowDecision</code>)</summary>
+<summary><b>🪐 ⏸️ Saturn Decision</b> (<code>SaturnDecision</code> / alias <code>LeafFlowDecision</code>)</summary>
 
 #### Overview
-Pauses workflow execution at a specific step and displays an inline UI popup with Continue, Cancel, or Stop Workflow actions, plus optional native OS desktop notifications.
+Pauses workflow execution at a specific step and displays an inline UI popup with Continue, Cancel, or Stop Workflow actions, plus optional native OS desktop notifications. Fully backward compatible with workflows containing `LeafFlowDecision`.
 
 #### Inputs & Widgets
 - **`disable`** (`BOOLEAN`): Bypass decision gate.
@@ -154,7 +154,7 @@ Pauses workflow execution at a specific step and displays an inline UI popup wit
 </details>
 
 <details>
-<summary><b>🍃 📐 Text Aspect Ratio Finder</b> (<code>TextAspectRatioFinder</code> / alias <code>AspectRatioFinder</code>)</summary>
+<summary><b>🪐 📐 Text Aspect Ratio Finder</b> (<code>TextAspectRatioFinder</code> / alias <code>AspectRatioFinder</code>)</summary>
 
 #### Overview
 Parses input text for aspect ratios (e.g. `16:9`, `2.35:1`), syntax-checks them, and calculates pixel resolution for a target megapixel target.
@@ -177,7 +177,7 @@ Parses input text for aspect ratios (e.g. `16:9`, `2.35:1`), syntax-checks them,
 </details>
 
 <details>
-<summary><b>🍃 📐 Preview Image Size & Aspect Ratio</b> (<code>PreviewImageSizeAspectRatio</code>)</summary>
+<summary><b>🪐 📐 Preview Image Size & Aspect Ratio</b> (<code>PreviewImageSizeAspectRatio</code>)</summary>
 
 #### Overview
 Computes image dimensions and aspect ratio from an input image tensor and formats the result for previewing.
@@ -192,7 +192,7 @@ Computes image dimensions and aspect ratio from an input image tensor and format
 </details>
 
 <details>
-<summary><b>🍃 🔎 Text LoRA Finder & Loader</b> (<code>TextLoraFinder</code> / alias <code>LoraTextFinder</code>)</summary>
+<summary><b>🪐 🔎 Text LoRA Finder & Loader</b> (<code>TextLoraFinder</code> / alias <code>LoraTextFinder</code>)</summary>
 
 #### Overview
 Scans input prompt text for `<lora:name:strength>` tags or names matching a folder on disk, dynamically applies them, and returns patched models along with sanitized prompt text.
@@ -214,7 +214,7 @@ Scans input prompt text for `<lora:name:strength>` tags or names matching a fold
 </details>
 
 <details>
-<summary><b>🍃 🔄 Prompt Queue Iterator</b> (<code>PromptQueueIterator</code>)</summary>
+<summary><b>🪐 🔄 Prompt Queue Iterator</b> (<code>PromptQueueIterator</code>)</summary>
 
 #### Overview
 Deterministically iterates over multiline prompt text blocks per queue run with live progress display, counter reset controls, and index tracking. Supports splitting prompts by empty lines, newlines, or a custom regular expression delimiter.
@@ -233,10 +233,10 @@ Deterministically iterates over multiline prompt text blocks per queue run with 
 </details>
 
 <details>
-<summary><b>🍃 📝 Prompt Counter</b> (<code>PromptCounter</code>)</summary>
+<summary><b>🪐 📝 Prompt Counter</b> (<code>PromptCounter</code>)</summary>
 
 #### Overview
-Multiline text prompt input node that functions identically to a standard multiline string node, with real-time prompt counting according to your chosen delimiter (`>1 Empty Line`, `Newline`, `>2 Empty Lines`, or `Custom Regex`). Displays the live prompt count directly on the node (e.g. `🍃 24 Prompts`) on every keystroke, allowing you to easily determine and set the exact ComfyUI batch size before running your queue.
+Multiline text prompt input node that functions identically to a standard multiline string node, with real-time prompt counting according to your chosen delimiter (`>1 Empty Line`, `Newline`, `>2 Empty Lines`, or `Custom Regex`). Displays the live prompt count directly on the node on every keystroke, allowing you to easily determine and set the exact ComfyUI batch size before running your queue.
 
 #### Inputs & Widgets
 - **`text`** (`STRING`, Multiline): Input prompt text block.
@@ -249,7 +249,7 @@ Multiline text prompt input node that functions identically to a standard multil
 </details>
 
 <details>
-<summary><b>🍃 🔤 Multi Text Replacer</b> (<code>MultiTextReplacer</code>)</summary>
+<summary><b>🪐 🔤 Multi Text Replacer</b> (<code>MultiTextReplacer</code>)</summary>
 
 #### Overview
 Performs multiple text replacements in a single step using comma-separated or newline-separated find/replace lists, with support for exact phrases and regex matching.
@@ -266,26 +266,25 @@ Performs multiple text replacements in a single step using comma-separated or ne
 </details>
 
 <details>
-<summary><b>🍃 ✂️ Text Split</b> (<code>LeafFlowTextSplit</code>)</summary>
+<summary><b>🪐 ✂️ Text Split</b> (<code>SaturnTextSplit</code> / alias <code>LeafFlowTextSplit</code>)</summary>
 
 #### Overview
 Splits text into two parts at a specified delimiter. Supports forward (from start) and backward (from end) search, as well as regular expressions.
 
 #### Inputs & Widgets
 - **`text`** (`STRING`, Multiline): Input text to split.
-- **`delimiter`** (`STRING`): Character or string to split on (e.g. `,`, `---`, `\n`).
-- **`search_from`** (`COMBO`): `Forward (First Match)` vs `Backward (Last Match)`.
-- **`use_regex`** (`BOOLEAN`): Treat delimiter as a regular expression pattern.
-- **`strip_whitespace`** (`BOOLEAN`): Trims surrounding whitespace from output strings.
+- **`split_by`** (`STRING`): Character sequence or regex pattern to split on (e.g. `--`, `,`, `---`, `\n`).
+- **`split_direction`** (`COMBO`, *Advanced*): `forward (first occurrence from start)` vs `backward (last occurrence from end)`.
+- **`use_regex`** (`BOOLEAN`, *Advanced*): Treat delimiter as a regular expression pattern.
+- **`strip_whitespace`** (`BOOLEAN`, *Advanced*): Trims surrounding whitespace from output strings.
 
 #### Outputs
-- **`left_text`** (`STRING`): Text before the split delimiter.
-- **`right_text`** (`STRING`): Text after the split delimiter.
-- **`delimiter_found`** (`BOOLEAN`): True if delimiter was found, False otherwise.
+- **`text1`** (`STRING`): Text before the split delimiter.
+- **`text2`** (`STRING`): Text after the split delimiter.
 </details>
 
 <details>
-<summary><b>🍃 ⚡ Run Local File</b> (<code>RunLocalFileNode</code>)</summary>
+<summary><b>🪐 ⚡ Run Local File</b> (<code>RunLocalFileNode</code>)</summary>
 
 #### Overview
 Safely executes a local script or executable (`.bat`, `.cmd`, `.ps1`, `.exe` on Windows; `.sh` or binaries on Linux/macOS) with command-line parameters and working directory control. Built with multi-layered security guards to ensure malicious workflows or dropped images cannot execute code without explicit authorization.
@@ -300,7 +299,7 @@ Safely executes a local script or executable (`.bat`, `.cmd`, `.ps1`, `.exe` on 
 - **`run_mode`** (`COMBO`): `Synchronous (Wait for Output)` vs `Asynchronous (Background)`.
 - **`timeout`** (`INT`): Maximum execution time in seconds for synchronous mode (`0` = no timeout). If exceeded, the process tree is cleanly terminated via OS process management.
 - **`trigger`** (`*`, Optional Wildcard): Input wire allowing you to connect any workflow data to order execution.
-- **⚡ In-Memory Authorization**: Does NOT use an input widget (preventing malicious authorization smuggling inside shared workflow JSON or image metadata). Instead, the operator must click the interactive `[⚡ Authorize Run]` button directly on the canvas node to grant a 5-minute single-use execution token.
+- **⚡ In-Memory Authorization**: Does NOT use an input widget (preventing malicious authorization smuggling inside shared workflow JSON or image metadata). Instead, the operator must click the interactive `⚡ Authorize Run (5 min)` button directly on the canvas node to grant a 5-minute single-use execution token.
 
 #### Outputs
 - **`stdout`** (`STRING`): Captured standard output stream.
@@ -319,7 +318,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 <details open>
 <summary><b>1. 🖼️ Visual Loaders (Civitai & TMDB Duo)</b></summary>
 
-- **`Enable Custom LeafFlow Node Colors`** (`boolean`, *Default: true*): Applies a vibrant Leaf Green color theme to LeafFlow nodes on the canvas. When disabled, nodes use default ComfyUI colors.
+- **`Enable Custom SaturnNodes Colors`** (`boolean`, *Default: true*): Applies a Saturn Gold/Amber color theme to SaturnNodes on the canvas. When disabled, nodes use default ComfyUI colors.
 - **`Civitai API Key`** (`text`): Optional key for Civitai SHA256 model preview search (`Authorization: Bearer <key>`).
 - **`Enable Civitai Auto-Scraping`** (`boolean`, *Default: true*): Automatically download model preview images from Civitai via SHA256 file hashes. (Note: Local SHA256 hash searching always works).
 - **`TMDB Access Token`** (`text`): Optional key or v4 Read Access Token (`eyJ...`) for celebrity preview search.
@@ -340,8 +339,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 
 - **`Show "Copy Prompt" Button on Images`** (`boolean`, *Default: true*): Shows the 📋 "Copy Prompt" overlay action button when hovering over generated images in the Assets / History pane and preview nodes.
 - **`Show Right-Click "Copy Prompt" Menu Action`** (`boolean`, *Default: true*): Adds "📋 Copy Prompt" to node right-click context menus.
-- **`Show "Save to Prompt Saver" Action`** (`boolean`, *Default: true*): Adds 🔖 "Save to Prompt Bookmarks" to image hover overlay bars and node context menus.
-- **`Show "Inspect Asset" (Zoom) Button on Images`** (`boolean`, *Default: false*): Restores the 🔍 "Inspect asset" (zoom in) button directly onto image cards in the Assets pane next to Download, Copy Prompt, and Bookmarks (restoring one-click access moved behind the 3-dots menu in newer ComfyUI versions).
+- **`Show "Inspect Asset" (Zoom) Button on Images`** (`boolean`, *Default: false*): Restores the 🔍 "Inspect asset" (zoom in) button directly onto image cards in the Assets pane next to Download and Copy Prompt (restoring one-click access moved behind the 3-dots menu in newer ComfyUI versions).
 </details>
 
 <details open>
@@ -353,7 +351,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`Toolbar Button Unpaused Color`** (`text`, *Default: `#16a34a`*): Hex color for the toolbar unpaused/running state.
 - **`Toolbar Button Paused Color`** (`text`, *Default: `#ea580c`*): Hex color for the toolbar paused state.
 - **`Enable System Tray Icon`** (`boolean`, *Default: false*): Displays an OS system tray icon with real-time queue status colors and outside-browser controls.
-- **`Allow Process Management (Restart / Shutdown)`** (`boolean`, *Default: false*): Opt-in authorization allowing server restart and shutdown actions from the LeafFlow sidebar and API. Disabled by default for maximum security.
+- **`Allow Process Management (Restart / Shutdown)`** (`boolean`, *Default: false*): Opt-in authorization allowing server restart and shutdown actions from the SaturnNodes power controls. Disabled by default for maximum security.
 </details>
 
 <details open>
@@ -373,7 +371,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 <details open>
 <summary><b>7. 🩺 Diagnostics & Debug</b></summary>
 
-- **`Export Debug Profile`** (*Button: `📥 Export Debug Profile`*): Exports non-sensitive system environment details (OS, Python, PyTorch, LeafFlow settings, local cache counts) to a JSON file to share when reporting bugs or requesting assistance. Sensitive API keys and tokens are never exported.
+- **`Export Debug Profile`** (*Button: `📥 Export Debug Profile`*): Exports non-sensitive system environment details (OS, Python, PyTorch, SaturnNodes settings, local cache counts) to a JSON file to share when reporting bugs or requesting assistance. Sensitive API keys and tokens are never exported.
 </details>
 
 <details open>
@@ -397,15 +395,15 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 
 ## 🔒 Security & Privacy
 
-- **Local Runner Sandbox & Operator Authorization Gate:** The `Run Local File` node enforces single-use interactive operator authorization (`[⚡ Authorize Run]`), strictly confines execution to `ComfyUI/scripts/`, never uses `shell=True`, terminates whole process trees on timeout or cancellation, and **never persists authorization inside workflow JSON or image metadata**.
-- **CSRF Defense & Fetch Metadata Validation:** All administrative endpoints (`/leafflow/settings`, `/leafflow/power/*`, `/leafflow/local_runner/*`, `/leafflow/scrapes/clear`) enforce loopback checks, `Sec-Fetch-Site` header checks (blocking cross-site requests from visited web pages), and cryptographic per-session `X-LeafFlow-CSRF-Token` headers.
+- **Local Runner Sandbox & Operator Authorization Gate:** The `Run Local File` node enforces single-use interactive operator authorization (`⚡ Authorize Run (5 min)`), strictly confines execution to `ComfyUI/scripts/`, never uses `shell=True`, terminates whole process trees on timeout or cancellation, and **never persists authorization inside workflow JSON or image metadata**.
+- **CSRF Defense & Fetch Metadata Validation:** All administrative endpoints (`/saturnnodes/settings`, `/saturnnodes/power/*`, `/saturnnodes/local_runner/*`, `/saturnnodes/scrapes/clear` and backward-compatible `/leafflow/*` aliases) enforce loopback checks, `Sec-Fetch-Site` header checks (blocking cross-site requests from visited web pages), and cryptographic per-session `X-SaturnNodes-CSRF-Token` headers.
 - **Two-Step Ephemeral Ticket Handshake for Power Actions:** Process restart and shutdown controls are disabled by default (`ALLOW_PROCESS_MANAGEMENT=false`), require CSRF authentication, and execute only after a single-use 30-second ephemeral ticket confirmation handshake.
 - **Universal Loopback Protection:** All administrative and queue endpoints strictly verify loopback origin (`127.0.0.1` / `::1`), rejecting external network requests with `403 Forbidden`.
 - **Directory Traversal Protection:** Image loading and thumbnail routes are strictly confined to ComfyUI `input`, `output`, and `temp` directories with traversal guards.
 - **Optional Headless Dependencies:** System tray desktop integration (`pystray`) is an optional dependency, ensuring cloud containers (Docker, Colab, RunPod) run with zero dependency errors.
 - **Opt-In Scraping:** Civitai and TMDB network scraping are opt-in and disabled by default.
 - **Zero Runtime Package Installs:** No `install.py` or dynamic `pip` execution; all standard dependencies are cleanly declared in `requirements.txt`.
-- **Local Environment:** All API keys and settings are stored locally in `.env` (excluded from git commits via `.gitignore`).
+- **Local Environment:** All API keys and settings are stored locally in `.env` inside `user/default/SaturnNodes/` (auto-migrated from legacy `LeafFlow/` folder if present).
 - **Atomic File Writes:** Safe atomic writes (`.tmp` + `os.replace`) prevent JSON corruption during sudden crashes.
 
 ---
@@ -415,7 +413,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 1. Open your terminal and navigate to your ComfyUI `custom_nodes` directory:
    ```bash
    cd ComfyUI/custom_nodes
-   git clone https://github.com/KOFiblto/ComfyUI-LeafFlow.git
+   git clone https://github.com/KOFiblto/ComfyUI-SaturnNodes.git
    ```
 2. Restart ComfyUI.
 3. Open ComfyUI Settings (⚙ gear menu) to configure API keys or feature toggles if desired.

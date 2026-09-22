@@ -5,7 +5,7 @@ from PIL import Image, ImageOps
 import folder_paths
 from .utils import sanitize_folder_path
 
-LOADER_CATEGORY = "🍃 LeafFlow/Loaders"
+LOADER_CATEGORY = "🪐 SaturnNodes/Loaders"
 
 class LoadRecentOutputs:
     @classmethod

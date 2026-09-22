@@ -42,10 +42,14 @@ const BATCH_COLORS = [
     "#c4b5fd"  // 36. Lilac
 ];
 
-const STORAGE_KEY = "leafflow_batch_queue_meta";
-const BATCH_COUNTER_KEY = "leafflow_batch_counter";
-const SETTING_ID = "LeafFlow.BatchQueue.Enabled";
-const SETTING_SNAPSHOT_GUARD = "LeafFlow.BatchQueue.SnapshotGuard";
+const STORAGE_KEY = "saturnnodes_batch_queue_meta";
+const LEGACY_STORAGE_KEY = "leafflow_batch_queue_meta";
+const BATCH_COUNTER_KEY = "saturnnodes_batch_counter";
+const LEGACY_BATCH_COUNTER_KEY = "leafflow_batch_counter";
+const SETTING_ID = "SaturnNodes.BatchQueue.Enabled";
+const LEGACY_SETTING_ID = "LeafFlow.BatchQueue.Enabled";
+const SETTING_SNAPSHOT_GUARD = "SaturnNodes.BatchQueue.SnapshotGuard";
+const LEGACY_SETTING_SNAPSHOT_GUARD = "LeafFlow.BatchQueue.SnapshotGuard";
 
 // In-memory registry mapping prompt_id -> batch metadata
 let batchRegistry = new Map();
@@ -54,7 +58,7 @@ let batchCounter = 0;
 
 function loadStorage() {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY);
+        const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
         if (raw) {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
@@ -65,12 +69,12 @@ function loadStorage() {
                 }
             }
         }
-        const savedCounter = localStorage.getItem(BATCH_COUNTER_KEY);
+        const savedCounter = localStorage.getItem(BATCH_COUNTER_KEY) || localStorage.getItem(LEGACY_BATCH_COUNTER_KEY);
         if (savedCounter) {
             batchCounter = parseInt(savedCounter, 10) || 0;
         }
     } catch (e) {
-        console.warn("[LeafFlow BatchQueue] Failed to load batch storage:", e);
+        console.warn("[SaturnNodes BatchQueue] Failed to load batch storage:", e);
     }
 }
 
@@ -198,11 +202,13 @@ function removeBatchLineFromElement(element) {
     }
 }
 
-// Check if LeafFlow Batch Queue is enabled in settings
+// Check if SaturnNodes Batch Queue is enabled in settings
 function isBatchQueueEnabled() {
     try {
         if (app.extensionManager?.setting?.get) {
-            return app.extensionManager.setting.get(SETTING_ID) !== false;
+            const val = app.extensionManager.setting.get(SETTING_ID);
+            if (val !== undefined) return val !== false;
+            return app.extensionManager.setting.get(LEGACY_SETTING_ID) !== false;
         }
     } catch (e) {}
     return true;
@@ -211,7 +217,9 @@ function isBatchQueueEnabled() {
 function isSnapshotGuardEnabled() {
     try {
         if (app.extensionManager?.setting?.get) {
-            return app.extensionManager.setting.get(SETTING_SNAPSHOT_GUARD) !== false;
+            const val = app.extensionManager.setting.get(SETTING_SNAPSHOT_GUARD);
+            if (val !== undefined) return val !== false;
+            return app.extensionManager.setting.get(LEGACY_SETTING_SNAPSHOT_GUARD) !== false;
         }
     } catch (e) {}
     return true;
@@ -280,7 +288,7 @@ function mergeDynamicSeeds(snapPrompt, livePrompt) {
 // Sync with server if PersistentQueue is available
 async function syncBatchToServer(promptId, batchInfo) {
     try {
-        await authenticatedFetch("/leafflow/batch_queue/sync", {
+        let resp = await authenticatedFetch("/saturnnodes/batch_queue/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -288,6 +296,16 @@ async function syncBatchToServer(promptId, batchInfo) {
                 batch_info: batchInfo
             })
         }).catch(() => null);
+        if (!resp || !resp.ok) {
+            await authenticatedFetch("/leafflow/batch_queue/sync", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    prompt_id: promptId,
+                    batch_info: batchInfo
+                })
+            }).catch(() => null);
+        }
     } catch (e) {
         // Silently ignore if server endpoint is not present
     }
@@ -296,7 +314,10 @@ async function syncBatchToServer(promptId, batchInfo) {
 async function loadBatchFromServer() {
     try {
         if (!api || !api.fetchApi) return;
-        const res = await api.fetchApi("/leafflow/batch_queue/data", { cache: "no-store" }).catch(() => null);
+        let res = await api.fetchApi("/saturnnodes/batch_queue/data", { cache: "no-store" }).catch(() => null);
+        if (!res || !res.ok) {
+            res = await api.fetchApi("/leafflow/batch_queue/data", { cache: "no-store" }).catch(() => null);
+        }
         if (res && res.ok) {
             const data = await res.json();
             if (data && typeof data === "object") {
@@ -477,7 +498,7 @@ function setupQueueHooks() {
 }
 
 app.registerExtension({
-    name: "ComfyUI.LeafFlow.BatchQueue",
+    name: "ComfyUI.SaturnNodes.BatchQueue",
     async setup() {
         injectBatchStyles();
         setupQueueHooks();

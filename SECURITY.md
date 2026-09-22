@@ -2,7 +2,7 @@
 
 ## Reporting Security Issues
 
-We take the security of ComfyUI-LeafFlow seriously. If you discover a security vulnerability or sensitive key exposure, please **DO NOT** open a public issue.
+We take the security of ComfyUI-SaturnNodes seriously. If you discover a security vulnerability or sensitive key exposure, please **DO NOT** open a public issue.
 
 Instead, please report security vulnerabilities directly to the maintainer via GitHub private vulnerability reporting.
 
@@ -15,15 +15,15 @@ Instead, please report security vulnerabilities directly to the maintainer via G
 
 ## Security Architecture & Best Practices
 
-- **CSRF Defense & Fetch Metadata Validation**: All administrative endpoints (`/leafflow/settings`, `/leafflow/power/*`, `/leafflow/local_runner/*`, `/leafflow/scrapes/clear`) enforce multi-layer CSRF protection via `is_authenticated_local_request(request)`.
+- **CSRF Defense & Fetch Metadata Validation**: All administrative endpoints (`/saturnnodes/*`, `/leafflow/*`) enforce multi-layer CSRF protection via `is_authenticated_local_request(request)`.
   - Enforces loopback origin checks (`127.0.0.1` / `::1`), rejecting remote calls with `403 Forbidden`.
   - Rejects `cross-site` requests via `Sec-Fetch-Site` header checks, preventing external malicious web pages visited by the operator from triggering actions.
   - Verifies `Origin` and `Referer` headers against loopback hostnames.
-  - Requires cryptographically random session tokens in the `X-LeafFlow-CSRF-Token` header (`secrets.compare_digest`), prompting CORS preflight rejection if an external origin attempts unauthorized requests.
+  - Requires cryptographically random session tokens in the `X-SaturnNodes-CSRF-Token` / `X-LeafFlow-CSRF-Token` header (`secrets.compare_digest`), prompting CORS preflight rejection if an external origin attempts unauthorized requests.
 - **Two-Step Ephemeral Ticket Handshake for Power Actions**:
   - Server restart and shutdown endpoints require `ALLOW_PROCESS_MANAGEMENT=true` in settings.
-  - Execution requires a two-step handshake: the client requests a single-use ephemeral ticket (`POST /leafflow/power/request_token`) valid for 30 seconds.
-  - The confirmation endpoint (`POST /leafflow/power/confirm_action`) consumes the single-use ticket in server memory before executing restart or shutdown, preventing arbitrary or cross-site triggers.
+  - Execution requires a two-step handshake: the client requests a single-use ephemeral ticket (`POST /saturnnodes/power/request_token`) valid for 30 seconds.
+  - The confirmation endpoint (`POST /saturnnodes/power/confirm_action`) consumes the single-use ticket in server memory before executing restart or shutdown, preventing arbitrary or cross-site triggers.
 - **Strict Local Script Confinement**:
   - `RunLocalFileNode` strictly confines executable scripts and binaries to `ComfyUI/scripts/`.
   - Absolute paths (e.g. `C:\`, `/etc/`, `\\server`) and directory traversal sequences (`..`) are strictly rejected.

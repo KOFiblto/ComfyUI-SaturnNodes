@@ -23,7 +23,7 @@ class LeafFlowTextSplit:
     RETURN_TYPES = ("STRING", "STRING")
     RETURN_NAMES = ("text1", "text2")
     FUNCTION = "split_text"
-    CATEGORY = "🍃 LeafFlow/Utils"
+    CATEGORY = "🪐 SaturnNodes/Utils"
     DESCRIPTION = "Splits input text into two parts (text1 and text2) by a character sequence or regex pattern, with forward/backward splitting."
 
     def split_text(
@@ -64,7 +64,7 @@ class LeafFlowTextSplit:
                     else:
                         t1, t2 = input_text, ""
             except Exception as e:
-                print(f"[LeafFlow Text Split] Regex error: {e}. Falling back to literal string split.")
+                print(f"[SaturnNodes Text Split] Regex error: {e}. Falling back to literal string split.")
                 if is_forward:
                     parts = input_text.split(delimiter, 1)
                 else:
@@ -85,3 +85,5 @@ class LeafFlowTextSplit:
             t2 = t2.strip()
 
         return (t1, t2)
+
+SaturnTextSplit = LeafFlowTextSplit

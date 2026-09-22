@@ -3,63 +3,75 @@ import { api } from "/scripts/api.js";
 import { authenticatedFetch } from "./auth_helper.js";
 
 app.registerExtension({
-    name: "ComfyUI.LeafFlow.PromptQueueIterator",
+    name: "ComfyUI.SaturnNodes.PromptQueueIterator",
     async setup() {
         if (api && api.addEventListener) {
-            api.addEventListener("leafflow_prompt_iterator_progress", (event) => {
+            const handleProgress = (event) => {
                 const data = event.detail;
                 if (!data || !data.node_id) return;
                 const node = app.graph?.getNodeById(data.node_id);
                 if (node && node.widgets) {
-                    const statusWidget = node.widgets.find(w => w.name === "🍃 Progress");
+                    const statusWidget = node.widgets.find(w => w.name === "Progress");
                     if (statusWidget) {
-                        statusWidget.value = `🍃 Run ${data.current_run} / ${data.total_runs}`;
+                        statusWidget.value = `Run ${data.current_run} / ${data.total_runs}`;
                         app.graph?.setDirtyCanvas(true, true);
                     }
                 }
-            });
+            };
+            api.addEventListener("saturnnodes_prompt_iterator_progress", handleProgress);
+            api.addEventListener("leafflow_prompt_iterator_progress", handleProgress);
         }
     },
     async nodeCreated(node) {
         if (node.comfyClass === "PromptQueueIterator") {
             // 1. Live Progress Status Widget
-            const statusWidget = node.addWidget("text", "🍃 Progress", "🍃 Ready (-- / --)", () => {}, { serialize: false });
+            const statusWidget = node.addWidget("text", "Progress", "Ready (-- / --)", () => {}, { serialize: false });
             statusWidget.disabled = true;
 
             // 2. Reset Counter (0) Button
-            const resetBtn = node.addWidget("button", "🔄 Reset Counter (0)", null, async () => {
+            const resetBtn = node.addWidget("button", "Reset Counter (0)", null, async () => {
                 try {
                     resetBtn.name = "⏳ Resetting...";
                     app.graph?.setDirtyCanvas(true, true);
-                    const resp = await authenticatedFetch("/leafflow/prompt_iterator/reset_node", {
+                    let resp = await authenticatedFetch("/saturnnodes/prompt_iterator/reset_node", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ node_id: String(node.id) })
                     });
+                    if (!resp.ok) {
+                        resp = await authenticatedFetch("/leafflow/prompt_iterator/reset_node", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ node_id: String(node.id) })
+                        });
+                    }
                     const res = await resp.json();
                     if (res && res.status === "ok") {
                         resetBtn.name = "✅ Reset to 0!";
-                        statusWidget.value = "🍃 Reset (0 / --)";
+                        statusWidget.value = "Reset (0 / --)";
                     } else {
                         resetBtn.name = "⚠️ Error";
                     }
                 } catch (e) {
-                    console.error("[LeafFlow] 🍃 Error resetting counter:", e);
+                    console.error("[SaturnNodes] Error resetting counter:", e);
                     resetBtn.name = "❌ Failed";
                 }
                 setTimeout(() => {
-                    resetBtn.name = "🔄 Reset Counter (0)";
+                    resetBtn.name = "Reset Counter (0)";
                     app.graph?.setDirtyCanvas(true, true);
                 }, 1200);
             });
             resetBtn.serialize = false;
 
             // 3. Open Queue File in Default OS Editor Button
-            const openFileBtn = node.addWidget("button", "📂 Open Queue File", null, async () => {
+            const openFileBtn = node.addWidget("button", "Open Queue File", null, async () => {
                 try {
                     openFileBtn.name = "⏳ Opening...";
                     app.graph?.setDirtyCanvas(true, true);
-                    const resp = await authenticatedFetch("/leafflow/prompt_iterator/open_file", { method: "POST" });
+                    let resp = await authenticatedFetch("/saturnnodes/prompt_iterator/open_file", { method: "POST" });
+                    if (!resp.ok) {
+                        resp = await authenticatedFetch("/leafflow/prompt_iterator/open_file", { method: "POST" });
+                    }
                     const res = await resp.json();
                     if (res && res.status === "ok") {
                         openFileBtn.name = "✅ Opened in Editor!";
@@ -67,11 +79,11 @@ app.registerExtension({
                         openFileBtn.name = "⚠️ Error";
                     }
                 } catch (e) {
-                    console.error("[LeafFlow] 🍃 Error opening state file:", e);
+                    console.error("[SaturnNodes] Error opening state file:", e);
                     openFileBtn.name = "❌ Failed";
                 }
                 setTimeout(() => {
-                    openFileBtn.name = "📂 Open Queue File";
+                    openFileBtn.name = "Open Queue File";
                     app.graph?.setDirtyCanvas(true, true);
                 }, 1500);
             });

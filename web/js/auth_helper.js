@@ -12,14 +12,17 @@ export async function getCsrfToken() {
     }
     _tokenPromise = (async () => {
         try {
-            const resp = await api.fetchApi("/leafflow/auth/token");
+            let resp = await api.fetchApi("/saturnnodes/auth/token");
+            if (!resp.ok) {
+                resp = await api.fetchApi("/leafflow/auth/token");
+            }
             if (resp.ok) {
                 const data = await resp.json();
                 _cachedCsrfToken = data.csrf_token || "";
                 return _cachedCsrfToken;
             }
         } catch (e) {
-            console.warn("[LeafFlow Auth] Could not fetch CSRF token:", e);
+            console.warn("[SaturnNodes Auth] Could not fetch CSRF token:", e);
         } finally {
             _tokenPromise = null;
         }
@@ -33,15 +36,19 @@ export async function authenticatedFetch(endpoint, options = {}) {
     const opts = { ...options };
     opts.headers = { ...(opts.headers || {}) };
     if (token) {
+        opts.headers["X-SaturnNodes-CSRF-Token"] = token;
         opts.headers["X-LeafFlow-CSRF-Token"] = token;
     }
     return api.fetchApi(endpoint, opts);
 }
 
-// Expose on window for all LeafFlow extensions
+// Expose on window for all SaturnNodes extensions (with LeafFlow alias for backward compatibility)
 if (typeof window !== "undefined") {
-    window._LeafFlowAuth = {
+    const authObj = {
         getToken: getCsrfToken,
         fetch: authenticatedFetch
     };
+    window._SaturnNodesAuth = authObj;
+    window._LeafFlowAuth = authObj;
 }
+

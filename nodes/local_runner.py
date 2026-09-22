@@ -9,7 +9,7 @@ import folder_paths
 import comfy.model_management
 from .utils import get_env_setting, is_local_request, is_authenticated_local_request
 
-AUTOMATION_CATEGORY = "🍃 LeafFlow/Automation"
+AUTOMATION_CATEGORY = "🪐 SaturnNodes/Automation"
 
 def _safe_print(msg):
     try:
@@ -18,7 +18,7 @@ def _safe_print(msg):
         print(msg.encode("ascii", "replace").decode("ascii"))
 
 def is_local_file_execution_enabled():
-    """Checks whether local file execution is explicitly enabled in LeafFlow settings (default False)."""
+    """Checks whether local file execution is explicitly enabled in SaturnNodes settings (default False)."""
     val = get_env_setting("ENABLE_LOCAL_FILE_EXECUTION", "false").lower()
     return val in ["true", "1", "yes"]
 
@@ -156,13 +156,14 @@ def clear_all_authorizations():
 def setup_local_runner_routes(server):
     routes = server.routes
 
+    @routes.post("/saturnnodes/local_runner/authorize")
     @routes.post("/leafflow/local_runner/authorize")
     async def authorize_endpoint(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         if not is_local_file_execution_enabled():
             return web.json_response({
-                "error": "Local file execution is disabled. Enable 'Allow Local File Execution' in LeafFlow settings first.",
+                "error": "Local file execution is disabled. Enable 'Allow Local File Execution' in SaturnNodes settings first.",
                 "enabled": False
             }, status=403)
         try:
@@ -180,6 +181,7 @@ def setup_local_runner_routes(server):
             "expires_in": 300
         })
 
+    @routes.get("/saturnnodes/local_runner/status")
     @routes.get("/leafflow/local_runner/status")
     async def status_endpoint(request):
         if not is_local_request(request):
@@ -319,16 +321,16 @@ class RunLocalFileNode:
         if not is_local_file_execution_enabled():
             err = (
                 "Execution Blocked: Local file execution is disabled by default for security. "
-                "To run local files, enable 'Allow Local File Execution' in ComfyUI Settings -> LeafFlow -> Security."
+                "To run local files, enable 'Allow Local File Execution' in ComfyUI Settings -> SaturnNodes -> Security."
             )
-            _safe_print(f"[LeafFlow LocalRunner] {err}")
+            _safe_print(f"[SaturnNodes LocalRunner] {err}")
             return ("", err, -1, False, passthrough_out)
 
         # Check 2: Path Resolution & Strict Confinement to ComfyUI/scripts/
         resolved_path, path_msg = resolve_target_path(file_path)
         if not resolved_path:
             err = f"Execution Error: {path_msg}"
-            _safe_print(f"[LeafFlow LocalRunner] {err}")
+            _safe_print(f"[SaturnNodes LocalRunner] {err}")
             return ("", err, -1, False, passthrough_out)
 
         # Check 3: Mandatory In-Memory Operator Authorization Gate
@@ -336,7 +338,7 @@ class RunLocalFileNode:
         authorized, auth_msg = consume_node_authorization(node_id, resolved_path)
         if not authorized:
             err = f"Execution Blocked: {auth_msg}"
-            _safe_print(f"[LeafFlow LocalRunner] {err}")
+            _safe_print(f"[SaturnNodes LocalRunner] {err}")
             return ("", err, -1, False, passthrough_out)
 
         # Determine working directory (confined to ComfyUI/scripts/ or script directory)
@@ -348,12 +350,12 @@ class RunLocalFileNode:
                 if os.path.commonpath([scripts_base, cand_cwd]) == scripts_base and os.path.isdir(cand_cwd):
                     cwd = cand_cwd
                 else:
-                    _safe_print(f"[LeafFlow LocalRunner] Warning: working_directory '{working_directory}' outside scripts folder. Defaulting to script folder.")
+                    _safe_print(f"[SaturnNodes LocalRunner] Warning: working_directory '{working_directory}' outside scripts folder. Defaulting to script folder.")
             except Exception:
                 pass
 
         cmd_list = self.build_command_args(resolved_path, parameters)
-        _safe_print(f"[LeafFlow LocalRunner] Executing '{os.path.basename(resolved_path)}' (mode: {run_mode}, cwd: '{cwd}')...")
+        _safe_print(f"[SaturnNodes LocalRunner] Executing '{os.path.basename(resolved_path)}' (mode: {run_mode}, cwd: '{cwd}')...")
 
         # Mode: Asynchronous (Background Detached)
         if "Asynchronous" in run_mode:
@@ -366,11 +368,11 @@ class RunLocalFileNode:
                     subprocess.Popen(cmd_list, cwd=cwd, start_new_session=True)
 
                 msg = f"Started in background: '{os.path.basename(resolved_path)}' (PID assigned)"
-                _safe_print(f"[LeafFlow LocalRunner] {msg}")
+                _safe_print(f"[SaturnNodes LocalRunner] {msg}")
                 return (msg, "", 0, True, passthrough_out)
             except Exception as e:
                 err_msg = f"Failed to launch background process: {str(e)}"
-                _safe_print(f"[LeafFlow LocalRunner] Error: {err_msg}")
+                _safe_print(f"[SaturnNodes LocalRunner] Error: {err_msg}")
                 return ("", err_msg, -1, False, passthrough_out)
 
         # Mode: Synchronous (Wait for Process with Output & Interrupt Polling)
@@ -413,13 +415,13 @@ class RunLocalFileNode:
                     comfy.model_management.throw_exception_if_processing_interrupted()
                 except Exception:
                     _kill_tree()
-                    _safe_print(f"[LeafFlow LocalRunner] Execution of '{os.path.basename(resolved_path)}' interrupted by user.")
+                    _safe_print(f"[SaturnNodes LocalRunner] Execution of '{os.path.basename(resolved_path)}' interrupted by user.")
                     raise
 
                 if effective_timeout and (time.time() - start_time) > effective_timeout:
                     _kill_tree()
                     err = f"Execution timed out after {timeout} seconds."
-                    _safe_print(f"[LeafFlow LocalRunner] {err}")
+                    _safe_print(f"[SaturnNodes LocalRunner] {err}")
                     return ("", err, -1, False, passthrough_out)
 
                 time.sleep(0.1)
@@ -428,10 +430,10 @@ class RunLocalFileNode:
             exit_code = proc.returncode
             success = (exit_code == 0)
 
-            _safe_print(f"[LeafFlow LocalRunner] Completed with exit code {exit_code} (success: {success}).")
+            _safe_print(f"[SaturnNodes LocalRunner] Completed with exit code {exit_code} (success: {success}).")
             return (stdout_data or "", stderr_data or "", exit_code, success, passthrough_out)
 
         except Exception as e:
             err_msg = f"Process execution error: {str(e)}"
-            _safe_print(f"[LeafFlow LocalRunner] {err_msg}")
+            _safe_print(f"[SaturnNodes LocalRunner] {err_msg}")
             return ("", err_msg, -1, False, passthrough_out)

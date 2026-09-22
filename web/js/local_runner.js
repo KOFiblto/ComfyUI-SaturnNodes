@@ -1,9 +1,9 @@
 import { app } from "/scripts/app.js";
 import { authenticatedFetch } from "./auth_helper.js";
 
-// LeafFlow Local File Runner In-Memory Consent Gate Extension
+// SaturnNodes Local File Runner In-Memory Consent Gate Extension
 app.registerExtension({
-    name: "LeafFlow.LocalRunner.Security",
+    name: "SaturnNodes.LocalRunner.Security",
     async nodeCreated(node) {
         if (node.comfyClass !== "RunLocalFileNode") return;
 
@@ -19,7 +19,7 @@ app.registerExtension({
             if (isArmed) {
                 const remainingSec = Math.max(0, Math.round((node._authExpiresAt - now) / 1000));
                 const remainingMin = Math.ceil(remainingSec / 60);
-                node.title = `🍃 ⚡ Run Local File [ARMED (${remainingMin}m)]`;
+                node.title = `🪐 ⚡ Run Local File [ARMED (${remainingMin}m)]`;
                 node.color = "#047857";
                 node.bgcolor = "#064e3b";
                 if (authButton) {
@@ -27,7 +27,7 @@ app.registerExtension({
                 }
             } else {
                 node._isAuthorized = false;
-                node.title = "🍃 ⚡ Run Local File [DISARMED]";
+                node.title = "🪐 ⚡ Run Local File [DISARMED]";
                 node.color = "#7f1d1d";
                 node.bgcolor = "#18181b";
                 if (authButton) {
@@ -45,9 +45,9 @@ app.registerExtension({
             async () => {
                 const scriptName = filePathWidget?.value?.trim() || "configured script";
                 const confirmed = confirm(
-                    "🍃 LeafFlow Security Verification\n\n" +
+                    "🪐 SaturnNodes Security Verification\n\n" +
                     `Authorize a SINGLE run of local script:\n'${scriptName}'\n\n` +
-                    "⚠️ Notice: Scripts can execute shell commands on your system.\n" +
+                    "Notice: Scripts can execute shell commands on your system.\n" +
                     "• The script must reside inside 'ComfyUI/scripts/'.\n" +
                     "• Authorization is temporary (expires in 5 minutes) and single-use.\n" +
                     "• External workflows can NEVER run scripts without your live authorization.\n\n" +
@@ -57,7 +57,7 @@ app.registerExtension({
                 if (!confirmed) return;
 
                 try {
-                    const resp = await authenticatedFetch("/leafflow/local_runner/authorize", {
+                    let resp = await authenticatedFetch("/saturnnodes/local_runner/authorize", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -65,6 +65,16 @@ app.registerExtension({
                             file_path: filePathWidget?.value || ""
                         })
                     });
+                    if (!resp.ok) {
+                        resp = await authenticatedFetch("/leafflow/local_runner/authorize", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                node_id: node.id,
+                                file_path: filePathWidget?.value || ""
+                            })
+                        });
+                    }
 
                     if (!resp.ok) {
                         const err = await resp.json().catch(() => ({}));
@@ -72,7 +82,7 @@ app.registerExtension({
                         if (app.extensionManager?.toast?.add) {
                             app.extensionManager.toast.add({
                                 severity: "error",
-                                summary: "🍃 Authorization Failed",
+                                summary: "🪐 Authorization Failed",
                                 detail: errMsg,
                                 life: 6000
                             });
@@ -95,7 +105,7 @@ app.registerExtension({
                         });
                     }
                 } catch (e) {
-                    console.error("[LeafFlow Security] Error authorizing script run:", e);
+                    console.error("[SaturnNodes Security] Error authorizing script run:", e);
                     alert("❌ Error communicating with authorization service: " + e.message);
                 }
             }
@@ -135,7 +145,7 @@ app.registerExtension({
             ctx.textAlign = "center";
             ctx.font = "italic 9px sans-serif";
             ctx.fillStyle = "#9ca3af";
-            ctx.fillText("📂 Script Location: ComfyUI/scripts/", node.size[0] / 2, node.size[1] - 19);
+            ctx.fillText("Script Location: ComfyUI/scripts/", node.size[0] / 2, node.size[1] - 19);
 
             ctx.font = "bold 10px sans-serif";
             if (!isArmed) {

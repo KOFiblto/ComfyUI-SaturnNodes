@@ -1,4 +1,4 @@
-﻿import { app } from "/scripts/app.js";
+import { app } from "/scripts/app.js";
 
 function countPromptsInText(text, separator, customRegex) {
     if (!text || !text.trim()) return 0;
@@ -47,7 +47,7 @@ app.registerExtension({
             const regexWidget = node.widgets?.find(w => w.name === "custom_regex");
 
             // Add the live count display widget
-            const countWidget = node.addWidget("text", "🍃 Prompts", "0 Prompts", () => {}, { serialize: false });
+            const countWidget = node.addWidget("text", "Prompts", "0 Prompts", () => {}, { serialize: false });
             countWidget.disabled = true;
 
             // Custom drawing for counter widget
@@ -86,7 +86,7 @@ app.registerExtension({
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.fillStyle = count > 0 ? "#4ade80" : "#94a3b8";
-                ctx.fillText(`🍃 ${label}`, badgeX + badgeW / 2, badgeY + badgeH / 2);
+                ctx.fillText(label, badgeX + badgeW / 2, badgeY + badgeH / 2);
 
                 ctx.restore();
             };
@@ -193,7 +193,7 @@ app.registerExtension({
                     const label = `${count} Prompt${count === 1 ? "" : "s"}`;
                     ctx.save();
                     ctx.font = "bold 11px Inter, system-ui, sans-serif";
-                    const badgeText = `🍃 ${label}`;
+                    const badgeText = label;
                     const tw = ctx.measureText(badgeText).width;
                     const bx = node.size[0] - tw - 16;
                     const by = -LiteGraph.NODE_TITLE_HEIGHT + 3;

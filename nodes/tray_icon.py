@@ -3,9 +3,9 @@ import sys
 import threading
 import webbrowser
 from PIL import Image, ImageDraw
-from .utils import get_leafflow_user_dir
+from .utils import get_saturnnodes_user_dir, get_leafflow_user_dir
 
-USER_DIR = get_leafflow_user_dir()
+USER_DIR = get_saturnnodes_user_dir()
 ENV_FILE = os.path.join(USER_DIR, ".env")
 
 def get_env_setting(key, default_val):
@@ -68,7 +68,7 @@ class TrayIconManager:
 
     def get_status_info(self):
         if not self.pause_manager:
-            return "Running", "#059669", "pause", "ComfyUI LeafFlow: Running"
+            return "Running", "#059669", "pause", "ComfyUI SaturnNodes: Running"
 
         unpaused_color, paused_color = self.get_current_colors()
         is_paused = self.pause_manager.paused
@@ -81,17 +81,17 @@ class TrayIconManager:
                 status_text = "Paused (Waiting)"
                 color = paused_color
                 symbol = "play"
-                title = f"ComfyUI LeafFlow: Paused ({mode_label}) - Click to Continue"
+                title = f"ComfyUI SaturnNodes: Paused ({mode_label}) - Click to Continue"
             else:
                 status_text = f"Pausing ({mode_label})..."
                 color = paused_color
                 symbol = "pause"
-                title = f"ComfyUI LeafFlow: Pausing ({mode_label})... (Waiting to complete)"
+                title = f"ComfyUI SaturnNodes: Pausing ({mode_label})... (Waiting to complete)"
         else:
             status_text = f"Running [Next Pause: {mode_label}]"
             color = unpaused_color
             symbol = "pause"
-            title = f"ComfyUI LeafFlow: Running (Mode: {mode_label})"
+            title = f"ComfyUI SaturnNodes: Running (Mode: {mode_label})"
 
         return status_text, color, symbol, title
 
@@ -178,7 +178,7 @@ class TrayIconManager:
             try:
                 import pystray
             except ImportError:
-                print("[LeafFlow] System tray icon disabled: 'pystray' is not installed. Install pystray ('pip install pystray') to enable system tray support.")
+                print("[SaturnNodes] System tray icon disabled: 'pystray' is not installed. Install pystray ('pip install pystray') to enable system tray support.")
                 return
 
             _, color, symbol, title = self.get_status_info()
@@ -186,7 +186,7 @@ class TrayIconManager:
             menu = self.build_menu()
 
             self._icon = pystray.Icon(
-                name="ComfyUI-LeafFlow",
+                name="ComfyUI-SaturnNodes",
                 icon=icon_img,
                 title=title,
                 menu=menu
@@ -195,10 +195,10 @@ class TrayIconManager:
             def _run():
                 try:
                     self._is_running = True
-                    print("[LeafFlow] System tray icon started.")
+                    print("[SaturnNodes] System tray icon started.")
                     self._icon.run()
                 except Exception as e:
-                    print(f"[LeafFlow] System tray icon error: {e}")
+                    print(f"[SaturnNodes] System tray icon error: {e}")
                 finally:
                     self._is_running = False
                     self._icon = None
@@ -215,7 +215,7 @@ class TrayIconManager:
                     pass
                 self._icon = None
             self._is_running = False
-            print("[LeafFlow] System tray icon stopped.")
+            print("[SaturnNodes] System tray icon stopped.")
 
     def update_status(self):
         with self._lock:

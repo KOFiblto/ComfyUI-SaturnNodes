@@ -9,10 +9,10 @@ import subprocess
 from aiohttp import web
 from server import PromptServer
 import folder_paths
-from .utils import get_leafflow_user_dir, is_authenticated_local_request
+from .utils import get_saturnnodes_user_dir, get_leafflow_user_dir, is_authenticated_local_request
 
 CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-USER_DIR = get_leafflow_user_dir()
+USER_DIR = get_saturnnodes_user_dir()
 STATE_FILE = os.path.join(USER_DIR, "prompt_iterator_state.json")
 ENV_FILE = os.path.join(USER_DIR, ".env")
 
@@ -83,6 +83,7 @@ if is_clear_prompt_iterator_on_launch():
 try:
     routes = PromptServer.instance.routes
 
+    @routes.post("/saturnnodes/prompt_iterator/reset_node")
     @routes.post("/leafflow/prompt_iterator/reset_node")
     async def reset_prompt_iterator_node(request):
         if not is_authenticated_local_request(request):
@@ -101,19 +102,25 @@ try:
                     matched = True
             save_state(state)
             if node_id and node_id != "all":
+                progress_payload = {
+                    "node_id": node_id,
+                    "current_run": 0,
+                    "total_runs": 0,
+                    "status_text": "Reset (0 / --)"
+                }
                 try:
-                    PromptServer.instance.send_sync("leafflow_prompt_iterator_progress", {
-                        "node_id": node_id,
-                        "current_run": 0,
-                        "total_runs": 0,
-                        "status_text": "Reset (0 / --)"
-                    })
+                    PromptServer.instance.send_sync("saturnnodes_prompt_iterator_progress", progress_payload)
+                except Exception:
+                    pass
+                try:
+                    PromptServer.instance.send_sync("leafflow_prompt_iterator_progress", progress_payload)
                 except Exception:
                     pass
             return web.json_response({"status": "ok", "reset": matched})
         except Exception as e:
             return web.json_response({"status": "error", "message": str(e)}, status=500)
 
+    @routes.post("/saturnnodes/prompt_iterator/clear")
     @routes.post("/leafflow/prompt_iterator/clear")
     @routes.post("/flow_control/prompt_iterator/clear")
     async def clear_prompt_iterator_endpoint(request):
@@ -122,6 +129,7 @@ try:
         success = clear_state()
         return web.json_response({"status": "ok" if success else "error"})
 
+    @routes.post("/saturnnodes/prompt_iterator/open_file")
     @routes.post("/leafflow/prompt_iterator/open_file")
     async def open_prompt_iterator_file(request):
         if not is_authenticated_local_request(request):
@@ -228,7 +236,7 @@ class PromptQueueIterator:
     RETURN_TYPES = ("STRING", "STRING", "INT")
     RETURN_NAMES = ("prompt", "remaining_text", "remaining_count")
     FUNCTION = "process_queue"
-    CATEGORY = "🍃 LeafFlow/Utils"
+    CATEGORY = "🪐 SaturnNodes/Utils"
     DESCRIPTION = "Deterministically iterates over multiline prompt text blocks per queue run with live progress display and index controls."
 
     @classmethod
@@ -355,13 +363,18 @@ class PromptQueueIterator:
         save_state(state)
 
         # Send live progress update to UI
+        progress_data = {
+            "node_id": str(unique_id),
+            "current_run": display_run,
+            "total_runs": total_count,
+            "status_text": f"Run {display_run} / {total_count}"
+        }
         try:
-            PromptServer.instance.send_sync("leafflow_prompt_iterator_progress", {
-                "node_id": str(unique_id),
-                "current_run": display_run,
-                "total_runs": total_count,
-                "status_text": f"Run {display_run} / {total_count}"
-            })
+            PromptServer.instance.send_sync("saturnnodes_prompt_iterator_progress", progress_data)
+        except Exception:
+            pass
+        try:
+            PromptServer.instance.send_sync("leafflow_prompt_iterator_progress", progress_data)
         except Exception:
             pass
 

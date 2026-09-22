@@ -3,7 +3,7 @@ import { api } from "/scripts/api.js";
 import { authenticatedFetch } from "./js/auth_helper.js";
 
 app.registerExtension({
-    name: "ComfyUI.LeafFlow.PersistentQueue",
+    name: "ComfyUI.SaturnNodes.PersistentQueue",
     async setup() {
         const patchRgthree = async () => {
             try {
@@ -36,7 +36,7 @@ app.registerExtension({
                     }
                     if (patched) {
                         rgthree.SERVICE.dispatchProgressUpdate();
-                        console.log("[LeafFlow] Synced recovered queue with rgthree-comfy progress bar.");
+                        console.log("[SaturnNodes] Synced recovered queue with rgthree-comfy progress bar.");
                     }
                 }
             } catch (e) {

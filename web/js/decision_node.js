@@ -39,9 +39,9 @@ styles.textContent = `
 document.head.appendChild(styles);
 
 app.registerExtension({
-    name: "Comfy.LeafFlowDecision",
+    name: "Comfy.SaturnNodesDecision",
     async setup() {
-        api.addEventListener("leafflow_decision_waiting", (event) => {
+        const handleWaiting = (event) => {
             const data = event.detail;
             if (data && data.node_id) {
                 const node = app.graph.getNodeById(data.node_id);
@@ -49,9 +49,9 @@ app.registerExtension({
                     node.enableDecisionButtons();
                 }
             }
-        });
+        };
 
-        api.addEventListener("leafflow_decision_resolved", (event) => {
+        const handleResolved = (event) => {
             const data = event.detail;
             if (data && data.node_id) {
                 const node = app.graph.getNodeById(data.node_id);
@@ -59,10 +59,16 @@ app.registerExtension({
                     node.disableDecisionButtons();
                 }
             }
-        });
+        };
+
+        api.addEventListener("saturnnodes_decision_waiting", handleWaiting);
+        api.addEventListener("leafflow_decision_waiting", handleWaiting);
+
+        api.addEventListener("saturnnodes_decision_resolved", handleResolved);
+        api.addEventListener("leafflow_decision_resolved", handleResolved);
     },
     async nodeCreated(node) {
-        if (node.comfyClass === "LeafFlowDecision") {
+        if (node.comfyClass === "SaturnDecision" || node.comfyClass === "LeafFlowDecision") {
             const container = document.createElement("div");
             container.className = "leafflow-decision-container";
 
@@ -88,7 +94,7 @@ app.registerExtension({
             const sendDecision = async (action) => {
                 node.disableDecisionButtons();
                 try {
-                    await authenticatedFetch("/leafflow/decision", {
+                    let resp = await authenticatedFetch("/saturnnodes/decision", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -96,8 +102,18 @@ app.registerExtension({
                             action: action
                         }),
                     });
+                    if (!resp.ok) {
+                        await authenticatedFetch("/leafflow/decision", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                                node_id: node.id.toString(),
+                                action: action
+                            }),
+                        });
+                    }
                 } catch (e) {
-                    console.error("[LeafFlow] Failed to send decision:", e);
+                    console.error("[SaturnNodes] Failed to send decision:", e);
                 }
             };
 

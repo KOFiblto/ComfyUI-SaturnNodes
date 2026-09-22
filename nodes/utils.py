@@ -4,17 +4,16 @@ import secrets
 from urllib.parse import urlparse
 import folder_paths
 
-def get_leafflow_user_dir():
+def get_saturnnodes_user_dir():
     """
-    Returns the centralized user data directory: ComfyUI/user/default/LeafFlow/
+    Returns the centralized user data directory: ComfyUI/user/default/SaturnNodes/
+    Automatically migrates any legacy LeafFlow directory contents if present.
     """
     base_user = None
     try:
         if hasattr(folder_paths, "get_user_directory"):
             user_base = folder_paths.get_user_directory()
             if user_base:
-                # ComfyUI get_user_directory() returns '.../ComfyUI/user'
-                # Ensure the 'default' user profile directory is used
                 norm_base = os.path.normpath(user_base)
                 if os.path.basename(norm_base).lower() == "user":
                     base_user = os.path.join(norm_base, "default")
@@ -24,13 +23,28 @@ def get_leafflow_user_dir():
         base_user = None
 
     if not base_user:
-        # Fallback to ComfyUI/user/default
         root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
         base_user = os.path.join(root_dir, "user", "default")
 
-    leafflow_dir = os.path.join(base_user, "LeafFlow")
-    os.makedirs(leafflow_dir, exist_ok=True)
-    return leafflow_dir
+    saturn_dir = os.path.join(base_user, "SaturnNodes")
+    os.makedirs(saturn_dir, exist_ok=True)
+
+    # Seamless automatic migration from legacy LeafFlow folder if needed
+    legacy_dir = os.path.join(base_user, "LeafFlow")
+    if os.path.isdir(legacy_dir):
+        for f in [".env", "prompt_iterator_state.json"]:
+            src = os.path.join(legacy_dir, f)
+            dst = os.path.join(saturn_dir, f)
+            if os.path.isfile(src) and not os.path.exists(dst):
+                try:
+                    import shutil
+                    shutil.copy2(src, dst)
+                except Exception:
+                    pass
+
+    return saturn_dir
+
+get_leafflow_user_dir = get_saturnnodes_user_dir
 
 _SESSION_CSRF_TOKEN = secrets.token_hex(32)
 
@@ -87,7 +101,7 @@ def is_authenticated_local_request(request):
         return False
 
     headers = getattr(request, "headers", {})
-    token = headers.get("X-LeafFlow-CSRF-Token")
+    token = headers.get("X-SaturnNodes-CSRF-Token") or headers.get("X-LeafFlow-CSRF-Token")
     if not token or not secrets.compare_digest(token, _SESSION_CSRF_TOKEN):
         return False
 

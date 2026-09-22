@@ -36,11 +36,18 @@ async function copyToClipboard(text) {
 function isCopyEnabled(settingKey, defaultVal = true) {
     try {
         let val;
+        const saturnKey = settingKey.replace(/^LeafFlow\./, "SaturnNodes.");
         if (app.extensionManager?.setting?.get) {
-            val = app.extensionManager.setting.get(settingKey);
+            val = app.extensionManager.setting.get(saturnKey);
+            if (val === undefined || val === null || val === "") {
+                val = app.extensionManager.setting.get(settingKey);
+            }
         }
         if ((val === undefined || val === null || val === "") && app.ui?.settings?.getSettingValue) {
-            val = app.ui.settings.getSettingValue(settingKey);
+            val = app.ui.settings.getSettingValue(saturnKey);
+            if (val === undefined || val === null || val === "") {
+                val = app.ui.settings.getSettingValue(settingKey);
+            }
         }
         if (val === undefined || val === null || val === "") {
             return defaultVal;
@@ -51,9 +58,6 @@ function isCopyEnabled(settingKey, defaultVal = true) {
     }
 }
 
-const BOOKMARK_SVG = `<svg class="size-4 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>`;
-const BOOKMARK_SUCCESS_SVG = `<svg class="size-4 text-emerald-600 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
-const BOOKMARK_FAIL_SVG = `<svg class="size-4 text-rose-600 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const INSPECT_SVG = `<svg class="size-4 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>`;
 
 function updateButtonGroupBorders(container) {
@@ -248,8 +252,11 @@ async function getImagePromptAndMeta(imgSrc) {
 
     if (!promptText && filename) {
         try {
-            const promptUrl = `/leafflow/get_image_prompt?filename=${encodeURIComponent(filename)}&type=${encodeURIComponent(type)}&subfolder=${encodeURIComponent(subfolder)}`;
-            const response = await api.fetchApi(promptUrl);
+            const query = `filename=${encodeURIComponent(filename)}&type=${encodeURIComponent(type)}&subfolder=${encodeURIComponent(subfolder)}`;
+            let response = await api.fetchApi(`/saturnnodes/get_image_prompt?${query}`);
+            if (!response.ok) {
+                response = await api.fetchApi(`/leafflow/get_image_prompt?${query}`);
+            }
             if (response.ok) {
                 const data = await response.json();
                 if (data && data.prompt) promptText = data.prompt;
@@ -259,30 +266,10 @@ async function getImagePromptAndMeta(imgSrc) {
 
     return {
         promptText: promptText || "",
-        filename: filename || "bookmark",
+        filename: filename || "image",
         subfolder: subfolder || "",
         type: type || "output"
     };
-}
-
-async function saveImageToPromptBookmarks(imgSrc) {
-    const meta = await getImagePromptAndMeta(imgSrc);
-    if (!meta) return false;
-
-    const event = new CustomEvent("prompt-bookmarks-create", {
-        detail: {
-            name: meta.filename.replace(/\.[^/.]+$/, ""),
-            text: meta.promptText,
-            media: [{
-                filename: meta.filename,
-                subfolder: meta.subfolder,
-                type: meta.type,
-                media_type: "image"
-            }]
-        }
-    });
-    window.dispatchEvent(event);
-    return true;
 }
 
 async function copyImagePrompt(imgSrc) {
@@ -308,8 +295,11 @@ async function copyImagePrompt(imgSrc) {
             }
 
             if (filename) {
-                const promptUrl = `/leafflow/get_image_prompt?filename=${encodeURIComponent(filename)}&type=${encodeURIComponent(type)}&subfolder=${encodeURIComponent(subfolder)}`;
-                const response = await api.fetchApi(promptUrl);
+                const query = `filename=${encodeURIComponent(filename)}&type=${encodeURIComponent(type)}&subfolder=${encodeURIComponent(subfolder)}`;
+                let response = await api.fetchApi(`/saturnnodes/get_image_prompt?${query}`);
+                if (!response.ok) {
+                    response = await api.fetchApi(`/leafflow/get_image_prompt?${query}`);
+                }
                 if (response.ok) {
                     const data = await response.json();
                     if (data && data.prompt) {
@@ -318,7 +308,7 @@ async function copyImagePrompt(imgSrc) {
                 }
             }
         } catch (e) {
-            console.warn("[LeafFlow] Direct prompt fetch failed:", e);
+            console.warn("[SaturnNodes] Direct prompt fetch failed:", e);
         }
     }
 
@@ -339,7 +329,7 @@ async function copyImagePrompt(imgSrc) {
 
 // 1. Hook into Node Context Menu (Right Click)
 app.registerExtension({
-    name: "ComfyUI.LeafFlow.CopyPrompt",
+    name: "ComfyUI.SaturnNodes.CopyPrompt",
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
         const origGetExtraMenuOptions = nodeType.prototype.getExtraMenuOptions;
@@ -371,18 +361,6 @@ app.registerExtension({
                         }
                     },
                 });
-
-                if (isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.03_EnableSaveToPromptSaver")) {
-                    options.push({
-                        content: "🔖 Bookmark in Prompt Saver",
-                        callback: async () => {
-                            const img = imgs[this.imageIndex || 0];
-                            const src = typeof img === "string" ? img : (img?.src || img?.value);
-                            if (!src) return;
-                            await saveImageToPromptBookmarks(src);
-                        },
-                    });
-                }
             }
         };
     }
@@ -437,7 +415,7 @@ function getActiveImageSrc() {
     return null;
 }
 
-// 3. Inject Copy Prompt, Bookmark & Inspect Directly Next to Download Button on Asset Cards
+// 3. Inject Copy Prompt & Inspect Directly Next to Download Button on Asset Cards
 function injectCopyPromptNextToDownload(downloadBtn) {
     if (!downloadBtn || !downloadBtn.parentElement) return;
 
@@ -455,10 +433,9 @@ function injectCopyPromptNextToDownload(downloadBtn) {
 
     const parent = downloadBtn.parentElement;
     const enableCopy = isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.01_EnableAssetsCopyPromptButton");
-    const enableBookmark = isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.03_EnableSaveToPromptSaver");
     const enableInspect = isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.04_EnableInspectAssetButton", false);
 
-    if (!enableCopy && !enableBookmark && !enableInspect) return;
+    if (!enableCopy && !enableInspect) return;
 
     let baseClasses = downloadBtn.className
         .replace(/\brounded-[a-z0-9-]+\b/g, "")
@@ -522,35 +499,7 @@ function injectCopyPromptNextToDownload(downloadBtn) {
         copyBtn.remove();
     }
 
-    // 2. Bookmark Button
-    let bookmarkBtn = parent.querySelector(".leafflow-hover-bookmark");
-    if (enableBookmark) {
-        if (!bookmarkBtn) {
-            bookmarkBtn = document.createElement("button");
-            bookmarkBtn.type = "button";
-            bookmarkBtn.title = "Save to Prompt Bookmarks";
-            bookmarkBtn.setAttribute("aria-label", "Save to Prompt Bookmarks");
-            bookmarkBtn.className = `leafflow-hover-btn leafflow-hover-bookmark ${baseClasses} shrink-0`;
-            bookmarkBtn.innerHTML = BOOKMARK_SVG;
-
-            bookmarkBtn.onclick = async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const activeImg = card.querySelector("img") || img;
-                const success = await saveImageToPromptBookmarks(activeImg.src);
-                bookmarkBtn.innerHTML = success ? BOOKMARK_SUCCESS_SVG : BOOKMARK_FAIL_SVG;
-                setTimeout(() => {
-                    bookmarkBtn.innerHTML = BOOKMARK_SVG;
-                }, 2000);
-            };
-            parent.insertBefore(bookmarkBtn, lastBtn.nextSibling);
-        }
-        lastBtn = bookmarkBtn;
-    } else if (bookmarkBtn) {
-        bookmarkBtn.remove();
-    }
-
-    // 3. Inspect Asset (Zoom) Button
+    // 2. Inspect Asset (Zoom) Button
     let inspectBtn = parent.querySelector(".leafflow-hover-inspect");
     if (enableInspect) {
         if (!inspectBtn) {
@@ -649,44 +598,6 @@ function injectContextMenuCopy(contextMenu) {
     });
 
     downloadLi.parentElement.insertBefore(copyLi, downloadLi.nextSibling);
-
-    if (isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.03_EnableSaveToPromptSaver") && !contextMenu.querySelector(".leafflow-contextmenu-bookmark")) {
-        const bookmarkLi = document.createElement("li");
-        bookmarkLi.className = "p-contextmenu-item leafflow-contextmenu-bookmark";
-        bookmarkLi.setAttribute("role", "menuitem");
-        bookmarkLi.setAttribute("aria-label", "Save to prompt bookmarks");
-        bookmarkLi.setAttribute("data-pc-section", "item");
-        bookmarkLi.setAttribute("data-p-active", "false");
-        bookmarkLi.setAttribute("data-p-focused", "false");
-
-        const bIconHtml = BOOKMARK_SVG;
-
-        bookmarkLi.innerHTML = `
-<div class="p-contextmenu-item-content" data-pc-section="itemcontent">
-  <button class="${btnClass}" tabindex="-1" data-pc-section="itemlink">
-    ${bIconHtml}
-    <span>Save to prompt bookmarks</span>
-  </button>
-</div>
-`;
-
-        bookmarkLi.addEventListener("click", async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const span = bookmarkLi.querySelector("span");
-            const src = getActiveImageSrc();
-            if (src) {
-                const success = await saveImageToPromptBookmarks(src);
-                if (span) span.textContent = success ? "Bookmarked! ✅" : "Failed ❌";
-            }
-            setTimeout(() => {
-                contextMenu.style.display = "none";
-                document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-            }, 500);
-        });
-
-        downloadLi.parentElement.insertBefore(bookmarkLi, copyLi.nextSibling);
-    }
 }
 
 // 5. Fallback Hook for Older Frontend Action Bars

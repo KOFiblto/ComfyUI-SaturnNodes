@@ -14,12 +14,13 @@ from .utils import (
     get_leafflow_user_dir,
     is_local_request,
     is_safe_path,
-    sanitize_image_loader_folder
+    sanitize_image_loader_folder,
+    get_saturnnodes_user_dir
 )
 
-IMAGE_CATEGORY = "🍃 LeafFlow/Loaders"
+IMAGE_CATEGORY = "🪐 SaturnNodes/Loaders"
 CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-USER_DIR = get_leafflow_user_dir()
+USER_DIR = get_saturnnodes_user_dir()
 CACHE_FILE = os.path.join(USER_DIR, "image_prompts_cache.json")
 
 def decode_bytes_safely(raw_bytes):

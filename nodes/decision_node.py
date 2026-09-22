@@ -55,7 +55,7 @@ class LeafFlowDecision:
     RETURN_TYPES = ("BOOLEAN",)
     RETURN_NAMES = ("cancel",)
     FUNCTION = "decide"
-    CATEGORY = "🍃 LeafFlow/Utils"
+    CATEGORY = "🪐 SaturnNodes/Utils"
     DESCRIPTION = "Pauses execution and waits for your input via the UI buttons.\n\n- 'Continue' outputs False (0).\n- 'Cancel' outputs True (1) so you can route it into a Switch node to bypass later nodes.\n- 'Stop Workflow' instantly aborts the entire ComfyUI generation queue.\n- 'OS Notification': Sends a native desktop toast (Windows/macOS/Linux) when waiting."
 
     def send_notification(self, title, message):
@@ -107,10 +107,11 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             return (False,)
 
         # Notify frontend
+        PromptServer.instance.send_sync("saturnnodes_decision_waiting", {"node_id": unique_id})
         PromptServer.instance.send_sync("leafflow_decision_waiting", {"node_id": unique_id})
 
         if send_os_notification:
-            self.send_notification("ComfyUI LeafFlow", "Workflow paused! Waiting for your decision.")
+            self.send_notification("ComfyUI SaturnNodes", "Workflow paused! Waiting for your decision.")
 
         # Wait for user input
         event = threading.Event()
@@ -124,9 +125,10 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                     comfy.model_management.throw_exception_if_processing_interrupted()
                     event.wait(0.5)
                 if not event.is_set():
-                    print(f"[LeafFlow] Node {unique_id} timed out. Auto-continuing...")
+                    print(f"[SaturnNodes] Node {unique_id} timed out. Auto-continuing...")
                     DecisionManager.unregister_wait(unique_id)
                     # Notify frontend to update UI back to normal
+                    PromptServer.instance.send_sync("saturnnodes_decision_resolved", {"node_id": unique_id})
                     PromptServer.instance.send_sync("leafflow_decision_resolved", {"node_id": unique_id})
                     return (False,)
             else:
@@ -135,6 +137,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                     event.wait(0.5)
         except Exception:
             DecisionManager.unregister_wait(unique_id)
+            PromptServer.instance.send_sync("saturnnodes_decision_resolved", {"node_id": unique_id})
             PromptServer.instance.send_sync("leafflow_decision_resolved", {"node_id": unique_id})
             raise
 
@@ -142,13 +145,14 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         action = DecisionManager.get_action(unique_id)
         
         # Notify frontend that the decision has been resolved
+        PromptServer.instance.send_sync("saturnnodes_decision_resolved", {"node_id": unique_id})
         PromptServer.instance.send_sync("leafflow_decision_resolved", {"node_id": unique_id})
 
         if action == "cancel":
-            print(f"[LeafFlow] Node {unique_id} cancelled.")
+            print(f"[SaturnNodes] Node {unique_id} cancelled.")
             return (True,)
         elif action == "stop":
-            print(f"[LeafFlow] Node {unique_id} stopped workflow.")
+            print(f"[SaturnNodes] Node {unique_id} stopped workflow.")
             try:
                 # Attempt to cancel current execution queue
                 PromptServer.instance.prompt_queue.cancel_current_execution()
@@ -160,15 +164,16 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                 pass
             # Raise exception to halt this thread instantly
             try:
-                raise comfy.model_management.InterruptProcessingException("Workflow stopped by LeafFlow Decision Node.")
+                raise comfy.model_management.InterruptProcessingException("Workflow stopped by SaturnNodes Decision Node.")
             except AttributeError:
-                raise Exception("Workflow stopped by LeafFlow Decision Node.")
+                raise Exception("Workflow stopped by SaturnNodes Decision Node.")
 
-        print(f"[LeafFlow] Node {unique_id} continuing.")
+        print(f"[SaturnNodes] Node {unique_id} continuing.")
         return (False,)
 
 
 # Register API Route
+@PromptServer.instance.routes.post("/saturnnodes/decision")
 @PromptServer.instance.routes.post("/leafflow/decision")
 async def handle_decision(request):
     if not is_authenticated_local_request(request):
@@ -184,3 +189,5 @@ async def handle_decision(request):
             return web.json_response({"status": "error", "message": "Node is not waiting."}, status=400)
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+SaturnDecision = LeafFlowDecision

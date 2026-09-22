@@ -18,12 +18,13 @@ from .utils import (
     parse_pretty_name_with_version,
     format_lora_output_name,
     sanitize_folder_path,
+    get_saturnnodes_user_dir,
     get_leafflow_user_dir,
     is_local_request,
     is_safe_path
 )
 
-LORA_CATEGORY = "🍃 LeafFlow/Loaders"
+LORA_CATEGORY = "🪐 SaturnNodes/Loaders"
 LORA_OUTPUT_FORMAT_CHOICES = [
     "Parsed Name",
     "Filename",
@@ -34,7 +35,7 @@ LORA_OUTPUT_FORMAT_CHOICES = [
 ]
 
 CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-USER_DIR = get_leafflow_user_dir()
+USER_DIR = get_saturnnodes_user_dir()
 ENV_FILE = os.path.join(USER_DIR, ".env")
 LORA_STATE_FILE = os.path.join(USER_DIR, "lora_loader_state.json")
 

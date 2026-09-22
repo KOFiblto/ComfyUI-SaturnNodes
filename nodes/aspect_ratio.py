@@ -59,7 +59,7 @@ class TextAspectRatioFinder:
     RETURN_TYPES = ("INT", "INT", "STRING")
     RETURN_NAMES = ("width", "height", "aspect_ratio")
     FUNCTION = "find_aspect_ratio"
-    CATEGORY = "🍃 LeafFlow/Utils"
+    CATEGORY = "🪐 SaturnNodes/Utils"
     DESCRIPTION = "Searches text for aspect ratios (e.g. 16:9), syntax checks them, and calculates width & height for target megapixels."
 
     def find_aspect_ratio(
@@ -196,7 +196,7 @@ class PreviewImageSizeAspectRatio:
     RETURN_TYPES = ()
     RETURN_NAMES = ()
     FUNCTION = "process_preview"
-    CATEGORY = "🍃 LeafFlow/Utils"
+    CATEGORY = "🪐 SaturnNodes/Utils"
     OUTPUT_NODE = True
     DESCRIPTION = "Visual preview node that displays image aspect ratio and dimension summary."
 

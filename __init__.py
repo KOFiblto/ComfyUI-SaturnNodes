@@ -4,7 +4,7 @@ import subprocess
 from aiohttp import web
 from server import PromptServer
 
-__version__ = "2.3.1"
+__version__ = "2.3.2"
 
 from .nodes.queue_control import setup_queue_control_routes, tray_manager
 from .nodes.lora_loader import (
@@ -17,15 +17,16 @@ from .nodes.image_loader import VisualImageLoader, ImageLoaderVisualPrettyV2
 from .nodes.auto_watcher import LoadImageFromFolder
 from .nodes.load_recent import LoadRecentOutputs
 from .nodes.preview_latent import PreviewLatentLiveNode
-from .nodes.decision_node import LeafFlowDecision
+from .nodes.decision_node import LeafFlowDecision, SaturnDecision
 from .nodes.aspect_ratio import TextAspectRatioFinder, AspectRatioFinder, PreviewImageSizeAspectRatio
 from .nodes.lora_finder import TextLoraFinder, LoraTextFinder
 from .nodes.prompt_iterator import PromptQueueIterator
 from .nodes.prompt_counter import PromptCounter
 from .nodes.text_replacer import MultiTextReplacer
-from .nodes.text_split import LeafFlowTextSplit
+from .nodes.text_split import LeafFlowTextSplit, SaturnTextSplit
 from .nodes.local_runner import RunLocalFileNode, setup_local_runner_routes
 from .nodes.utils import (
+    get_saturnnodes_user_dir,
     get_leafflow_user_dir,
     get_env_setting,
     is_local_request,
@@ -42,34 +43,38 @@ NODE_CLASS_MAPPINGS = {
     "LoadImageFromFolder": LoadImageFromFolder,
     "LoadRecentOutputs": LoadRecentOutputs,
     "PreviewLatentLive": PreviewLatentLiveNode,
-    "LeafFlowDecision": LeafFlowDecision,
+    "SaturnDecision": SaturnDecision,
+    "LeafFlowDecision": LeafFlowDecision,  # Backward compatibility alias
     "TextAspectRatioFinder": TextAspectRatioFinder,
     "PreviewImageSizeAspectRatio": PreviewImageSizeAspectRatio,
     "TextLoraFinder": TextLoraFinder,
     "PromptQueueIterator": PromptQueueIterator,
     "PromptCounter": PromptCounter,
     "MultiTextReplacer": MultiTextReplacer,
-    "LeafFlowTextSplit": LeafFlowTextSplit,
+    "SaturnTextSplit": SaturnTextSplit,
+    "LeafFlowTextSplit": LeafFlowTextSplit,  # Backward compatibility alias
     "RunLocalFileNode": RunLocalFileNode,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "FolderLoraLoader": "🍃 📁 LoRA Loader (Folder)",
-    "FolderLoraLoaderPretty": "🍃 ✨ LoRA Loader (Pretty)",
-    "VisualLoraLoader": "🍃 🖼️ Visual LoRA Loader",
-    "VisualImageLoader": "🍃 📷 Visual Image Loader",
-    "LoadImageFromFolder": "🍃 📂 Load Image From Folder",
-    "LoadRecentOutputs": "🍃 ⏱️ Recent Outputs",
-    "PreviewLatentLive": "🍃 👁️ Live Latent Preview",
-    "LeafFlowDecision": "🍃 ⏸️ LeafFlow Decision",
-    "TextAspectRatioFinder": "🍃 📐 Text Aspect Ratio Finder",
-    "PreviewImageSizeAspectRatio": "🍃 📐 Preview Image Size & Aspect Ratio",
-    "TextLoraFinder": "🍃 🔎 Text LoRA Finder & Loader",
-    "PromptQueueIterator": "🍃 🔄 Prompt Queue Iterator",
-    "PromptCounter": "🍃 📝 Prompt Counter",
-    "MultiTextReplacer": "🍃 🔤 Multi Text Replacer",
-    "LeafFlowTextSplit": "🍃 ✂️ Text Split",
-    "RunLocalFileNode": "🍃 ⚡ Run Local File"
+    "FolderLoraLoader": "🪐 📁 LoRA Loader (Folder)",
+    "FolderLoraLoaderPretty": "🪐 ✨ LoRA Loader (Pretty)",
+    "VisualLoraLoader": "🪐 🖼️ Visual LoRA Loader",
+    "VisualImageLoader": "🪐 📷 Visual Image Loader",
+    "LoadImageFromFolder": "🪐 📂 Load Image From Folder",
+    "LoadRecentOutputs": "🪐 ⏱️ Recent Outputs",
+    "PreviewLatentLive": "🪐 👁️ Live Latent Preview",
+    "SaturnDecision": "🪐 ⏸️ Saturn Decision",
+    "LeafFlowDecision": "🪐 ⏸️ Saturn Decision (Legacy)",
+    "TextAspectRatioFinder": "🪐 📐 Text Aspect Ratio Finder",
+    "PreviewImageSizeAspectRatio": "🪐 📐 Preview Image Size & Aspect Ratio",
+    "TextLoraFinder": "🪐 🔎 Text LoRA Finder & Loader",
+    "PromptQueueIterator": "🪐 🔄 Prompt Queue Iterator",
+    "PromptCounter": "🪐 📝 Prompt Counter",
+    "MultiTextReplacer": "🪐 🔤 Multi Text Replacer",
+    "SaturnTextSplit": "🪐 ✂️ Text Split",
+    "LeafFlowTextSplit": "🪐 ✂️ Text Split (Legacy)",
+    "RunLocalFileNode": "🪐 ⚡ Run Local File"
 }
 
 WEB_DIRECTORY = "./web"
@@ -79,29 +84,32 @@ server = PromptServer.instance
 setup_queue_control_routes(server)
 setup_local_runner_routes(server)
 
-try:
-    from .prompt_bookmarks.api import register_routes as register_prompt_bookmarks_routes
-    register_prompt_bookmarks_routes()
-except Exception as e:
-    pass
-
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-USER_DIR = get_leafflow_user_dir()
+USER_DIR = get_saturnnodes_user_dir()
 ENV_FILE = os.path.join(USER_DIR, ".env")
 
 routes = server.routes
 
 try:
-    print(f"[ComfyUI-LeafFlow] 🍃 Loaded {len(NODE_CLASS_MAPPINGS)} nodes & visual endpoints successfully (v{__version__}).")
-except UnicodeEncodeError:
-    print(f"[ComfyUI-LeafFlow] Loaded {len(NODE_CLASS_MAPPINGS)} nodes & visual endpoints successfully (v{__version__}).")
+    can_encode_saturn = True
+    try:
+        "🪐".encode(sys.stdout.encoding or "ascii")
+    except Exception:
+        can_encode_saturn = False
+    saturn_symbol = "🪐 " if can_encode_saturn else ""
+    print(f"[ComfyUI-SaturnNodes] {saturn_symbol}Loaded {len(NODE_CLASS_MAPPINGS)} nodes & visual endpoints successfully (v{__version__}).")
+except Exception:
+    print(f"[ComfyUI-SaturnNodes] Loaded {len(NODE_CLASS_MAPPINGS)} nodes & visual endpoints successfully (v{__version__}).")
 
+@routes.get("/saturnnodes/auth/token")
 @routes.get("/leafflow/auth/token")
 async def get_csrf_token_endpoint(request):
     if not is_local_request(request):
         return web.json_response({"error": "Forbidden: Local access only"}, status=403)
     return web.json_response({"csrf_token": get_csrf_token()})
 
+@routes.get("/saturnnodes/get_image_prompt")
+@routes.get("/saturnnodes/view_image_prompt")
 @routes.get("/leafflow/get_image_prompt")
 @routes.get("/leafflow/view_image_prompt")
 async def get_image_prompt_endpoint(request):
@@ -145,6 +153,7 @@ async def get_image_prompt_endpoint(request):
     except Exception as e:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
+@routes.get("/saturnnodes/settings")
 @routes.get("/leafflow/settings")
 @routes.get("/flow_control/settings")
 async def get_settings(request):
@@ -196,6 +205,7 @@ def _clean_env_val(v):
         return None
     return str(v).replace("\n", "").replace("\r", "").strip()
 
+@routes.post("/saturnnodes/settings")
 @routes.post("/leafflow/settings")
 @routes.post("/flow_control/settings")
 async def save_settings(request):
@@ -352,10 +362,11 @@ async def save_settings(request):
             os.environ["CLEAR_PROMPT_ITERATOR_ON_LAUNCH"] = str(clear_prompt_iterator_on_launch)
 
     except Exception as e:
-        print(f"[LeafFlow] 🍃 Error saving settings to .env: {e}")
+        print(f"[SaturnNodes] 🪐 Error saving settings to .env: {e}")
 
     return web.json_response({"status": "ok"})
 
+@routes.post("/saturnnodes/scrapes/clear")
 @routes.post("/leafflow/scrapes/clear")
 async def clear_scrapes_endpoint(request):
     if not is_authenticated_local_request(request):
@@ -366,9 +377,10 @@ async def clear_scrapes_endpoint(request):
             f.write("{}")
         return web.json_response({"status": "ok"})
     except Exception as e:
-        print(f"[LeafFlow] 🍃 Error clearing scrapes cache: {e}")
+        print(f"[SaturnNodes] 🪐 Error clearing scrapes cache: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
+@routes.get("/saturnnodes/debug/export")
 @routes.get("/leafflow/debug/export")
 async def export_debug_profile(request):
     try:
@@ -409,7 +421,7 @@ async def export_debug_profile(request):
 
         debug_profile = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "package": "ComfyUI-LeafFlow",
+            "package": "ComfyUI-SaturnNodes",
             "version": __version__,
             "system": {
                 "os": platform.system(),

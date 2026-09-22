@@ -51,7 +51,7 @@ class LoadImageFromFolder:
     RETURN_TYPES = ("IMAGE", "BOOLEAN")
     RETURN_NAMES = ("image", "has_image")
     FUNCTION = "watch"
-    CATEGORY = "🍃 LeafFlow/Automation"
+    CATEGORY = "🪐 SaturnNodes/Automation"
     DESCRIPTION = "Loads an image from a folder, optionally waiting if the folder is empty, with automatic sequential cycling when delete is False."
 
     @classmethod

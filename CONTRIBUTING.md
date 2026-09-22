@@ -1,6 +1,6 @@
-# 🤝 Contributing to ComfyUI-LeafFlow
+# 🤝 Contributing to ComfyUI-SaturnNodes
 
-Thank you for your interest in contributing to **`ComfyUI-LeafFlow`**! We welcome bug reports, feature suggestions, documentation updates, and pull requests from the community.
+Thank you for your interest in contributing to **`ComfyUI-SaturnNodes`**! We welcome bug reports, feature suggestions, documentation updates, and pull requests from the community.
 
 Please take a moment to review these guidelines before submitting an issue or pull request.
 
@@ -9,7 +9,7 @@ Please take a moment to review these guidelines before submitting an issue or pu
 ## 🐛 Reporting Issues & Bugs
 
 Before opening a new issue:
-1. **Check Existing Issues**: Search the [Issue Tracker](https://github.com/KOFiblto/ComfyUI-LeafFlow/issues) to see if your bug or feature request has already been reported.
+1. **Check Existing Issues**: Search the [Issue Tracker](https://github.com/KOFiblto/ComfyUI-SaturnNodes/issues) to see if your bug or feature request has already been reported.
 2. **Include Reproduction Steps**: Provide a clear step-by-step description of how to reproduce the bug.
 3. **Include Logs & Environment Details**:
    - **ComfyUI Version** (V2 Vue UI or Classic V1 LiteGraph)
@@ -33,8 +33,8 @@ All development follows a **Feature Branch $\rightarrow$ Pull Request** workflow
 ### Step 1: Fork and Clone
 Fork the repository on GitHub, then clone your fork locally:
 ```bash
-git clone https://github.com/YOUR_USERNAME/ComfyUI-LeafFlow.git
-cd ComfyUI-LeafFlow
+git clone https://github.com/YOUR_USERNAME/ComfyUI-SaturnNodes.git
+cd ComfyUI-SaturnNodes
 ```
 
 ### Step 2: Create a Feature Branch

@@ -320,7 +320,7 @@ class PauseQueueUI {
 }
 
 app.registerExtension({
-    name: "ComfyUI.LeafFlow.PauseQueue",
+    name: "ComfyUI.SaturnNodes.PauseQueue",
     async setup() {
         new PauseQueueUI();
     }

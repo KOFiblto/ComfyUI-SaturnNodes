@@ -1,4 +1,4 @@
-﻿from .prompt_iterator import parse_prompt_blocks
+from .prompt_iterator import parse_prompt_blocks
 
 class PromptCounter:
     """
@@ -27,7 +27,7 @@ class PromptCounter:
     RETURN_TYPES = ("STRING", "INT")
     RETURN_NAMES = ("STRING", "count")
     FUNCTION = "count_prompts"
-    CATEGORY = "🍃 LeafFlow/Utils"
+    CATEGORY = "🪐 SaturnNodes/Utils"
     DESCRIPTION = "Multiline prompt text input with live prompt count display according to selectable separator or custom regex."
 
     def count_prompts(self, text="", separator=">1 Empty Line", custom_regex="", **kwargs):

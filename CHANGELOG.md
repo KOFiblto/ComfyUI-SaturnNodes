@@ -1,9 +1,25 @@
 # Changelog
 
-All notable changes to `ComfyUI-LeafFlow` will be documented in this file.
+All notable changes to `ComfyUI-SaturnNodes` will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.3.2] - 2026-09-22
+
+### Changed & Rebranded
+- **Full Suite Rebrand to SaturnNodes (`🪐`)**:
+  - Rebranded the entire suite from `ComfyUI-LeafFlow` to **`ComfyUI-SaturnNodes`** with signature emoji `🪐`.
+  - Node display names updated with the `🪐` prefix across all 16 custom nodes.
+  - Node category updated to `🪐 SaturnNodes/*` (`Loaders`, `Utils`, `Previews`, `Queue`, `Automation`).
+  - Full backward compatibility: all legacy class names (`LeafFlowDecision`, `LeafFlowTextSplit`) preserved and aliased alongside new class names in `NODE_CLASS_MAPPINGS`.
+  - Dual HTTP route registration: both `/saturnnodes/*` and `/leafflow/*` routes are active, guaranteeing compatibility with existing scripts, extensions, and bookmarks.
+  - Dual WebSocket event emission: both `saturnnodes_*` and `leafflow_*` events are broadcast to the frontend.
+  - Seamless settings migration: frontend settings and local storage automatically migrate from `LeafFlow.*` to `SaturnNodes.*` with instant fallback.
+  - Automatic user directory migration: `.env` and `prompt_iterator_state.json` migrate smoothly from `user/default/LeafFlow/` to `user/default/SaturnNodes/`.
+  - Removed third-party PromptBookmarks coupling: cleaned UI bookmarks button from copy prompt node for modularity.
+
+---
 
 ## [2.3.1] - 2026-09-22
 
