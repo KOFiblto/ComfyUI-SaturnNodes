@@ -42,10 +42,12 @@ def is_script_path_permitted(target_path):
     if not target_path:
         return False, "Target path is empty."
 
-    scripts_dir = get_allowed_scripts_directory()
+    scripts_dir = os.path.abspath(os.path.realpath(get_allowed_scripts_directory()))
     try:
         abs_target = os.path.abspath(os.path.realpath(target_path))
-        if os.path.commonpath([scripts_dir, abs_target]) == scripts_dir:
+        norm_scripts = os.path.normcase(scripts_dir)
+        norm_target = os.path.normcase(abs_target)
+        if os.path.commonpath([norm_scripts, norm_target]) == norm_scripts:
             if not os.path.exists(abs_target):
                 return False, f"Script does not exist: '{os.path.basename(target_path)}'"
             if not os.path.isfile(abs_target):
@@ -84,12 +86,14 @@ def resolve_target_path(file_path_input):
     if not clean_sub:
         return None, "Invalid script path."
 
-    scripts_base = get_allowed_scripts_directory()
+    scripts_base = os.path.abspath(os.path.realpath(get_allowed_scripts_directory()))
     full_target = os.path.abspath(os.path.realpath(os.path.join(scripts_base, clean_sub)))
 
     # 4. Canonical commonpath confinement
     try:
-        if os.path.commonpath([scripts_base, full_target]) != scripts_base:
+        norm_base = os.path.normcase(scripts_base)
+        norm_target = os.path.normcase(full_target)
+        if os.path.commonpath([norm_base, norm_target]) != norm_base:
             return None, f"Security Restriction: Script path escapes ComfyUI/scripts/ ('{clean}')."
     except Exception as e:
         return None, f"Security Restriction: Path validation error: {e}"
