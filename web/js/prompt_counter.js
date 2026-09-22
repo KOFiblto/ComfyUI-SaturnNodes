@@ -52,7 +52,7 @@ app.registerExtension({
 
             // Custom drawing for counter widget
             countWidget.computeSize = function(width) {
-                return [width, 28];
+                return [width, 22];
             };
 
             countWidget.draw = function(ctx, n, widget_width, y, widget_height) {
@@ -61,15 +61,16 @@ app.registerExtension({
                 const label = `${count} Prompt${count === 1 ? "" : "s"}`;
 
                 const margin = 8;
-                const badgeX = margin;
-                const badgeY = y + 2;
+                const targetH = 22;
+                const badgeH = Math.min(widget_height ? widget_height - 4 : targetH, targetH);
+                const badgeY = y + (widget_height ? (widget_height - badgeH) / 2 : 2);
                 const badgeW = widget_width - margin * 2;
-                const badgeH = Math.max(24, widget_height - 4);
+                const badgeX = margin;
                 const radius = 6;
 
-                // Subtle dark background pill
-                ctx.fillStyle = count > 0 ? "rgba(34, 197, 94, 0.15)" : "rgba(255, 255, 255, 0.05)";
-                ctx.strokeStyle = count > 0 ? "rgba(34, 197, 94, 0.5)" : "rgba(255, 255, 255, 0.15)";
+                // Saturn Gold / Amber subtle background pill
+                ctx.fillStyle = count > 0 ? "rgba(217, 119, 6, 0.16)" : "rgba(255, 255, 255, 0.04)";
+                ctx.strokeStyle = count > 0 ? "rgba(245, 158, 11, 0.55)" : "rgba(255, 255, 255, 0.12)";
                 ctx.lineWidth = 1;
 
                 ctx.beginPath();
@@ -82,10 +83,10 @@ app.registerExtension({
                 ctx.stroke();
 
                 // Text
-                ctx.font = "bold 13px Inter, system-ui, sans-serif";
+                ctx.font = "bold 12px Inter, system-ui, sans-serif";
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
-                ctx.fillStyle = count > 0 ? "#4ade80" : "#94a3b8";
+                ctx.fillStyle = count > 0 ? "#fbbf24" : "#94a3b8";
                 ctx.fillText(label, badgeX + badgeW / 2, badgeY + badgeH / 2);
 
                 ctx.restore();
@@ -198,8 +199,8 @@ app.registerExtension({
                     const bx = node.size[0] - tw - 16;
                     const by = -LiteGraph.NODE_TITLE_HEIGHT + 3;
 
-                    ctx.fillStyle = count > 0 ? "rgba(34, 197, 94, 0.2)" : "rgba(255, 255, 255, 0.08)";
-                    ctx.strokeStyle = count > 0 ? "rgba(34, 197, 94, 0.6)" : "rgba(255, 255, 255, 0.2)";
+                    ctx.fillStyle = count > 0 ? "rgba(217, 119, 6, 0.2)" : "rgba(255, 255, 255, 0.08)";
+                    ctx.strokeStyle = count > 0 ? "rgba(245, 158, 11, 0.6)" : "rgba(255, 255, 255, 0.2)";
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     if (ctx.roundRect) {
@@ -210,7 +211,7 @@ app.registerExtension({
                     ctx.fill();
                     ctx.stroke();
 
-                    ctx.fillStyle = count > 0 ? "#4ade80" : "#cbd5e1";
+                    ctx.fillStyle = count > 0 ? "#fbbf24" : "#cbd5e1";
                     ctx.textAlign = "left";
                     ctx.textBaseline = "middle";
                     ctx.fillText(badgeText, bx + 5, by + 9);

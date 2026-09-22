@@ -1,6 +1,7 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { authenticatedFetch } from "./js/auth_helper.js";
+import { updateAllSaturnNodeColors } from "./saturnnodes_colors.js";
 
 async function postSaturnNodesSettings(bodyObj) {
     try {
@@ -301,6 +302,14 @@ app.registerExtension({
             type: "boolean",
             defaultValue: getInitialSetting("SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors", true),
             tooltip: "Applies a Saturn Gold/Amber color theme to SaturnNodes on the canvas. When disabled, nodes use default ComfyUI colors.",
+            onChange(value) {
+                if (typeof localStorage !== "undefined") {
+                    try {
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors", JSON.stringify(Boolean(value)));
+                    } catch (_) {}
+                }
+                updateAllSaturnNodeColors();
+            }
         });
 
         // 1.1 Civitai API Key
@@ -707,19 +716,19 @@ app.registerExtension({
 
         // 8.1 Enable Batch Queue Grouping Lines
         app.ui.settings.addSetting({
-            id: "SaturnNodes.BatchQueue.Enabled",
+            id: "SaturnNodes.8 - 🎨 Batch Queue.01_ShowBatchLines",
             name: "Show Batch Queue 1D Lines",
             type: "boolean",
-            defaultValue: getInitialSetting("SaturnNodes.BatchQueue.Enabled", true),
+            defaultValue: getInitialSetting("SaturnNodes.8 - 🎨 Batch Queue.01_ShowBatchLines", getInitialSetting("SaturnNodes.BatchQueue.Enabled", true)),
             tooltip: "Renders 1D git-graph style colored lines indicating batch groupings and contiguous segments on queued items."
         });
 
         // 8.2 Batch Graph Snapshot Guard
         app.ui.settings.addSetting({
-            id: "SaturnNodes.BatchQueue.SnapshotGuard",
+            id: "SaturnNodes.8 - 🎨 Batch Queue.02_SnapshotGuard",
             name: "Batch Graph Snapshot Guard",
             type: "boolean",
-            defaultValue: getInitialSetting("SaturnNodes.BatchQueue.SnapshotGuard", true),
+            defaultValue: getInitialSetting("SaturnNodes.8 - 🎨 Batch Queue.02_SnapshotGuard", getInitialSetting("SaturnNodes.BatchQueue.SnapshotGuard", true)),
             tooltip: "When queueing multi-item batches, snapshots prompt and node inputs (like text and LoRAs) in the background so mid-queue canvas edits do not corrupt queued items. Random seeds continue to randomize."
         });
 
@@ -736,6 +745,32 @@ app.registerExtension({
             tooltip: "Controls whether the '🪐 ⚡ Run Local File' node is permitted to run executable files (.bat, .ps1, .exe, .sh). Disabled by default for operator security. When enabled, scripts are strictly confined to the 'ComfyUI/scripts/' directory. Execution is blocked if this setting is disabled or if the node is not interactively authorized.",
             onChange(value) {
                 postSaturnNodesSettings({ enable_local_file_execution: value ? "true" : "false" });
+            }
+        });
+
+        // =========================================================================
+        // GROUP 10: 10 - 🪐 About & GitHub
+        // =========================================================================
+
+        const renderGitHubBtn = renderSettingButton("🪐 Open GitHub Profile (@KOFiblto)", "⏳ Opening...", "✅ Opened!", () => {
+            window.open("https://github.com/KOFiblto", "_blank", "noopener,noreferrer");
+        });
+
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.10 - 🪐 GitHub.01_GitHubProfile",
+            name: "Author GitHub Profile & Repo",
+            type: renderGitHubBtn,
+            render: renderGitHubBtn,
+            defaultValue: "https://github.com/KOFiblto",
+            tooltip: "Opens the author's GitHub profile (@KOFiblto) and the ComfyUI-SaturnNodes repository to view updates, star the project, or report issues.",
+            attrs: {
+                className: "saturnnodes-settings-btn",
+                class: "saturnnodes-settings-btn",
+                readOnly: true,
+                style: "cursor: pointer; text-align: center;",
+                onClick: () => {
+                    window.open("https://github.com/KOFiblto", "_blank", "noopener,noreferrer");
+                }
             }
         });
     }

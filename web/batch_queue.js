@@ -46,10 +46,12 @@ const STORAGE_KEY = "saturnnodes_batch_queue_meta";
 const LEGACY_STORAGE_KEY = "leafflow_batch_queue_meta";
 const BATCH_COUNTER_KEY = "saturnnodes_batch_counter";
 const LEGACY_BATCH_COUNTER_KEY = "leafflow_batch_counter";
-const SETTING_ID = "SaturnNodes.BatchQueue.Enabled";
-const LEGACY_SETTING_ID = "LeafFlow.BatchQueue.Enabled";
-const SETTING_SNAPSHOT_GUARD = "SaturnNodes.BatchQueue.SnapshotGuard";
-const LEGACY_SETTING_SNAPSHOT_GUARD = "LeafFlow.BatchQueue.SnapshotGuard";
+const SETTING_ID = "SaturnNodes.8 - 🎨 Batch Queue.01_ShowBatchLines";
+const LEGACY_SETTING_ID_1 = "SaturnNodes.BatchQueue.Enabled";
+const LEGACY_SETTING_ID_2 = "LeafFlow.BatchQueue.Enabled";
+const SETTING_SNAPSHOT_GUARD = "SaturnNodes.8 - 🎨 Batch Queue.02_SnapshotGuard";
+const LEGACY_SETTING_SNAPSHOT_GUARD_1 = "SaturnNodes.BatchQueue.SnapshotGuard";
+const LEGACY_SETTING_SNAPSHOT_GUARD_2 = "LeafFlow.BatchQueue.SnapshotGuard";
 
 // In-memory registry mapping prompt_id -> batch metadata
 let batchRegistry = new Map();
@@ -206,9 +208,18 @@ function removeBatchLineFromElement(element) {
 function isBatchQueueEnabled() {
     try {
         if (app.extensionManager?.setting?.get) {
-            const val = app.extensionManager.setting.get(SETTING_ID);
+            let val = app.extensionManager.setting.get(SETTING_ID);
             if (val !== undefined) return val !== false;
-            return app.extensionManager.setting.get(LEGACY_SETTING_ID) !== false;
+            val = app.extensionManager.setting.get(LEGACY_SETTING_ID_1);
+            if (val !== undefined) return val !== false;
+            return app.extensionManager.setting.get(LEGACY_SETTING_ID_2) !== false;
+        }
+        if (app.ui?.settings?.get) {
+            let val = app.ui.settings.get(SETTING_ID);
+            if (val !== undefined) return val !== false;
+            val = app.ui.settings.get(LEGACY_SETTING_ID_1);
+            if (val !== undefined) return val !== false;
+            return app.ui.settings.get(LEGACY_SETTING_ID_2) !== false;
         }
     } catch (e) {}
     return true;
@@ -217,9 +228,18 @@ function isBatchQueueEnabled() {
 function isSnapshotGuardEnabled() {
     try {
         if (app.extensionManager?.setting?.get) {
-            const val = app.extensionManager.setting.get(SETTING_SNAPSHOT_GUARD);
+            let val = app.extensionManager.setting.get(SETTING_SNAPSHOT_GUARD);
             if (val !== undefined) return val !== false;
-            return app.extensionManager.setting.get(LEGACY_SETTING_SNAPSHOT_GUARD) !== false;
+            val = app.extensionManager.setting.get(LEGACY_SETTING_SNAPSHOT_GUARD_1);
+            if (val !== undefined) return val !== false;
+            return app.extensionManager.setting.get(LEGACY_SETTING_SNAPSHOT_GUARD_2) !== false;
+        }
+        if (app.ui?.settings?.get) {
+            let val = app.ui.settings.get(SETTING_SNAPSHOT_GUARD);
+            if (val !== undefined) return val !== false;
+            val = app.ui.settings.get(LEGACY_SETTING_SNAPSHOT_GUARD_1);
+            if (val !== undefined) return val !== false;
+            return app.ui.settings.get(LEGACY_SETTING_SNAPSHOT_GUARD_2) !== false;
         }
     } catch (e) {}
     return true;

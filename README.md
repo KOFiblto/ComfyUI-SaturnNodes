@@ -1,8 +1,17 @@
 # 🪐 ComfyUI-SaturnNodes
 
-A unified custom node suite for **ComfyUI** featuring real-time queue controls, mid-generation pausing, queue crash recovery, visual model pickers, live latent canvas previews, folder automation, prompt utilities, and resolution tools.
+A unified workflow control and productivity suite for **ComfyUI**. Built for **ComfyUI Frontend V2 (Nodes 2.0 / Vue UI)** (fully supported and actively tested) with backwards compatibility for the **Classic ComfyUI Frontend (Nodes 1.0 / LiteGraph)** (supported as-is, but untested—no guarantees).
 
-> **Notice**: Fully compatible with both **ComfyUI Frontend V2 (Nodes 2.0 / Vue UI)** and **Classic ComfyUI Frontend (Nodes 1.0 / LiteGraph)**.
+---
+
+## 🚀 Key Capabilities & Overview
+
+- **Live Latent Preview**: Watch generations materialize step-by-step directly inside your graph canvas nodes in real time.
+- **Batch Prompting & Iteration**: Queue multiple prompts automatically with delimiter splits, regex blocks, and persistent queue state tracking.
+- **Visual Thumbnail Browsing**: Browse LoRAs and image folders with auto-scraped Civitai & TMDB previews, ranking badges, and multi-selection.
+- **Real-Time Queue & Pause Controls**: Pause, resume, or cleanly cancel execution mid-generation, with automatic crash recovery for interrupted queues.
+- **Aspect Ratio & Resolution Utilities**: Find exact matching aspect ratios, crop dimensions, and visual sizing helpers.
+- **Safe Local Script Execution**: Run local scripts and executables strictly confined to `ComfyUI/scripts/` with interactive operator authorization.
 
 ---
 
@@ -315,7 +324,7 @@ Safely executes a local script or executable (`.bat`, `.cmd`, `.ps1`, `.exe` on 
 
 Configure options directly under ComfyUI Settings (⚙ gear icon):
 
-<details open>
+<details>
 <summary><b>1. 🖼️ Visual Loaders (Civitai & TMDB Duo)</b></summary>
 
 - **`Enable Custom SaturnNodes Colors`** (`boolean`, *Default: true*): Applies a Saturn Gold/Amber color theme to SaturnNodes on the canvas. When disabled, nodes use default ComfyUI colors.
@@ -327,14 +336,14 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`Reset Failed Scrapes Cache`** (*Button: `🗑️ Clear Scrapes Cache`*): Clears failed scrape history so Civitai/TMDB can retry downloading missing preview images.
 </details>
 
-<details open>
+<details>
 <summary><b>2. 🔄 Prompt Iterator</b></summary>
 
 - **`Clear State on Launch`** (`boolean`, *Default: false*): Privacy toggle to empty `prompt_iterator_state.json` on ComfyUI startup.
 - **`Reset All Queues`** (*Button: `🔄 Reset All Queues`*): Immediately empties all active prompt queues and resets iterator state.
 </details>
 
-<details open>
+<details>
 <summary><b>3. 📋 Prompt Actions</b></summary>
 
 - **`Show "Copy Prompt" Button on Images`** (`boolean`, *Default: true*): Shows the 📋 "Copy Prompt" overlay action button when hovering over generated images in the Assets / History pane and preview nodes.
@@ -342,7 +351,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`Show "Inspect Asset" (Zoom) Button on Images`** (`boolean`, *Default: false*): Restores the 🔍 "Inspect asset" (zoom in) button directly onto image cards in the Assets pane next to Download and Copy Prompt (restoring one-click access moved behind the 3-dots menu in newer ComfyUI versions).
 </details>
 
-<details open>
+<details>
 <summary><b>4. ⏸️ Pause Controls</b></summary>
 
 - **`Default State on Launch`** (`combo`, *Default: `Paused`*): Sets whether the queue starts `Paused` or `Running` on boot.
@@ -354,27 +363,27 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`Allow Process Management (Restart / Shutdown)`** (`boolean`, *Default: false*): Opt-in authorization allowing server restart and shutdown actions from the SaturnNodes power controls. Disabled by default for maximum security.
 </details>
 
-<details open>
+<details>
 <summary><b>5. 💾 Persistent Queue</b></summary>
 
 - **`Persistent Queue (Auto-Recovery)`** (`boolean`, *Default: true*): Automatically saves unfinished queue items and restores them after restart/crash.
 - **`Recovery Launch State`** (`combo`, *Default: `Match Default`*): Override launch state when restored queue items are recovered on startup (`Match Default`, `Force Paused`, `Force Running`).
 </details>
 
-<details open>
+<details>
 <summary><b>6. 🖼️ Assets & History Restore</b></summary>
 
 - **`Restore Assets on Launch`** (`boolean`, *Default: true*): Automatically restores your latest generated images into the Assets / History pane on startup.
 - **`Restored Assets Count`** (`number`, *Default: 64*): The number of newest images from the output folder to populate into the Assets pane.
 </details>
 
-<details open>
+<details>
 <summary><b>7. 🩺 Diagnostics & Debug</b></summary>
 
 - **`Export Debug Profile`** (*Button: `📥 Export Debug Profile`*): Exports non-sensitive system environment details (OS, Python, PyTorch, SaturnNodes settings, local cache counts) to a JSON file to share when reporting bugs or requesting assistance. Sensitive API keys and tokens are never exported.
 </details>
 
-<details open>
+<details>
 <summary><b>8. 🎨 Batch Queue Visuals</b></summary>
 
 - **`Show Batch Queue 1D Lines`** (`boolean`, *Default: true*): Renders a 1D git-graph style colored line on the left side of queued items in the queue list.
@@ -382,13 +391,20 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
   - **Clean 1D Line:** The first item starts with a top curve (`┌`), middle items are straight lines (`│`), and the last item ends with a bottom curve (`└`). Standalone 1-item batches are rounded at both ends (`(`).
   - **In-between Infiltration Detection:** If a different prompt is queued in-between items of a batch, the interrupted batch maintains its open line ends without false curves, while the inserted item is highlighted with its own bracket.
   - **Works Standalone or with PersistentQueue:** Operates client-side via `localStorage` when standalone, and syncs with `PersistentQueue` to retain batch relationships after server restarts.
+- **`Batch Graph Snapshot Guard`** (`boolean`, *Default: true*): Background prompt and node input snapshotting ensuring canvas edits don't mutate active batches.
 </details>
 
-<details open>
+<details>
 <summary><b>9. 🛡️ Security & Script Execution</b></summary>
 
 - **`Allow Local File Execution`** (`boolean`, *Default: false*): Master toggle controlling whether the *Run Local File* node is permitted to execute local scripts or executables. Disabled by default for operator safety.
 - **Strict Confinement**: Execution is strictly limited to the `ComfyUI/scripts/` directory. Absolute paths and directory traversal (`..`) are permanently blocked.
+</details>
+
+<details>
+<summary><b>10. 🪐 About & GitHub</b></summary>
+
+- **`Author GitHub Profile & Repo`** (*Button: `🪐 Open GitHub Profile (@KOFiblto)`*): Direct shortcut opening [https://github.com/KOFiblto](https://github.com/KOFiblto) and the SaturnNodes repository.
 </details>
 
 ---

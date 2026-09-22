@@ -1091,6 +1091,51 @@ app.registerExtension({
             );
             zoomWidget.serialize = false;
 
+            // Live Selected LoRAs Counter widget (matching Prompt Counter style)
+            const loraCountWidget = node.addWidget("text", "Selected LoRAs", "0 LoRAs Selected", () => {}, { serialize: false });
+            loraCountWidget.disabled = true;
+
+            loraCountWidget.computeSize = function(width) {
+                return [width, 22];
+            };
+
+            loraCountWidget.draw = function(ctx, n, widget_width, y, widget_height) {
+                ctx.save();
+                const count = n._selectedLoraCount ?? 0;
+                const label = `${count} LoRA${count === 1 ? "" : "s"} Selected`;
+
+                const margin = 8;
+                const targetH = 22;
+                const badgeH = Math.min(widget_height ? widget_height - 4 : targetH, targetH);
+                const badgeY = y + (widget_height ? (widget_height - badgeH) / 2 : 2);
+                const badgeW = widget_width - margin * 2;
+                const badgeX = margin;
+                const radius = 6;
+
+                // Saturn Gold / Amber subtle background pill
+                ctx.fillStyle = count > 0 ? "rgba(217, 119, 6, 0.16)" : "rgba(255, 255, 255, 0.04)";
+                ctx.strokeStyle = count > 0 ? "rgba(245, 158, 11, 0.55)" : "rgba(255, 255, 255, 0.12)";
+                ctx.lineWidth = 1;
+
+                ctx.beginPath();
+                if (ctx.roundRect) {
+                    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, radius);
+                } else {
+                    ctx.rect(badgeX, badgeY, badgeW, badgeH);
+                }
+                ctx.fill();
+                ctx.stroke();
+
+                // Text
+                ctx.font = "bold 12px Inter, system-ui, sans-serif";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillStyle = count > 0 ? "#fbbf24" : "#94a3b8";
+                ctx.fillText(label, badgeX + badgeW / 2, badgeY + badgeH / 2);
+
+                ctx.restore();
+            };
+
             let activeRequest = null;
             let debounceTimer = null;
             let foldersMap = {};
@@ -1113,6 +1158,14 @@ app.registerExtension({
                 // Filter out "[ NONE ]"
                 currentSelected = currentSelected.filter(n => n !== "[ NONE ]" && n);
                 return currentSelected;
+            };
+
+            const updateLoraCountDisplay = () => {
+                const count = getSelectedLoras().length;
+                node._selectedLoraCount = count;
+                const label = `${count} LoRA${count === 1 ? "" : "s"} Selected`;
+                loraCountWidget.value = label;
+                app.graph?.setDirtyCanvas(true, true);
             };
 
             const updateFolderCheckboxes = () => {
@@ -1166,6 +1219,7 @@ app.registerExtension({
                 });
 
                 updateFolderCheckboxes();
+                updateLoraCountDisplay();
                 node.triggerSlotEvent?.(0);
             };
 
@@ -1553,7 +1607,41 @@ app.registerExtension({
 
                 syncModeToggleUI();
                 syncScrapeToggleUI();
+                updateLoraCountDisplay();
                 setTimeout(() => updateVisualGrid(), 100);
+            };
+
+            const origOnDrawForeground = node.onDrawForeground;
+            node.onDrawForeground = function(ctx) {
+                if (node.flags?.collapsed) {
+                    const count = node._selectedLoraCount ?? getSelectedLoras().length;
+                    const label = `${count} LoRA${count === 1 ? "" : "s"}`;
+                    ctx.save();
+                    ctx.font = "bold 11px Inter, system-ui, sans-serif";
+                    const badgeText = label;
+                    const tw = ctx.measureText(badgeText).width;
+                    const bx = node.size[0] - tw - 16;
+                    const by = -LiteGraph.NODE_TITLE_HEIGHT + 3;
+
+                    ctx.fillStyle = count > 0 ? "rgba(217, 119, 6, 0.2)" : "rgba(255, 255, 255, 0.08)";
+                    ctx.strokeStyle = count > 0 ? "rgba(245, 158, 11, 0.6)" : "rgba(255, 255, 255, 0.2)";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    if (ctx.roundRect) {
+                        ctx.roundRect(bx, by, tw + 10, 18, 4);
+                    } else {
+                        ctx.rect(bx, by, tw + 10, 18);
+                    }
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.fillStyle = count > 0 ? "#fbbf24" : "#cbd5e1";
+                    ctx.textAlign = "left";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(badgeText, bx + 5, by + 9);
+                    ctx.restore();
+                }
+                if (origOnDrawForeground) origOnDrawForeground.apply(this, arguments);
             };
 
             syncModeToggleUI();
@@ -1570,6 +1658,7 @@ app.registerExtension({
                     applyDisplayMode(displayModeWidget.value || "Scrollable");
                 }
                 updateVisualGrid();
+                updateLoraCountDisplay();
             }, 100);
         }
     }
