@@ -135,6 +135,32 @@ def get_file_sha256(filepath):
             h.update(chunk)
     return h.hexdigest().upper()
 
+def is_safe_external_image_url(url_str):
+    """
+    Validates that a scraped image URL uses a safe web scheme (https/http)
+    and does not target internal loopback, private networks, or metadata services (SSRF protection).
+    """
+    if not url_str or not isinstance(url_str, str):
+        return False
+    try:
+        parsed = urllib.parse.urlparse(url_str.strip())
+        if parsed.scheme not in ("https", "http"):
+            return False
+        hostname = (parsed.hostname or "").lower().strip()
+        if not hostname:
+            return False
+        disallowed_prefixes = (
+            "127.", "10.", "192.168.", "172.16.", "172.17.", "172.18.", "172.19.",
+            "172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.",
+            "172.26.", "172.27.", "172.28.", "172.29.", "172.30.", "172.31.",
+            "169.254.", "0.0.0.0", "::1", "localhost"
+        )
+        if any(hostname == prefix or hostname.startswith(prefix) for prefix in disallowed_prefixes):
+            return False
+        return True
+    except Exception:
+        return False
+
 def get_env_setting(key, default_val):
     if os.path.exists(ENV_FILE):
         try:
@@ -198,14 +224,18 @@ def scrape_missing_images_sync():
                         images = data.get("images", [])
                         if images and len(images) > 0:
                             img_url = images[0].get("url")
-                            if img_url:
+                            if img_url and is_safe_external_image_url(img_url):
                                 dest_path = os.path.splitext(lora_path)[0] + ".jpg"
                                 img_req = urllib.request.Request(img_url, headers=headers)
                                 with urllib.request.urlopen(img_req, timeout=15) as img_resp:
+                                    img_data = img_resp.read()
+                                try:
                                     with open(dest_path, "wb") as f:
-                                        f.write(img_resp.read())
-                                print(f"[LeafFlow] Scraped Civitai preview for {pretty_name}")
-                                success = True
+                                        f.write(img_data)
+                                    print(f"[LeafFlow] Scraped Civitai preview for {pretty_name}")
+                                    success = True
+                                except (PermissionError, OSError) as write_err:
+                                    print(f"[LeafFlow] Warning: Could not save preview image to '{dest_path}': {write_err}")
                 except Exception:
                     pass
 
@@ -239,14 +269,19 @@ def scrape_missing_images_sync():
                             profile_path = res.get("profile_path")
                             if profile_path:
                                 img_url = f"https://image.tmdb.org/t/p/w500{profile_path}"
-                                dest_path = os.path.splitext(lora_path)[0] + ".jpg"
-                                img_req = urllib.request.Request(img_url, headers=tmdb_headers)
-                                with urllib.request.urlopen(img_req, timeout=15) as img_resp:
-                                    with open(dest_path, "wb") as f:
-                                        f.write(img_resp.read())
-                                print(f"[LeafFlow] Scraped TMDB preview for {pretty_name} (via '{term}')")
-                                success = True
-                                break
+                                if is_safe_external_image_url(img_url):
+                                    dest_path = os.path.splitext(lora_path)[0] + ".jpg"
+                                    img_req = urllib.request.Request(img_url, headers=tmdb_headers)
+                                    with urllib.request.urlopen(img_req, timeout=15) as img_resp:
+                                        img_data = img_resp.read()
+                                    try:
+                                        with open(dest_path, "wb") as f:
+                                            f.write(img_data)
+                                        print(f"[LeafFlow] Scraped TMDB preview for {pretty_name} (via '{term}')")
+                                        success = True
+                                        break
+                                    except (PermissionError, OSError) as write_err:
+                                        print(f"[LeafFlow] Warning: Could not save preview image to '{dest_path}': {write_err}")
                 except Exception as tmdb_err:
                     pass
 

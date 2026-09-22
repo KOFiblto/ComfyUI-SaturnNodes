@@ -9,7 +9,7 @@ import subprocess
 from aiohttp import web
 from server import PromptServer
 import folder_paths
-from .utils import get_leafflow_user_dir
+from .utils import get_leafflow_user_dir, is_authenticated_local_request
 
 CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 USER_DIR = get_leafflow_user_dir()
@@ -85,6 +85,8 @@ try:
 
     @routes.post("/leafflow/prompt_iterator/reset_node")
     async def reset_prompt_iterator_node(request):
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         try:
             data = await request.json()
             node_id = str(data.get("node_id", ""))
@@ -115,23 +117,37 @@ try:
     @routes.post("/leafflow/prompt_iterator/clear")
     @routes.post("/flow_control/prompt_iterator/clear")
     async def clear_prompt_iterator_endpoint(request):
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         success = clear_state()
         return web.json_response({"status": "ok" if success else "error"})
 
     @routes.post("/leafflow/prompt_iterator/open_file")
     async def open_prompt_iterator_file(request):
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         ensure_user_dir()
         if not os.path.exists(STATE_FILE):
             save_state({})
+
+        # Security: verify canonical state file path is strictly within USER_DIR
+        canonical_state = os.path.realpath(STATE_FILE)
+        canonical_user = os.path.realpath(USER_DIR)
+        try:
+            if os.path.commonpath([canonical_user, canonical_state]) != canonical_user:
+                return web.json_response({"status": "error", "message": "Security: State file escapes user directory"}, status=403)
+        except Exception:
+            return web.json_response({"status": "error", "message": "Security path validation error"}, status=403)
+
         try:
             sys_name = platform.system()
             if sys_name == "Windows":
-                os.startfile(STATE_FILE)
+                os.startfile(canonical_state)
             elif sys_name == "Darwin":
-                subprocess.Popen(["open", STATE_FILE])
+                subprocess.Popen(["open", canonical_state])
             else:
-                subprocess.Popen(["xdg-open", STATE_FILE])
-            return web.json_response({"status": "ok", "path": STATE_FILE})
+                subprocess.Popen(["xdg-open", canonical_state])
+            return web.json_response({"status": "ok", "path": canonical_state})
         except Exception as e:
             print(f"[LeafFlow] 🍃 Error opening state file: {e}")
             return web.json_response({"status": "error", "message": str(e)}, status=500)

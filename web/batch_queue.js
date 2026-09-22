@@ -1,5 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
+import { authenticatedFetch } from "./js/auth_helper.js";
 
 // 36 Curated Accessible, High-Contrast Cycling Colors for Batch Visual Grouping
 const BATCH_COLORS = [
@@ -279,8 +280,7 @@ function mergeDynamicSeeds(snapPrompt, livePrompt) {
 // Sync with server if PersistentQueue is available
 async function syncBatchToServer(promptId, batchInfo) {
     try {
-        if (!api || !api.fetchApi) return;
-        await api.fetchApi("/leafflow/batch_queue/sync", {
+        await authenticatedFetch("/leafflow/batch_queue/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

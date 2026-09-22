@@ -1,5 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
+import { authenticatedFetch } from "./js/auth_helper.js";
 
 app.registerExtension({
     name: "ComfyUI.LeafFlow.PersistentQueue",
@@ -46,7 +47,7 @@ app.registerExtension({
         const claimQueueOwnership = async () => {
             if (api && api.clientId) {
                 try {
-                    await api.fetchApi("/persistent_queue/claim", {
+                    await authenticatedFetch("/persistent_queue/claim", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ client_id: api.clientId })

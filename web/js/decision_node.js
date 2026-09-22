@@ -1,5 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
+import { authenticatedFetch } from "./auth_helper.js";
 
 // Create global styles for the decision buttons
 const styles = document.createElement("style");
@@ -87,8 +88,9 @@ app.registerExtension({
             const sendDecision = async (action) => {
                 node.disableDecisionButtons();
                 try {
-                    await api.fetchApi("/leafflow/decision", {
+                    await authenticatedFetch("/leafflow/decision", {
                         method: "POST",
+                        headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
                             node_id: node.id.toString(),
                             action: action

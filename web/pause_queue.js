@@ -1,5 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
+import { authenticatedFetch } from "./js/auth_helper.js";
 
 const stylePath = new URL('./pause_queue.css', import.meta.url).href;
 if (!document.querySelector(`link[href="${stylePath}"]`)) {
@@ -57,7 +58,7 @@ class PauseQueueUI {
 
     async togglePause(paused) {
         try {
-            const res = await api.fetchApi("/pause_queue/toggle", {
+            const res = await authenticatedFetch("/pause_queue/toggle", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ paused, mode: this.state.mode })
@@ -73,7 +74,7 @@ class PauseQueueUI {
 
     async setMode(mode) {
         try {
-            const res = await api.fetchApi("/pause_queue/mode", {
+            const res = await authenticatedFetch("/pause_queue/mode", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ mode })
@@ -89,7 +90,7 @@ class PauseQueueUI {
 
     async continueQueue() {
         try {
-            const res = await api.fetchApi("/pause_queue/continue", { method: "POST" });
+            const res = await authenticatedFetch("/pause_queue/continue", { method: "POST" });
             if (res.ok) {
                 const data = await res.json();
                 this.updateState(data);

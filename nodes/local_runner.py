@@ -287,6 +287,12 @@ class RunLocalFileNode:
                 comspec = os.environ.get("COMSPEC", "cmd.exe")
                 return [comspec, "/c", norm_path, *parsed_args]
             elif lower_path.endswith(".ps1"):
+                # Security Note: -ExecutionPolicy Bypass is required on Windows to permit execution
+                # of local user scripts (.ps1) which are blocked by default machine policies.
+                # Security is strictly guaranteed by:
+                # 1. Path confinement: target file MUST reside exclusively inside ComfyUI/scripts/
+                # 2. Live in-memory operator authorization required on canvas prior to run
+                # 3. -NoProfile flag ensuring no untrusted global PowerShell profiles are executed
                 return ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", norm_path, *parsed_args]
             else:
                 return [norm_path, *parsed_args]

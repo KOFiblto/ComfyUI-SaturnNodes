@@ -136,6 +136,19 @@ class TestUtils(unittest.TestCase):
         clean = sanitize_folder_path("input/watch/*")
         self.assertNotIn("*", clean)
 
+    def test_is_safe_external_image_url(self):
+        from nodes.lora_loader import is_safe_external_image_url
+        self.assertTrue(is_safe_external_image_url("https://image.civitai.com/xG1nkqKTMzGDvpLrqFT7WA/test.jpg"))
+        self.assertTrue(is_safe_external_image_url("https://image.tmdb.org/t/p/w500/sample.jpg"))
+        self.assertFalse(is_safe_external_image_url("file:///etc/passwd"))
+        self.assertFalse(is_safe_external_image_url("file:///C:/Windows/system32/cmd.exe"))
+        self.assertFalse(is_safe_external_image_url("http://127.0.0.1:8188/secret"))
+        self.assertFalse(is_safe_external_image_url("http://localhost:8080/admin"))
+        self.assertFalse(is_safe_external_image_url("http://169.254.169.254/latest/meta-data/"))
+        self.assertFalse(is_safe_external_image_url("ftp://server/image.png"))
+        self.assertFalse(is_safe_external_image_url(""))
+        self.assertFalse(is_safe_external_image_url(None))
+
     def test_edge_cases_empty_or_none(self):
         self.assertEqual(parse_pretty_name(""), "")
         self.assertEqual(parse_pretty_name(None), "")

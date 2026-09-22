@@ -363,7 +363,7 @@ app.registerExtension({
                 class: "leafflow-settings-btn",
                 onClick: async () => {
                     try {
-                        const resp = await api.fetchApi("/leafflow/prompt_iterator/clear", { method: "POST" });
+                        const resp = await authenticatedFetch("/leafflow/prompt_iterator/clear", { method: "POST" });
                         const data = await resp.json();
                         if (data && data.status === "ok") {
                             alert("LeafFlow: Prompt Iterator queues successfully reset!");
@@ -376,7 +376,7 @@ app.registerExtension({
                 }
             },
             render: renderSettingButton("🔄 Reset All Queues", "⏳ Resetting...", "✅ State Reset!", async () => {
-                const resp = await api.fetchApi("/leafflow/prompt_iterator/clear", { method: "POST" });
+                const resp = await authenticatedFetch("/leafflow/prompt_iterator/clear", { method: "POST" });
                 const data = await resp.json();
                 if (data.status !== "ok") {
                     throw new Error(data.message || "Failed to clear prompt iterator state");

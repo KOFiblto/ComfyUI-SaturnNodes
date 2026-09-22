@@ -1,5 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
+import { authenticatedFetch } from "./auth_helper.js";
 
 app.registerExtension({
     name: "ComfyUI.LeafFlow.PromptQueueIterator",
@@ -30,7 +31,7 @@ app.registerExtension({
                 try {
                     resetBtn.name = "⏳ Resetting...";
                     app.graph?.setDirtyCanvas(true, true);
-                    const resp = await api.fetchApi("/leafflow/prompt_iterator/reset_node", {
+                    const resp = await authenticatedFetch("/leafflow/prompt_iterator/reset_node", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ node_id: String(node.id) })
@@ -58,7 +59,7 @@ app.registerExtension({
                 try {
                     openFileBtn.name = "⏳ Opening...";
                     app.graph?.setDirtyCanvas(true, true);
-                    const resp = await api.fetchApi("/leafflow/prompt_iterator/open_file", { method: "POST" });
+                    const resp = await authenticatedFetch("/leafflow/prompt_iterator/open_file", { method: "POST" });
                     const res = await resp.json();
                     if (res && res.status === "ok") {
                         openFileBtn.name = "✅ Opened in Editor!";

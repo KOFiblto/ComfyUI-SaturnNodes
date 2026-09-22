@@ -280,6 +280,9 @@ class PersistentQueueManager:
     def patch_server(self):
         if self._patched:
             return
+        if not is_persistent_queue_enabled():
+            print("[LeafFlow] Persistent queue disabled in settings; core prompt_queue patching skipped.")
+            return
         server = getattr(PromptServer, "instance", None)
         if not server or not hasattr(server, "prompt_queue"):
             print("[LeafFlow] Queue control: Skipped persistent queue patching (prompt_queue not found on server).")
@@ -721,8 +724,8 @@ def setup_queue_control_routes(server):
 
     @routes.post("/leafflow/assets/restore")
     async def restore_assets_endpoint(request):
-        if not is_local_request(request):
-            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         try:
             data = await request.json()
         except Exception:
@@ -746,8 +749,8 @@ def setup_queue_control_routes(server):
 
     @routes.post("/leafflow/batch_queue/sync")
     async def sync_batch_queue_data(request):
-        if not is_local_request(request):
-            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         try:
             data = await request.json()
             pid = data.get("prompt_id")
@@ -772,8 +775,8 @@ def setup_queue_control_routes(server):
 
     @routes.post("/pause_queue/toggle")
     async def toggle_pause(request):
-        if not is_local_request(request):
-            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         try:
             data = await request.json()
         except Exception:
@@ -789,8 +792,8 @@ def setup_queue_control_routes(server):
 
     @routes.post("/pause_queue/mode")
     async def set_mode_route(request):
-        if not is_local_request(request):
-            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         try:
             data = await request.json()
         except Exception:
@@ -805,8 +808,8 @@ def setup_queue_control_routes(server):
 
     @routes.post("/pause_queue/continue")
     async def continue_queue(request):
-        if not is_local_request(request):
-            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         pause_manager.set_pause(False)
         return web.json_response({
             "paused": pause_manager.paused,
@@ -816,8 +819,8 @@ def setup_queue_control_routes(server):
 
     @routes.post("/persistent_queue/claim")
     async def claim_queue(request):
-        if not is_local_request(request):
-            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         try:
             data = await request.json()
             client_id = data.get("client_id")

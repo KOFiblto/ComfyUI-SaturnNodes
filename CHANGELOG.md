@@ -5,6 +5,29 @@ All notable changes to `ComfyUI-LeafFlow` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.1] - 2026-09-22
+
+### Security & Hardening
+- **Universal CSRF Protection Across All Mutation Routes**:
+  - Protected `POST /leafflow/prompt_iterator/reset_node`, `POST /leafflow/prompt_iterator/clear`, and `POST /leafflow/prompt_iterator/open_file` with `is_authenticated_local_request`.
+  - Protected `POST /leafflow/decision` with `is_authenticated_local_request`.
+  - Protected queue-mutating endpoints (`POST /pause_queue/toggle`, `POST /pause_queue/mode`, `POST /pause_queue/continue`, `POST /persistent_queue/claim`, `POST /leafflow/batch_queue/sync`, `POST /leafflow/assets/restore`) with `is_authenticated_local_request`.
+  - Updated all frontend callers in `web/` to send the `X-LeafFlow-CSRF-Token` session header via `authenticatedFetch`.
+- **SSRF Protection & Scheme Filtering for Preview Scrapers**:
+  - Added `is_safe_external_image_url` validating that downloaded image URLs use standard `https` or `http` schemes.
+  - Strictly blocked internal loopback (`127.0.0.1`, `localhost`), private networks (`10.*`, `172.16.*`, `192.168.*`), and link-local cloud metadata endpoints (`169.254.*`).
+- **Safe Write & Permission Error Handling**:
+  - Wrapped downloaded preview image disk writes in `try / except (PermissionError, OSError)` with clear logging to prevent crashes on read-only directories or shared network mounts.
+- **Canonical Confinement for OS Application Launches**:
+  - Verified that `open_prompt_iterator_file` can only open files strictly confined within the authorized ComfyUI user directory (`USER_DIR`) via `os.path.commonpath`.
+- **Conditional Core Queue Monkey-Patching**:
+  - Guarded `PersistentQueueManager.patch_server()` so core ComfyUI `prompt_queue` methods are not touched when `ENABLE_PERSISTENT_QUEUE=false`.
+- **Explicit Scripts Confinement Documentation & UI Canvas Indicators**:
+  - Added explicit italic indicator `📂 Script Location: ComfyUI/scripts/` to `RunLocalFileNode` canvas foreground.
+  - Added widget tooltips and settings descriptions clarifying that scripts and working directories must reside exclusively in `ComfyUI/scripts/`.
+
+---
+
 ## [2.3.0] - 2026-09-20
 
 ### Added
