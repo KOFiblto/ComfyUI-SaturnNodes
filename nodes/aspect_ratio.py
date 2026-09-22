@@ -147,7 +147,7 @@ class TextAspectRatioFinder:
                 raise ValueError(f"Cannot parse aspect ratio: {found_ratio}")
         except Exception as e:
             err_msg = f"Aspect ratio '{found_ratio}' is invalid. Falling back to '1:1'."
-            print(f"[LeafFlow] Warning: {err_msg} ({e})")
+            print(f"[SaturnNodes] Warning: {err_msg} ({e})")
             try:
                 from server import PromptServer
                 if hasattr(PromptServer, "instance") and PromptServer.instance:

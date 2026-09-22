@@ -75,6 +75,6 @@ class MultiTextReplacer:
                     replaced_count += count
                     result_text = re.sub(pattern_str, lambda m: replace, result_text, flags=flags)
                 except Exception as e:
-                    print(f"[LeafFlow] 🍃 Invalid regex pattern '{pattern_str}': {e}")
+                    print(f"[SaturnNodes] 🍃 Invalid regex pattern '{pattern_str}': {e}")
 
         return (result_text, replaced_count)

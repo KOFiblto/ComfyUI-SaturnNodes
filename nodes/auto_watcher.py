@@ -73,7 +73,7 @@ class LoadImageFromFolder:
             try:
                 os.remove(filepath)
             except Exception as e:
-                print(f"[LeafFlow] Warning: Failed to remove processed file '{filepath}': {e}")
+                print(f"[SaturnNodes] Warning: Failed to remove processed file '{filepath}': {e}")
             
         return img_tensor
 
@@ -82,7 +82,7 @@ class LoadImageFromFolder:
         try:
             regex = re.compile(regex_filter)
         except Exception as e:
-            print(f"[LeafFlow] Invalid regex: {e}. Falling back to .*")
+            print(f"[SaturnNodes] Invalid regex: {e}. Falling back to .*")
             regex = re.compile(".*")
 
         files = []
@@ -164,9 +164,9 @@ class LoadImageFromFolder:
                                     img_tensor = self.load_and_remove_image(filepath, delete_image=delete_image)
                                     return (img_tensor, True)
                                 except Exception as e:
-                                    print(f"[LeafFlow] Error processing {filepath}: {e}")
+                                    print(f"[SaturnNodes] Error processing {filepath}: {e}")
                     except Exception as e:
-                        print(f"[LeafFlow] Error accessing directory {folder}: {e}")
+                        print(f"[SaturnNodes] Error accessing directory {folder}: {e}")
 
                 time.sleep(rescan_interval)
         else:
@@ -180,9 +180,9 @@ class LoadImageFromFolder:
                                 img_tensor = self.load_and_remove_image(filepath, delete_image=delete_image)
                                 return (img_tensor, True)
                             except Exception as e:
-                                print(f"[LeafFlow] Error processing {filepath}: {e}")
+                                print(f"[SaturnNodes] Error processing {filepath}: {e}")
                 except Exception as e:
-                    print(f"[LeafFlow] Error accessing directory {folder}: {e}")
+                    print(f"[SaturnNodes] Error accessing directory {folder}: {e}")
 
             # No image present or folder missing -> return standard dummy tensor & False immediately
             return (self.create_dummy_image(), False)

@@ -43,7 +43,7 @@ def load_state():
                 if isinstance(data, dict):
                     return data
         except Exception as e:
-            print(f"[LeafFlow] 🍃 Warning reading prompt iterator state: {e}")
+            print(f"[SaturnNodes] 🍃 Warning reading prompt iterator state: {e}")
     return {}
 
 def save_state(state):
@@ -62,17 +62,17 @@ def save_state(state):
         else:
             os.rename(tmp_file, STATE_FILE)
     except Exception as e:
-        print(f"[LeafFlow] 🍃 Error saving prompt iterator state: {e}")
+        print(f"[SaturnNodes] 🍃 Error saving prompt iterator state: {e}")
 
 def clear_state():
     ensure_user_dir()
     try:
         with open(STATE_FILE, "w", encoding="utf-8") as f:
             json.dump({}, f, indent=4)
-        print("[LeafFlow] 🍃 Prompt iterator state cleared.")
+        print("[SaturnNodes] 🍃 Prompt iterator state cleared.")
         return True
     except Exception as e:
-        print(f"[LeafFlow] 🍃 Error clearing prompt iterator state: {e}")
+        print(f"[SaturnNodes] 🍃 Error clearing prompt iterator state: {e}")
         return False
 
 # Clear state on startup if privacy setting enabled
@@ -149,7 +149,7 @@ try:
                 subprocess.Popen(["xdg-open", canonical_state])
             return web.json_response({"status": "ok", "path": canonical_state})
         except Exception as e:
-            print(f"[LeafFlow] 🍃 Error opening state file: {e}")
+            print(f"[SaturnNodes] 🍃 Error opening state file: {e}")
             return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 except Exception:
@@ -174,7 +174,7 @@ def parse_prompt_blocks(text_str, separator, custom_regex=""):
                     results.append(b_str)
             return results
         except Exception as e:
-            print(f"[LeafFlow Prompt] Invalid custom regex pattern '{pattern}': {e}. Falling back to empty line separator.")
+            print(f"[SaturnNodes Prompt] Invalid custom regex pattern '{pattern}': {e}. Falling back to empty line separator.")
             raw_blocks = re.split(r'\n\s*\n+', clean_text)
             return [b.strip() for b in raw_blocks if b.strip()]
     elif "newline" in sep_lower:

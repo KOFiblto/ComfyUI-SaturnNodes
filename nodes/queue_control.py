@@ -57,11 +57,11 @@ class PauseQueueManager:
             return
         server = getattr(PromptServer, "instance", None)
         if not server:
-            print("[LeafFlow] Queue control: Skipped pause patching (PromptServer instance not ready).")
+            print("[SaturnNodes] Queue control: Skipped pause patching (PromptServer instance not ready).")
             return
 
         if not hasattr(server, "prompt_queue") or not hasattr(server.prompt_queue, "get"):
-            print("[LeafFlow] Queue control: Skipped patching prompt_queue.get (incompatible ComfyUI version).")
+            print("[SaturnNodes] Queue control: Skipped patching prompt_queue.get (incompatible ComfyUI version).")
             return
 
         queue = server.prompt_queue
@@ -113,10 +113,10 @@ class PauseQueueManager:
 
             server.send_sync = patched_send_sync
         else:
-            print("[LeafFlow] Queue control: Skipped patching send_sync (not found on server).")
+            print("[SaturnNodes] Queue control: Skipped patching send_sync (not found on server).")
 
         self._patched = True
-        print("[LeafFlow] Queue control: Pause manager initialized successfully.")
+        print("[SaturnNodes] Queue control: Pause manager initialized successfully.")
 
     def is_currently_executing(self):
         try:
@@ -281,16 +281,16 @@ class PersistentQueueManager:
         if self._patched:
             return
         if not is_persistent_queue_enabled():
-            print("[LeafFlow] Persistent queue disabled in settings; core prompt_queue patching skipped.")
+            print("[SaturnNodes] Persistent queue disabled in settings; core prompt_queue patching skipped.")
             return
         server = getattr(PromptServer, "instance", None)
         if not server or not hasattr(server, "prompt_queue"):
-            print("[LeafFlow] Queue control: Skipped persistent queue patching (prompt_queue not found on server).")
+            print("[SaturnNodes] Queue control: Skipped persistent queue patching (prompt_queue not found on server).")
             return
 
         queue = server.prompt_queue
         if not hasattr(queue, "put") or not hasattr(queue, "task_done"):
-            print("[LeafFlow] Queue control: Skipped persistent queue patching (incompatible queue interface).")
+            print("[SaturnNodes] Queue control: Skipped persistent queue patching (incompatible queue interface).")
             return
 
         # 1. Patch queue.put
@@ -361,7 +361,7 @@ class PersistentQueueManager:
         server.send_sync = patched_send_sync
 
         self._patched = True
-        print("[LeafFlow] Queue control: Persistent queue manager initialized successfully.")
+        print("[SaturnNodes] Queue control: Persistent queue manager initialized successfully.")
 
     def restore_queue(self, active_client_id=None):
         if self.has_claimed_once:
@@ -465,16 +465,16 @@ class PowerControlManager:
         with self.lock:
             if action in ["restart", "shutdown"]:
                 if not is_process_management_enabled():
-                    print(f"[LeafFlow Power] Arm rejected: Process Management is disabled in LeafFlow settings.")
+                    print(f"[SaturnNodes Power] Arm rejected: Process Management is disabled in LeafFlow settings.")
                     return False
                 self.pending_action = action
                 import time
                 self.armed_at = time.time()
-                print(f"[LeafFlow Power] Armed action '{action}' after queue completion.")
+                print(f"[SaturnNodes Power] Armed action '{action}' after queue completion.")
             else:
                 self.pending_action = None
                 self.armed_at = None
-                print("[LeafFlow Power] Cancelled armed queue power action.")
+                print("[SaturnNodes Power] Cancelled armed queue power action.")
         self.notify_clients()
         return True
 
@@ -521,7 +521,7 @@ class PowerControlManager:
                 action = self.pending_action
                 self._executing = True
                 self.pending_action = None
-                print(f"[LeafFlow Power] Queue is empty and idle. Executing '{action}' now...")
+                print(f"[SaturnNodes Power] Queue is empty and idle. Executing '{action}' now...")
 
                 if action == "restart":
                     self.execute_restart()
@@ -530,12 +530,12 @@ class PowerControlManager:
 
     def execute_restart(self):
         if not is_process_management_enabled():
-            print("[LeafFlow Power] Rejected restart: Process Management is disabled in LeafFlow settings.")
+            print("[SaturnNodes Power] Rejected restart: Process Management is disabled in LeafFlow settings.")
             return False
 
         def _run():
             import subprocess, sys, os, time
-            print("[LeafFlow Power] Restarting ComfyUI server process...")
+            print("[SaturnNodes Power] Restarting ComfyUI server process...")
             time.sleep(0.6)
             cmd = [sys.executable]
             if getattr(sys.flags, "no_user_site", 0):
@@ -555,12 +555,12 @@ class PowerControlManager:
 
     def execute_shutdown(self):
         if not is_process_management_enabled():
-            print("[LeafFlow Power] Rejected shutdown: Process Management is disabled in LeafFlow settings.")
+            print("[SaturnNodes Power] Rejected shutdown: Process Management is disabled in LeafFlow settings.")
             return False
 
         def _run():
             import os, time
-            print("[LeafFlow Power] Shutting down ComfyUI server...")
+            print("[SaturnNodes Power] Shutting down ComfyUI server...")
             time.sleep(0.6)
             os._exit(0)
         threading.Thread(target=_run, daemon=True).start()

@@ -97,7 +97,7 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                 # Linux dbus notify-send
                 subprocess.Popen(["notify-send", title, message])
         except Exception as e:
-            print(f"[LeafFlow] Failed to send OS notification: {e}")
+            print(f"[SaturnNodes] Failed to send OS notification: {e}")
 
     def decide(self, disable, send_os_notification, timeout, unique_id=None):
         if disable:

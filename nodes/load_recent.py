@@ -57,7 +57,7 @@ class LoadRecentOutputs:
                         except OSError:
                             continue
         except Exception as e:
-            print(f"[LeafFlow] 🍃 Error scanning output folder '{output_dir}': {e}")
+            print(f"[SaturnNodes] 🍃 Error scanning output folder '{output_dir}': {e}")
             dummy = torch.zeros((1, 512, 512, 3), dtype=torch.float32)
             return (dummy,)
 
@@ -80,7 +80,7 @@ class LoadRecentOutputs:
             image = np.array(image).astype(np.float32) / 255.0
             image = torch.from_numpy(image).unsqueeze(0)
         except Exception as e:
-            print(f"[LeafFlow] Error loading recent output image {target_file}: {e}")
+            print(f"[SaturnNodes] Error loading recent output image {target_file}: {e}")
             image = torch.zeros((1, 512, 512, 3), dtype=torch.float32)
 
         return (image,)

@@ -63,7 +63,7 @@ def save_lora_cycle_state(state):
         with open(LORA_STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=4, ensure_ascii=False)
     except Exception as e:
-        print(f"[LeafFlow] Error saving lora loader cycle state: {e}")
+        print(f"[SaturnNodes] Error saving lora loader cycle state: {e}")
 
 def get_api_keys():
     civitai_key = os.getenv("CIVITAI_API_KEY", "")
@@ -99,7 +99,7 @@ def load_usage_data():
                 else:
                     usage_data[k] = usage_data.get(k, 0) + v
         except Exception as e:
-            print(f"[LeafFlow] Error loading usage data: {e}")
+            print(f"[SaturnNodes] Error loading usage data: {e}")
     return usage_data
 
 def increment_lora_usage(lora_path):
@@ -115,7 +115,7 @@ def increment_lora_usage(lora_path):
         with open(usage_file, "w", encoding="utf-8") as f:
             json.dump(usage_data, f, indent=4, ensure_ascii=False)
     except Exception as e:
-        print(f"[LeafFlow] Error updating lora usage: {e}")
+        print(f"[SaturnNodes] Error updating lora usage: {e}")
 
 def find_preview_image(lora_relative_path):
     lora_full_path = folder_paths.get_full_path("loras", lora_relative_path)
@@ -233,10 +233,10 @@ def scrape_missing_images_sync():
                                 try:
                                     with open(dest_path, "wb") as f:
                                         f.write(img_data)
-                                    print(f"[LeafFlow] Scraped Civitai preview for {pretty_name}")
+                                    print(f"[SaturnNodes] Scraped Civitai preview for {pretty_name}")
                                     success = True
                                 except (PermissionError, OSError) as write_err:
-                                    print(f"[LeafFlow] Warning: Could not save preview image to '{dest_path}': {write_err}")
+                                    print(f"[SaturnNodes] Warning: Could not save preview image to '{dest_path}': {write_err}")
                 except Exception:
                     pass
 
@@ -278,11 +278,11 @@ def scrape_missing_images_sync():
                                     try:
                                         with open(dest_path, "wb") as f:
                                             f.write(img_data)
-                                        print(f"[LeafFlow] Scraped TMDB preview for {pretty_name} (via '{term}')")
+                                        print(f"[SaturnNodes] Scraped TMDB preview for {pretty_name} (via '{term}')")
                                         success = True
                                         break
                                     except (PermissionError, OSError) as write_err:
-                                        print(f"[LeafFlow] Warning: Could not save preview image to '{dest_path}': {write_err}")
+                                        print(f"[SaturnNodes] Warning: Could not save preview image to '{dest_path}': {write_err}")
                 except Exception as tmdb_err:
                     pass
 
@@ -297,7 +297,7 @@ def scrape_missing_images_sync():
             except Exception:
                 pass
     except Exception as e:
-        print(f"[LeafFlow] Error in preview scraping thread: {e}")
+        print(f"[SaturnNodes] Error in preview scraping thread: {e}")
 
 def start_async_scraping():
     global scraping_thread

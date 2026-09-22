@@ -99,7 +99,7 @@ class TextLoraFinder:
                                 matches.append((m.start(), display_name, sys_path))
                                 seen_paths.add(sys_path)
                 except Exception as e:
-                    print(f"[LeafFlow] 🍃 Invalid custom regex pattern '{custom_regex}': {e}")
+                    print(f"[SaturnNodes] 🍃 Invalid custom regex pattern '{custom_regex}': {e}")
         else:
             for display_name, sys_path in mapping.items():
                 if display_name in ["[ NONE ]", "[ RANDOM ]"] or not sys_path or sys_path == "[ NONE ]":
@@ -150,7 +150,7 @@ class TextLoraFinder:
                     )
                     increment_lora_usage(sys_path)
                 except Exception as e:
-                    print(f"[LeafFlow] 🍃 Error loading LoRA '{sys_path}': {e}")
+                    print(f"[SaturnNodes] 🍃 Error loading LoRA '{sys_path}': {e}")
                     continue
             else:
                 increment_lora_usage(sys_path)

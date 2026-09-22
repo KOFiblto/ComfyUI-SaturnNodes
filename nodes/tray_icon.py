@@ -146,7 +146,7 @@ class TrayIconManager:
                         server_url = f"http://{host}:{port}"
                 webbrowser.open(server_url)
             except Exception as e:
-                print(f"[LeafFlow] Error opening browser: {e}")
+                print(f"[SaturnNodes] Error opening browser: {e}")
 
         def on_disable_tray(icon, item):
             self.disable_and_stop()
@@ -228,7 +228,7 @@ class TrayIconManager:
                 self._icon.title = title
                 self._icon.menu = self.build_menu()
             except Exception as e:
-                print(f"[LeafFlow] Error updating system tray status: {e}")
+                print(f"[SaturnNodes] Error updating system tray status: {e}")
 
     def set_enabled(self, enabled):
         if enabled:

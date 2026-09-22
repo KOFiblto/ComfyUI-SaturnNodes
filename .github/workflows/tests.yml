@@ -30,6 +30,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install Pillow torch numpy aiohttp piexif
 
-    - name: Execute LeafFlow Unit Test Suite
+    - name: Execute SaturnNodes Unit Test Suite
       run: |
         python tests/run_tests.py

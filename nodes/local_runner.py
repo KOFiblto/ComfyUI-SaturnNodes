@@ -65,7 +65,8 @@ def resolve_target_path(file_path_input):
         return None, "Script file path is empty."
 
     # 1. Strictly reject absolute paths (Windows drive letters C:\, UNC \\server, or POSIX /root)
-    if os.path.isabs(clean) or clean.startswith(("\\\\", "//")):
+    has_drive_letter = len(clean) >= 2 and clean[0].isalpha() and clean[1] == ":"
+    if os.path.isabs(clean) or clean.startswith(("\\\\", "//", "/")) or has_drive_letter:
         return None, f"Security Restriction: Absolute paths are forbidden ('{clean}'). Place your script in ComfyUI/scripts/ and specify a relative name."
 
     # 2. Strictly reject directory traversal
