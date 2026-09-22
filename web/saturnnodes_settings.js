@@ -21,17 +21,35 @@ if (typeof document !== "undefined") {
         const style = document.createElement("style");
         style.id = styleId;
         style.textContent = `
-            /* ComfyUI V2 Vue & LiteGraph Settings Button Styling */
+            /* ComfyUI V2 Vue Toggle Switches Protection: NEVER apply button background or borders to switches */
+            [data-setting-id*="SaturnNodes"] button[role="switch"],
+            [data-setting-id*="saturnnodes"] button[role="switch"],
+            [data-setting-id*="LeafFlow"] button[role="switch"],
+            [data-setting-id*="leafflow"] button[role="switch"],
+            [data-setting-id*="SaturnNodes"] [role="switch"],
+            [data-setting-id*="saturnnodes"] [role="switch"],
+            [data-setting-id*="LeafFlow"] [role="switch"],
+            [data-setting-id*="leafflow"] [role="switch"],
+            button[role="switch"].saturnnodes-settings-btn {
+                background: transparent !important;
+                border: 0 !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                transform: none !important;
+            }
+
+            /* ComfyUI Settings Action Buttons (Buttons and Fallback Input Elements) */
+            .saturnnodes-settings-btn,
+            .leafflow-settings-btn,
             button.saturnnodes-settings-btn,
             button.leafflow-settings-btn,
-            tr:has([id*="SaturnNodes"]) button,
-            tr:has([id*="saturnnodes"]) button,
-            tr:has([id*="LeafFlow"]) button,
-            tr:has([id*="leafflow"]) button,
-            div:has(> [id*="SaturnNodes"]) button,
-            div:has(> [id*="LeafFlow"]) button,
-            [data-setting-id*="SaturnNodes"] button,
-            [data-setting-id*="LeafFlow"] button {
+            input.saturnnodes-settings-btn,
+            input.leafflow-settings-btn,
+            [data-setting-id*="SaturnNodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]),
+            [data-setting-id*="saturnnodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]),
+            [data-setting-id*="LeafFlow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]),
+            [data-setting-id*="leafflow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]) {
                 background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
                 border: 1px solid #f59e0b !important;
                 color: #ffffff !important;
@@ -46,19 +64,26 @@ if (typeof document !== "undefined") {
                 overflow: visible !important;
                 text-overflow: clip !important;
                 cursor: pointer !important;
+                text-align: center !important;
                 box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
                 transition: all 0.2s ease !important;
                 display: inline-flex !important;
                 align-items: center !important;
                 justify-content: center !important;
+                user-select: none !important;
+                box-sizing: border-box !important;
             }
 
+            .saturnnodes-settings-btn:hover,
+            .leafflow-settings-btn:hover,
             button.saturnnodes-settings-btn:hover,
             button.leafflow-settings-btn:hover,
-            tr:has([id*="SaturnNodes"]) button:hover,
-            tr:has([id*="LeafFlow"]) button:hover,
-            div:has(> [id*="SaturnNodes"]) button:hover,
-            [data-setting-id*="SaturnNodes"] button:hover {
+            input.saturnnodes-settings-btn:hover,
+            input.leafflow-settings-btn:hover,
+            [data-setting-id*="SaturnNodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover,
+            [data-setting-id*="saturnnodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover,
+            [data-setting-id*="LeafFlow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover,
+            [data-setting-id*="leafflow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover {
                 background: linear-gradient(135deg, #b45309 0%, #d97706 100%) !important;
                 border-color: #fbbf24 !important;
                 color: #ffffff !important;
@@ -66,8 +91,11 @@ if (typeof document !== "undefined") {
                 transform: translateY(-1px) !important;
             }
 
+            .saturnnodes-settings-btn:active,
+            .leafflow-settings-btn:active,
             button.saturnnodes-settings-btn:active,
-            tr:has([id*="SaturnNodes"]) button:active {
+            input.saturnnodes-settings-btn:active,
+            [data-setting-id*="SaturnNodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):active {
                 transform: translateY(0) !important;
             }
         `;
@@ -338,15 +366,28 @@ app.registerExtension({
         });
 
         // 1.6 Reset Scrapes Cache Button
+        const renderScrapesCacheBtn = renderSettingButton("🗑️ Clear Scrapes Cache", "⏳ Clearing...", "✅ Cache Reset!", async () => {
+            const resp = await authenticatedFetch("/saturnnodes/scrapes/clear", { method: "POST" });
+            const data = await resp.json();
+            if (data && data.status === "ok") {
+                return data;
+            } else {
+                throw new Error((data && data.message) || "Failed to reset scrapes cache");
+            }
+        });
+
         app.ui.settings.addSetting({
             id: "SaturnNodes.1 - 🖼️ Visual Loaders.06_ResetScrapesCache",
             name: "Reset Failed Scrapes Cache",
-            type: "button",
+            type: renderScrapesCacheBtn,
+            render: renderScrapesCacheBtn,
             defaultValue: "🗑️ Clear Scrapes Cache",
             tooltip: "Immediately clears failed_scrapes.json so Civitai and TMDB can retry downloading missing preview thumbnails on the next folder scan.",
             attrs: {
                 className: "saturnnodes-settings-btn",
                 class: "saturnnodes-settings-btn",
+                readOnly: true,
+                style: "cursor: pointer; text-align: center;",
                 onClick: async () => {
                     try {
                         const resp = await authenticatedFetch("/saturnnodes/scrapes/clear", { method: "POST" });
@@ -360,14 +401,7 @@ app.registerExtension({
                         alert("SaturnNodes: Error resetting cache: " + err);
                     }
                 }
-            },
-            render: renderSettingButton("🗑️ Clear Scrapes Cache", "⏳ Clearing...", "✅ Cache Reset!", async () => {
-                const resp = await authenticatedFetch("/saturnnodes/scrapes/clear", { method: "POST" });
-                const data = await resp.json();
-                if (data.status !== "ok") {
-                    throw new Error(data.message || "Failed to reset scrapes cache");
-                }
-            })
+            }
         });
 
         // =========================================================================
@@ -387,15 +421,28 @@ app.registerExtension({
         });
 
         // 2.2 Reset Prompt Iterator Queues Now
+        const renderResetQueuesBtn = renderSettingButton("🔄 Reset All Queues", "⏳ Resetting...", "✅ State Reset!", async () => {
+            const resp = await authenticatedFetch("/saturnnodes/prompt_iterator/clear", { method: "POST" });
+            const data = await resp.json();
+            if (data && data.status === "ok") {
+                return data;
+            } else {
+                throw new Error((data && data.message) || "Failed to clear prompt iterator state");
+            }
+        });
+
         app.ui.settings.addSetting({
             id: "SaturnNodes.2 - 🔄 Prompt Iterator.02_ResetActiveQueues",
             name: "Reset Active Queues State",
-            type: "button",
+            type: renderResetQueuesBtn,
+            render: renderResetQueuesBtn,
             defaultValue: "🔄 Reset All Queues",
             tooltip: "Immediately empties all active prompt queues and resets iterator state across all workflows.",
             attrs: {
                 className: "saturnnodes-settings-btn",
                 class: "saturnnodes-settings-btn",
+                readOnly: true,
+                style: "cursor: pointer; text-align: center;",
                 onClick: async () => {
                     try {
                         const resp = await authenticatedFetch("/saturnnodes/prompt_iterator/clear", { method: "POST" });
@@ -409,14 +456,7 @@ app.registerExtension({
                         alert("SaturnNodes: Error resetting queues: " + err);
                     }
                 }
-            },
-            render: renderSettingButton("🔄 Reset All Queues", "⏳ Resetting...", "✅ State Reset!", async () => {
-                const resp = await authenticatedFetch("/saturnnodes/prompt_iterator/clear", { method: "POST" });
-                const data = await resp.json();
-                if (data.status !== "ok") {
-                    throw new Error(data.message || "Failed to clear prompt iterator state");
-                }
-            })
+            }
         });
 
         // =========================================================================
@@ -607,39 +647,12 @@ app.registerExtension({
         // =========================================================================
 
         // 7.1 Export Debug Profile Button
-        app.ui.settings.addSetting({
-            id: "SaturnNodes.7 - 🩺 Diagnostics.01_ExportDebugProfile",
-            name: "Export Debug Profile",
-            type: "button",
-            defaultValue: "📥 Export Debug Profile",
-            tooltip: "Exports non-sensitive environment diagnostics (OS, Python, PyTorch, SaturnNodes settings, local counts) as a JSON file to share when troubleshooting issues.",
-            attrs: {
-                className: "saturnnodes-settings-btn",
-                class: "saturnnodes-settings-btn",
-                onClick: async () => {
-                    const approved = confirm("🪐 ComfyUI-SaturnNodes Diagnostics Export\n\nExport system diagnostics for troubleshooting?\n\nNOTE: Sensitive API keys, tokens, file paths, and private prompt texts are automatically stripped and NEVER exported.");
-                    if (!approved) return;
+        // 7.1 Export Debug Profile Button
+        const handleExportProfile = async () => {
+            const approved = confirm("🪐 ComfyUI-SaturnNodes Diagnostics Export\n\nExport system diagnostics for troubleshooting?\n\nNOTE: Sensitive API keys, tokens, file paths, and private prompt texts are automatically stripped and NEVER exported.");
+            if (!approved) return;
 
-                    try {
-                        const resp = await api.fetchApi("/saturnnodes/debug/export");
-                        const data = await resp.json();
-                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `saturnnodes_debug_profile_${new Date().toISOString().slice(0, 10)}.json`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                        alert("✅ Diagnostics profile exported successfully! You can attach the downloaded JSON file to your bug report or GitHub issue.");
-                    } catch (e) {
-                        console.error("[SaturnNodes] Error exporting debug profile:", e);
-                        alert("❌ Failed to export debug profile: " + e.message);
-                    }
-                }
-            },
-            render: renderSettingButton("📥 Export Debug Profile", "⏳ Exporting...", "✅ Exported!", async () => {
+            try {
                 const resp = await api.fetchApi("/saturnnodes/debug/export");
                 const data = await resp.json();
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -651,7 +664,41 @@ app.registerExtension({
                 a.click();
                 document.body.removeChild(a);
                 URL.revokeObjectURL(url);
-            })
+                alert("✅ Diagnostics profile exported successfully! You can attach the downloaded JSON file to your bug report or GitHub issue.");
+            } catch (e) {
+                console.error("[SaturnNodes] Error exporting debug profile:", e);
+                alert("❌ Failed to export debug profile: " + e.message);
+            }
+        };
+
+        const renderExportProfileBtn = renderSettingButton("📥 Export Debug Profile", "⏳ Exporting...", "✅ Exported!", async () => {
+            const resp = await api.fetchApi("/saturnnodes/debug/export");
+            const data = await resp.json();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `saturnnodes_debug_profile_${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.7 - 🩺 Diagnostics.01_ExportDebugProfile",
+            name: "Export Debug Profile",
+            type: renderExportProfileBtn,
+            render: renderExportProfileBtn,
+            defaultValue: "📥 Export Debug Profile",
+            tooltip: "Exports non-sensitive environment diagnostics (OS, Python, PyTorch, SaturnNodes settings, local counts) as a JSON file to share when troubleshooting issues.",
+            attrs: {
+                className: "saturnnodes-settings-btn",
+                class: "saturnnodes-settings-btn",
+                readOnly: true,
+                style: "cursor: pointer; text-align: center;",
+                onClick: handleExportProfile
+            }
         });
 
         // =========================================================================
