@@ -1,5 +1,7 @@
 import os
 import re
+import secrets
+from urllib.parse import urlparse
 import folder_paths
 
 def get_leafflow_user_dir():
@@ -29,6 +31,67 @@ def get_leafflow_user_dir():
     leafflow_dir = os.path.join(base_user, "LeafFlow")
     os.makedirs(leafflow_dir, exist_ok=True)
     return leafflow_dir
+
+_SESSION_CSRF_TOKEN = secrets.token_hex(32)
+
+def get_csrf_token():
+    """Returns the ephemeral cryptographically random session CSRF token generated on server boot."""
+    return _SESSION_CSRF_TOKEN
+
+def is_same_origin_or_direct(request):
+    """
+    Validates that a request originates from the local ComfyUI interface and not from a visited web page (CSRF defense).
+    """
+    if request is None:
+        return True
+
+    # 1. Reject cross-site requests via Fetch Metadata (modern browsers always send this; cannot be spoofed by JS)
+    sec_fetch_site = getattr(request, "headers", {}).get("Sec-Fetch-Site")
+    if sec_fetch_site and sec_fetch_site.lower() == "cross-site":
+        return False
+
+    # 2. Check Origin header if present
+    origin = getattr(request, "headers", {}).get("Origin")
+    if origin:
+        try:
+            parsed = urlparse(origin)
+            host = parsed.hostname
+            if host not in ["127.0.0.1", "localhost", "::1", "0.0.0.0", "testclient"]:
+                return False
+        except Exception:
+            return False
+
+    # 3. Check Referer header if present
+    referer = getattr(request, "headers", {}).get("Referer")
+    if referer:
+        try:
+            parsed_ref = urlparse(referer)
+            ref_host = parsed_ref.hostname
+            if ref_host not in ["127.0.0.1", "localhost", "::1", "0.0.0.0", "testclient"]:
+                return False
+        except Exception:
+            return False
+
+    return True
+
+def is_authenticated_local_request(request):
+    """
+    Guarantees user-initiated actions and protects against CSRF / drive-by requests from open browser tabs:
+    1. Originates strictly from loopback IP (is_local_request)
+    2. Not a cross-site drive-by request (is_same_origin_or_direct)
+    3. Contains a valid X-LeafFlow-CSRF-Token header matching the session secret.
+    """
+    if not is_local_request(request):
+        return False
+    if not is_same_origin_or_direct(request):
+        return False
+
+    headers = getattr(request, "headers", {})
+    token = headers.get("X-LeafFlow-CSRF-Token")
+    if not token or not secrets.compare_digest(token, _SESSION_CSRF_TOKEN):
+        return False
+
+    return True
 
 def is_local_request(request):
     """

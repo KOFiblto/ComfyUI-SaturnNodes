@@ -1,5 +1,18 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
+import { authenticatedFetch } from "./js/auth_helper.js";
+
+async function postLeafFlowSettings(bodyObj) {
+    try {
+        return await authenticatedFetch("/leafflow/settings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(bodyObj)
+        });
+    } catch (e) {
+        console.warn("[LeafFlow Settings] Failed to save setting:", e);
+    }
+}
 
 // Inject CSS to ensure settings buttons look distinct, styled with an emerald theme, and never get text cut off
 if (typeof document !== "undefined") {
@@ -235,11 +248,7 @@ app.registerExtension({
             tooltip: "Optional. Civitai SHA256 search works publicly without a key for normal models. Only needed for NSFW/private models or higher rate limits. Whitespace is automatically stripped.",
             onChange(value) {
                 const cleanKey = (value || "").trim();
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ civitai_api_key: cleanKey })
-                }).catch(() => {});
+                postLeafFlowSettings({ civitai_api_key: cleanKey });
             }
         });
 
@@ -251,11 +260,7 @@ app.registerExtension({
             defaultValue: true,
             tooltip: "Toggles automated downloading of preview thumbnails for new LoRAs from Civitai via SHA256 file hashes. Note: SHA256 hash searching will always work regardless of this setting when matching local models.",
             onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ enable_civitai_scraping: value ? "true" : "false" })
-                }).catch(() => {});
+                postLeafFlowSettings({ enable_civitai_scraping: value ? "true" : "false" });
             }
         });
 
@@ -268,11 +273,7 @@ app.registerExtension({
             tooltip: "Optional. Accepts TMDB v3 API keys or TMDB v4 Read Access Tokens (eyJ...). Used for celebrity poster and preview image lookup. Whitespace is automatically stripped.",
             onChange(value) {
                 const cleanKey = (value || "").trim();
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ tmdb_api_key: cleanKey })
-                }).catch(() => {});
+                postLeafFlowSettings({ tmdb_api_key: cleanKey });
             }
         });
 
@@ -284,11 +285,7 @@ app.registerExtension({
             defaultValue: false,
             tooltip: "Toggles automated downloading of celebrity preview thumbnails from TMDB. Default is disabled.",
             onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ enable_tmdb_scraping: value ? "true" : "false" })
-                }).catch(() => {});
+                postLeafFlowSettings({ enable_tmdb_scraping: value ? "true" : "false" });
             }
         });
 
@@ -300,11 +297,7 @@ app.registerExtension({
             defaultValue: true,
             tooltip: "Toggles tracking and displaying LoRA usage counts & visual rank badges (🔥, Gold, Silver, Bronze) in the LoRA picker. Existing usage history is preserved when disabled.",
             onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ enable_lora_usage: value ? "true" : "false" })
-                }).catch(() => {});
+                postLeafFlowSettings({ enable_lora_usage: value ? "true" : "false" });
             }
         });
 
@@ -320,7 +313,7 @@ app.registerExtension({
                 class: "leafflow-settings-btn",
                 onClick: async () => {
                     try {
-                        const resp = await api.fetchApi("/leafflow/scrapes/clear", { method: "POST" });
+                        const resp = await authenticatedFetch("/leafflow/scrapes/clear", { method: "POST" });
                         const data = await resp.json();
                         if (data && data.status === "ok") {
                             alert("LeafFlow: Failed scrapes cache successfully reset!");
@@ -333,7 +326,7 @@ app.registerExtension({
                 }
             },
             render: renderSettingButton("🗑️ Clear Scrapes Cache", "⏳ Clearing...", "✅ Cache Reset!", async () => {
-                const resp = await api.fetchApi("/leafflow/scrapes/clear", { method: "POST" });
+                const resp = await authenticatedFetch("/leafflow/scrapes/clear", { method: "POST" });
                 const data = await resp.json();
                 if (data.status !== "ok") {
                     throw new Error(data.message || "Failed to reset scrapes cache");
@@ -354,11 +347,7 @@ app.registerExtension({
             defaultValue: false,
             tooltip: "Privacy setting. When enabled, prompt_iterator_state.json will be emptied automatically every time ComfyUI starts up.",
             onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ clear_prompt_iterator_on_launch: value ? "true" : "false" })
-                }).catch(() => {});
+                postLeafFlowSettings({ clear_prompt_iterator_on_launch: value ? "true" : "false" });
             }
         });
 
@@ -450,11 +439,7 @@ app.registerExtension({
             defaultValue: "Paused",
             tooltip: "Choose whether execution starts in Paused state or Running state on ComfyUI startup.",
             onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ default_pause_state: value })
-                }).catch(() => {});
+                postLeafFlowSettings({ default_pause_state: value });
             }
         });
 
@@ -468,11 +453,7 @@ app.registerExtension({
             tooltip: "Choose default pause behavior when the pause button or hotkey is triggered.",
             onChange(value) {
                 const modeKey = (value === "Instant Resume Node" || value === "Pause (Instant)") ? "instantly" : "after_finish";
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ default_pause_mode: modeKey })
-                }).catch(() => {});
+                postLeafFlowSettings({ default_pause_mode: modeKey });
             }
         });
 
@@ -523,11 +504,7 @@ app.registerExtension({
             defaultValue: false,
             tooltip: "Displays an OS system tray icon with real-time queue status colors and outside-browser queue controls.",
             onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ enable_tray_icon: value ? "true" : "false" })
-                }).catch(() => {});
+                postLeafFlowSettings({ enable_tray_icon: value ? "true" : "false" });
             }
         });
 
@@ -539,11 +516,7 @@ app.registerExtension({
             defaultValue: false,
             tooltip: "Enables server restart and shutdown actions from the LeafFlow power controls. Disabled by default for security.",
             onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ enable_process_management: value ? "true" : "false" })
-                }).catch(() => {});
+                postLeafFlowSettings({ enable_process_management: value ? "true" : "false" });
             }
         });
 
@@ -560,11 +533,7 @@ app.registerExtension({
             defaultValue: true,
             tooltip: "Automatically persists unfinished batch queue items to disk and restores them after server or browser crashes.",
             onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ enable_persistent_queue: value ? "true" : "false" })
-                }).catch(() => {});
+                postLeafFlowSettings({ enable_persistent_queue: value ? "true" : "false" });
             }
         });
 
@@ -577,11 +546,7 @@ app.registerExtension({
             defaultValue: "Match Default",
             tooltip: "Override launch state when unfinished queue items are recovered on startup.",
             onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ persistent_queue_restored_state: value })
-                }).catch(() => {});
+                postLeafFlowSettings({ persistent_queue_restored_state: value });
             }
         });
 
@@ -598,11 +563,7 @@ app.registerExtension({
             defaultValue: true,
             tooltip: "Automatically populates the Assets / History pane upon ComfyUI launch with your latest generated images.",
             onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ enable_assets_restore: value ? "true" : "false" })
-                }).catch(() => {});
+                postLeafFlowSettings({ enable_assets_restore: value ? "true" : "false" });
             }
         });
 
@@ -615,11 +576,7 @@ app.registerExtension({
             tooltip: "Number of newest images from the output folder to restore into the Assets / History pane on launch (default: 64).",
             onChange(value) {
                 const count = parseInt(value, 10) || 64;
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ restore_assets_count: count })
-                }).catch(() => {});
+                postLeafFlowSettings({ restore_assets_count: count });
             }
         });
 
@@ -701,35 +658,15 @@ app.registerExtension({
         // GRUPPE 9: 9 - 🛡️ Security & Script Execution
         // =========================================================================
 
-        // 9.1 Allow Local File Execution
+        // 9.1 Allow Local File Execution (Default Disabled)
         app.ui.settings.addSetting({
             id: "LeafFlow.9 - 🛡️ Security.01_AllowLocalFileExecution",
             name: "Allow Local File Execution",
             type: "boolean",
-            defaultValue: true,
-            tooltip: "Controls whether the '🍃 ⚡ Run Local File' node is permitted to run executable files (.bat, .ps1, .exe, .sh). When disabled, execution is blocked even if the node is armed.",
-            onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ enable_local_file_execution: value ? "true" : "false" })
-                }).catch(() => {});
-            }
-        });
-
-        // 9.2 Allow Scripts Outside Approved Folders
-        app.ui.settings.addSetting({
-            id: "LeafFlow.9 - 🛡️ Security.02_AllowAnyScriptPath",
-            name: "Allow Scripts Outside Approved Folders",
-            type: "boolean",
             defaultValue: false,
-            tooltip: "By default, scripts can only run from 'ComfyUI/scripts/' or 'user/default/LeafFlow/scripts/' to prevent arbitrary system file execution. Enable this only if you need to run binaries from other directories.",
+            tooltip: "Controls whether the '🍃 ⚡ Run Local File' node is permitted to run executable files (.bat, .ps1, .exe, .sh). Disabled by default for operator security. When disabled, execution is blocked even if the node is armed.",
             onChange(value) {
-                api.fetchApi("/leafflow/settings", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ allow_any_script_path: value ? "true" : "false" })
-                }).catch(() => {});
+                postLeafFlowSettings({ enable_local_file_execution: value ? "true" : "false" });
             }
         });
     }

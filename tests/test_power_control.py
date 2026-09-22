@@ -1,6 +1,20 @@
+import os
+import sys
 import unittest
+import time
 from unittest.mock import MagicMock, patch
-from nodes.queue_control import PowerControlManager, PauseQueueManager
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import test_helper
+
+from nodes.queue_control import (
+    PowerControlManager,
+    PauseQueueManager,
+    _issue_power_ticket,
+    _consume_power_ticket,
+    _POWER_TICKETS,
+    _POWER_TICKET_LOCK
+)
 
 class TestPowerControlManager(unittest.TestCase):
     def setUp(self):
@@ -8,6 +22,12 @@ class TestPowerControlManager(unittest.TestCase):
         self.pause_manager.paused = False
         self.pause_manager.is_waiting = False
         self.power_manager = PowerControlManager(self.pause_manager)
+        with _POWER_TICKET_LOCK:
+            _POWER_TICKETS.clear()
+
+    def tearDown(self):
+        with _POWER_TICKET_LOCK:
+            _POWER_TICKETS.clear()
 
     def test_arm_disabled_by_default(self):
         with patch("nodes.queue_control.is_process_management_enabled", return_value=False):
@@ -37,6 +57,29 @@ class TestPowerControlManager(unittest.TestCase):
             self.power_manager.arm(None)
             self.assertIsNone(self.power_manager.pending_action)
             self.assertIsNone(self.power_manager.armed_at)
+
+    def test_power_ticket_single_use_handshake(self):
+        # 1. Issue ticket for restart
+        ticket = _issue_power_ticket("restart")
+        self.assertIsInstance(ticket, str)
+        self.assertGreater(len(ticket), 16)
+
+        # 2. Consume ticket with wrong action -> Rejected
+        self.assertFalse(_consume_power_ticket(ticket, "shutdown"))
+
+        # 3. Consume ticket with correct action -> Accepted
+        self.assertTrue(_consume_power_ticket(ticket, "restart"))
+
+        # 4. Consume ticket again -> Rejected (single-use)
+        self.assertFalse(_consume_power_ticket(ticket, "restart"))
+
+    def test_power_ticket_expiration(self):
+        ticket = _issue_power_ticket("shutdown")
+        # Artificially expire the ticket
+        with _POWER_TICKET_LOCK:
+            _POWER_TICKETS[ticket] = (time.time() - 1.0, "shutdown")
+
+        self.assertFalse(_consume_power_ticket(ticket, "shutdown"))
 
     def test_does_not_execute_when_paused(self):
         with patch("nodes.queue_control.is_process_management_enabled", return_value=True):
@@ -78,4 +121,3 @@ class TestPowerControlManager(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

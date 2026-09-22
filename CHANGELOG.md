@@ -16,18 +16,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Asynchronous Mode**: Detaches process to run in the background without blocking the ComfyUI generation queue.
   - Optional `trigger` wildcard input and `passthrough` wildcard output for sequencing file execution in any pipeline.
   - **Multi-Layered Security Sandbox**:
-    - Confined strictly to `ComfyUI/scripts/` and `user/default/LeafFlow/scripts/` by default.
+    - Confined strictly to `ComfyUI/scripts/` via canonical `realpath` and `commonpath` validation.
+    - Strict rejection of absolute paths (`C:\`, `/etc/`, `\\server`) and directory traversal sequences (`..`).
     - Never invokes `shell=True` (eliminating command chaining and command injection vulnerabilities).
     - Recursive process tree termination on timeout or cancellation (uses `taskkill /F /T` on Windows to prevent orphaned background processes).
-    - **Guaranteed Automatic Disarm on Load**: External workflows or dropped image metadata containing `RunLocalFileNode` automatically reset `security_consent = false` in the frontend, preventing arbitrary execution without manual user authorization.
-    - Visual node status indicator (`[ARMED]` in emerald green vs `[DISARMED]` in red) and canvas warning ribbon.
-    - Global toggle setting (`LeafFlow.9 - 🛡️ Security.01_AllowLocalFileExecution`).
-    - Optional un-restricting setting (`LeafFlow.9 - 🛡️ Security.02_AllowAnyScriptPath`).
+    - **In-Memory Operator Authorization Gate**: Removed `security_consent` from `INPUT_TYPES` so consent never serializes into workflow JSON or dropped image metadata. Requires active canvas button click `[⚡ Authorize Run]` with 5-minute single-use memory token.
+    - Visual node status indicator (`[ARMED]` in emerald green vs `[DISARMED]` in red).
+    - Global toggle setting (`LeafFlow.9 - 🛡️ Security.01_AllowLocalFileExecution`, default `false`).
+- **🛡️ CSRF Defense & Request Authentication**:
+  - Added `is_authenticated_local_request` validating loopback origin, `Sec-Fetch-Site` header (blocking `cross-site` calls from visited web pages), and `Origin`/`Referer` headers.
+  - Cryptographically secure per-session CSRF token (`X-LeafFlow-CSRF-Token`) generated via `secrets.token_hex(32)` and validated with `secrets.compare_digest`.
+  - Added frontend auth helper (`web/js/auth_helper.js`) automatically fetching and attaching CSRF tokens to administrative fetch requests.
+- **⚡ Two-Step Power Action Handshake**:
+  - Server restart and shutdown endpoints require `ALLOW_PROCESS_MANAGEMENT=true` plus a two-step confirmation handshake (`POST /leafflow/power/request_token` to issue a 30s single-use ticket, followed by `POST /leafflow/power/confirm_action` to consume and execute).
 
 ### Fixed & Compliance
+- **Complete Removal of `ALLOW_ANY_SCRIPT_PATH`**: Eliminated all path escape settings to guarantee execution confinement to `ComfyUI/scripts/`.
 - **Dynamic Node Count**: Replaced hardcoded node count in startup banner with dynamic `len(NODE_CLASS_MAPPINGS)` (now reporting all 16 registered nodes).
 - **Universal Synchronized Versioning**: Version `2.3.0` synchronized across `__init__.py`, `pyproject.toml`, `/leafflow/debug/export`, `README.md`, and `CHANGELOG.md`.
-- **Process Management Security Toggle**: Server restart and shutdown controls are now disabled by default (`ALLOW_PROCESS_MANAGEMENT=false`). If disabled, attempts to trigger restart/shutdown via the UI or API return HTTP 403 with clear instructions.
+- **Process Management Security Toggle**: Server restart and shutdown controls are disabled by default (`ALLOW_PROCESS_MANAGEMENT=false`). If disabled, attempts to trigger restart/shutdown via the UI or API return HTTP 403 with clear instructions.
 - **Optional `pystray` Dependency**: Made `pystray` an optional extra (`[project.optional-dependencies] tray = ["pystray"]`) and removed all runtime `pip install` subprocess calls, ensuring zero crashes on headless cloud servers, Docker, or Google Colab.
 - **Universal Loopback Protection**: Added `is_local_request(request)` validation to all legacy queue endpoints (`/pause_queue/*` and `/persistent_queue/claim`).
 - **Windows Console Unicode Safety**: Added `UnicodeEncodeError` guard around startup emoji printing for legacy Windows terminals.
@@ -35,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Cleaned Dead Code**: Removed orphaned canvas classes from `queue_control.py`.
 
 ### Testing
-- Comprehensive automated test coverage expanded to **97 unit tests** covering all nodes, security guards, process controls, and local runner execution.
+- Comprehensive automated test coverage expanded to **105 unit tests** covering all nodes, CSRF authentication, power action tickets, in-memory runner authorization, and path confinement.
 
 ---
 

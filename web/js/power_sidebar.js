@@ -1,5 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
+import { authenticatedFetch } from "./auth_helper.js";
 
 const EXTENSION_NAME = "LeafFlow.PowerControlSidebar";
 const STYLE_ID = "leafflow-power-sidebar-styles";
@@ -340,7 +341,7 @@ function showPowerSidePopup(anchorElement) {
         cancelBtn.onclick = async (e) => {
             e.stopPropagation();
             closePowerPopup();
-            await api.fetchApi("/leafflow/power/arm", {
+            await authenticatedFetch("/leafflow/power/arm", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ action: null })
@@ -375,7 +376,29 @@ function showPowerSidePopup(anchorElement) {
             "Restart ComfyUI Immediately?",
             "Are you sure you want to restart ComfyUI immediately? Any active prompt generation will be interrupted.",
             async () => {
-                const resp = await api.fetchApi("/leafflow/power/restart", { method: "POST" });
+                const tokenResp = await authenticatedFetch("/leafflow/power/request_token", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "restart" })
+                });
+                if (!tokenResp.ok) {
+                    const err = await tokenResp.json().catch(() => ({}));
+                    if (app.extensionManager?.toast?.add) {
+                        app.extensionManager.toast.add({
+                            severity: "error",
+                            summary: "🍃 Restart Denied",
+                            detail: err.error || "Failed to obtain power action ticket.",
+                            life: 6000
+                        });
+                    }
+                    return;
+                }
+                const tokenData = await tokenResp.json();
+                const resp = await authenticatedFetch("/leafflow/power/confirm_action", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ticket: tokenData.ticket, action: "restart" })
+                });
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
                     if (app.extensionManager?.toast?.add) {
@@ -420,7 +443,29 @@ function showPowerSidePopup(anchorElement) {
             "Shutdown ComfyUI Server?",
             "Are you sure you want to SHUT DOWN the ComfyUI server immediately? The process will exit.",
             async () => {
-                const resp = await api.fetchApi("/leafflow/power/shutdown", { method: "POST" });
+                const tokenResp = await authenticatedFetch("/leafflow/power/request_token", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "shutdown" })
+                });
+                if (!tokenResp.ok) {
+                    const err = await tokenResp.json().catch(() => ({}));
+                    if (app.extensionManager?.toast?.add) {
+                        app.extensionManager.toast.add({
+                            severity: "error",
+                            summary: "🍃 Shutdown Denied",
+                            detail: err.error || "Failed to obtain power action ticket.",
+                            life: 6000
+                        });
+                    }
+                    return;
+                }
+                const tokenData = await tokenResp.json();
+                const resp = await authenticatedFetch("/leafflow/power/confirm_action", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ ticket: tokenData.ticket, action: "shutdown" })
+                });
                 if (!resp.ok) {
                     const err = await resp.json().catch(() => ({}));
                     if (app.extensionManager?.toast?.add) {
@@ -469,7 +514,7 @@ function showPowerSidePopup(anchorElement) {
             "Schedule Restart After Queue Finish?",
             "ComfyUI will wait until all remaining prompts in the queue finish and the system returns to idle before restarting. (Note: If queue is paused, it will not restart).",
             async () => {
-                const resp = await api.fetchApi("/leafflow/power/arm", {
+                const resp = await authenticatedFetch("/leafflow/power/arm", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ action: "restart" })
@@ -517,7 +562,7 @@ function showPowerSidePopup(anchorElement) {
             "Schedule Shutdown After Queue Finish?",
             "ComfyUI will wait until all queued prompts complete and the system returns to idle before shutting down completely.",
             async () => {
-                const resp = await api.fetchApi("/leafflow/power/arm", {
+                const resp = await authenticatedFetch("/leafflow/power/arm", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ action: "shutdown" })

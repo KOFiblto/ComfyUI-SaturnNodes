@@ -1,5 +1,7 @@
 import os
 import json
+import secrets
+import time
 import threading
 import asyncio
 from aiohttp import web
@@ -7,7 +9,7 @@ from server import PromptServer
 import nodes
 from .tray_icon import TrayIconManager, is_tray_icon_enabled
 from .assets_restore import assets_restore_manager, is_assets_restore_enabled, get_assets_restore_count
-from .utils import get_leafflow_user_dir, is_local_request
+from .utils import get_leafflow_user_dir, is_local_request, is_authenticated_local_request
 
 QUEUE_CATEGORY = "🍃 LeafFlow/Queue"
 
@@ -560,6 +562,35 @@ class PowerControlManager:
         threading.Thread(target=_run, daemon=True).start()
         return True
 
+_POWER_TICKETS = {}
+_POWER_TICKET_LOCK = threading.Lock()
+
+def _issue_power_ticket(action):
+    with _POWER_TICKET_LOCK:
+        now = time.time()
+        expired = [t for t, (exp, _) in _POWER_TICKETS.items() if exp < now]
+        for t in expired:
+            _POWER_TICKETS.pop(t, None)
+        ticket = secrets.token_urlsafe(24)
+        _POWER_TICKETS[ticket] = (now + 30.0, action)
+        return ticket
+
+def _consume_power_ticket(ticket, expected_action=None):
+    if not ticket or not isinstance(ticket, str):
+        return False
+    with _POWER_TICKET_LOCK:
+        now = time.time()
+        if ticket not in _POWER_TICKETS:
+            return False
+        exp, act = _POWER_TICKETS[ticket]
+        if exp < now:
+            _POWER_TICKETS.pop(ticket, None)
+            return False
+        if expected_action and act != expected_action:
+            return False
+        _POWER_TICKETS.pop(ticket, None)
+        return True
+
 pause_manager = PauseQueueManager()
 persistent_manager = PersistentQueueManager()
 tray_manager = TrayIconManager(pause_manager)
@@ -586,8 +617,8 @@ def setup_queue_control_routes(server):
 
     @routes.post("/leafflow/power/arm")
     async def arm_power_action(request):
-        if not is_local_request(request):
-            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         if not is_process_management_enabled():
             return web.json_response({
                 "error": "Process Management is disabled. Enable 'Allow Process Management' in LeafFlow settings to use restart or shutdown.",
@@ -601,27 +632,90 @@ def setup_queue_control_routes(server):
         power_manager.arm(action)
         return web.json_response(power_manager.get_status())
 
+    @routes.post("/leafflow/power/request_token")
+    async def request_power_token(request):
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+        if not is_process_management_enabled():
+            return web.json_response({
+                "error": "Process Management is disabled. Enable 'Allow Process Management' in LeafFlow settings.",
+                "enabled": False
+            }, status=403)
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        action = data.get("action")
+        if action not in ["restart", "shutdown"]:
+            return web.json_response({"error": "Invalid action. Must be 'restart' or 'shutdown'."}, status=400)
+        ticket = _issue_power_ticket(action)
+        return web.json_response({
+            "success": True,
+            "ticket": ticket,
+            "action": action,
+            "expires_in": 30
+        })
+
+    @routes.post("/leafflow/power/confirm_action")
+    async def confirm_power_action(request):
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+        if not is_process_management_enabled():
+            return web.json_response({
+                "error": "Process Management is disabled. Enable 'Allow Process Management' in LeafFlow settings.",
+                "enabled": False
+            }, status=403)
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        ticket = data.get("ticket")
+        action = data.get("action")
+        if not _consume_power_ticket(ticket, action):
+            return web.json_response({"error": "Invalid or expired confirmation ticket. Operator confirmation required."}, status=403)
+        if action == "restart":
+            power_manager.execute_restart()
+            return web.json_response({"status": "restarting", "success": True})
+        elif action == "shutdown":
+            power_manager.execute_shutdown()
+            return web.json_response({"status": "shutting_down", "success": True})
+        return web.json_response({"error": "Unknown action"}, status=400)
+
     @routes.post("/leafflow/power/restart")
     async def trigger_restart(request):
-        if not is_local_request(request):
-            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         if not is_process_management_enabled():
             return web.json_response({
                 "error": "Process Management is disabled. Enable 'Allow Process Management' in LeafFlow settings to use restart.",
                 "enabled": False
             }, status=403)
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        ticket = data.get("ticket")
+        if not _consume_power_ticket(ticket, "restart"):
+            return web.json_response({"error": "Confirmation ticket required. Use /leafflow/power/request_token first."}, status=403)
         power_manager.execute_restart()
         return web.json_response({"status": "restarting"})
 
     @routes.post("/leafflow/power/shutdown")
     async def trigger_shutdown(request):
-        if not is_local_request(request):
-            return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+        if not is_authenticated_local_request(request):
+            return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
         if not is_process_management_enabled():
             return web.json_response({
                 "error": "Process Management is disabled. Enable 'Allow Process Management' in LeafFlow settings to use shutdown.",
                 "enabled": False
             }, status=403)
+        try:
+            data = await request.json()
+        except Exception:
+            data = {}
+        ticket = data.get("ticket")
+        if not _consume_power_ticket(ticket, "shutdown"):
+            return web.json_response({"error": "Confirmation ticket required. Use /leafflow/power/request_token first."}, status=403)
         power_manager.execute_shutdown()
         return web.json_response({"status": "shutting_down"})
 

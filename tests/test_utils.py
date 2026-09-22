@@ -12,7 +12,10 @@ from nodes.utils import (
     format_lora_output_name,
     is_local_request,
     is_safe_path,
-    sanitize_image_loader_folder
+    sanitize_image_loader_folder,
+    get_csrf_token,
+    is_same_origin_or_direct,
+    is_authenticated_local_request
 )
 
 class TestUtils(unittest.TestCase):
@@ -26,6 +29,70 @@ class TestUtils(unittest.TestCase):
         self.assertFalse(is_local_request(DummyReq("192.168.1.50")))
         self.assertFalse(is_local_request(DummyReq("10.0.0.1")))
         self.assertFalse(is_local_request(DummyReq("8.8.8.8")))
+
+    def test_csrf_token_generation(self):
+        token = get_csrf_token()
+        self.assertIsInstance(token, str)
+        self.assertEqual(len(token), 64)
+        # Session token is consistent across calls in same session
+        self.assertEqual(get_csrf_token(), token)
+
+    def test_is_same_origin_or_direct(self):
+        class DummyReq:
+            def __init__(self, headers=None):
+                self.headers = headers or {}
+
+        # 1. Direct or same-origin
+        self.assertTrue(is_same_origin_or_direct(DummyReq()))
+        self.assertTrue(is_same_origin_or_direct(DummyReq({"Origin": "http://127.0.0.1:8188"})))
+        self.assertTrue(is_same_origin_or_direct(DummyReq({"Origin": "http://localhost:8188"})))
+
+        # 2. Block cross-site via Sec-Fetch-Site
+        self.assertFalse(is_same_origin_or_direct(DummyReq({"Sec-Fetch-Site": "cross-site"})))
+
+        # 3. Block malicious cross-origin
+        self.assertFalse(is_same_origin_or_direct(DummyReq({"Origin": "http://attacker-site.com"})))
+        self.assertFalse(is_same_origin_or_direct(DummyReq({"Referer": "http://malicious.org/exploit.html"})))
+
+    def test_is_authenticated_local_request(self):
+        class DummyReq:
+            def __init__(self, ip="127.0.0.1", headers=None):
+                self.remote = ip
+                self.headers = headers or {}
+
+        valid_token = get_csrf_token()
+
+        # Valid local request with matching token
+        valid_req = DummyReq("127.0.0.1", {
+            "Origin": "http://127.0.0.1:8188",
+            "X-LeafFlow-CSRF-Token": valid_token
+        })
+        self.assertTrue(is_authenticated_local_request(valid_req))
+
+        # Missing token
+        no_token_req = DummyReq("127.0.0.1", {"Origin": "http://127.0.0.1:8188"})
+        self.assertFalse(is_authenticated_local_request(no_token_req))
+
+        # Wrong token
+        wrong_token_req = DummyReq("127.0.0.1", {
+            "Origin": "http://127.0.0.1:8188",
+            "X-LeafFlow-CSRF-Token": "invalid_forged_token"
+        })
+        self.assertFalse(is_authenticated_local_request(wrong_token_req))
+
+        # Remote IP attempting to forge or replay token
+        remote_req = DummyReq("192.168.1.100", {
+            "Origin": "http://127.0.0.1:8188",
+            "X-LeafFlow-CSRF-Token": valid_token
+        })
+        self.assertFalse(is_authenticated_local_request(remote_req))
+
+        # Cross-site drive-by request (Sec-Fetch-Site: cross-site)
+        drive_by_req = DummyReq("127.0.0.1", {
+            "Sec-Fetch-Site": "cross-site",
+            "X-LeafFlow-CSRF-Token": valid_token
+        })
+        self.assertFalse(is_authenticated_local_request(drive_by_req))
 
     def test_is_safe_path(self):
         import tempfile
