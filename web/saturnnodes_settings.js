@@ -4,19 +4,11 @@ import { authenticatedFetch } from "./js/auth_helper.js";
 
 async function postSaturnNodesSettings(bodyObj) {
     try {
-        let resp = await authenticatedFetch("/saturnnodes/settings", {
+        return await authenticatedFetch("/saturnnodes/settings", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(bodyObj)
         });
-        if (!resp.ok) {
-            resp = await authenticatedFetch("/leafflow/settings", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(bodyObj)
-            });
-        }
-        return resp;
     } catch (e) {
         console.warn("[SaturnNodes Settings] Failed to save setting:", e);
     }
@@ -127,10 +119,7 @@ try {
     };
 
     api.addEventListener("saturnnodes_node_error_state", handleNodeError);
-    api.addEventListener("leafflow_node_error_state", handleNodeError);
-
     api.addEventListener("saturnnodes_toast", handleToast);
-    api.addEventListener("leafflow_toast", handleToast);
 } catch (_) {}
 
 /**
@@ -360,8 +349,7 @@ app.registerExtension({
                 class: "saturnnodes-settings-btn",
                 onClick: async () => {
                     try {
-                        let resp = await authenticatedFetch("/saturnnodes/scrapes/clear", { method: "POST" });
-                        if (!resp.ok) resp = await authenticatedFetch("/leafflow/scrapes/clear", { method: "POST" });
+                        const resp = await authenticatedFetch("/saturnnodes/scrapes/clear", { method: "POST" });
                         const data = await resp.json();
                         if (data && data.status === "ok") {
                             alert("SaturnNodes: Failed scrapes cache successfully reset!");
@@ -374,8 +362,7 @@ app.registerExtension({
                 }
             },
             render: renderSettingButton("🗑️ Clear Scrapes Cache", "⏳ Clearing...", "✅ Cache Reset!", async () => {
-                let resp = await authenticatedFetch("/saturnnodes/scrapes/clear", { method: "POST" });
-                if (!resp.ok) resp = await authenticatedFetch("/leafflow/scrapes/clear", { method: "POST" });
+                const resp = await authenticatedFetch("/saturnnodes/scrapes/clear", { method: "POST" });
                 const data = await resp.json();
                 if (data.status !== "ok") {
                     throw new Error(data.message || "Failed to reset scrapes cache");
@@ -411,8 +398,7 @@ app.registerExtension({
                 class: "saturnnodes-settings-btn",
                 onClick: async () => {
                     try {
-                        let resp = await authenticatedFetch("/saturnnodes/prompt_iterator/clear", { method: "POST" });
-                        if (!resp.ok) resp = await authenticatedFetch("/leafflow/prompt_iterator/clear", { method: "POST" });
+                        const resp = await authenticatedFetch("/saturnnodes/prompt_iterator/clear", { method: "POST" });
                         const data = await resp.json();
                         if (data && data.status === "ok") {
                             alert("SaturnNodes: Prompt Iterator queues successfully reset!");
@@ -425,8 +411,7 @@ app.registerExtension({
                 }
             },
             render: renderSettingButton("🔄 Reset All Queues", "⏳ Resetting...", "✅ State Reset!", async () => {
-                let resp = await authenticatedFetch("/saturnnodes/prompt_iterator/clear", { method: "POST" });
-                if (!resp.ok) resp = await authenticatedFetch("/leafflow/prompt_iterator/clear", { method: "POST" });
+                const resp = await authenticatedFetch("/saturnnodes/prompt_iterator/clear", { method: "POST" });
                 const data = await resp.json();
                 if (data.status !== "ok") {
                     throw new Error(data.message || "Failed to clear prompt iterator state");
@@ -636,8 +621,7 @@ app.registerExtension({
                     if (!approved) return;
 
                     try {
-                        let resp = await api.fetchApi("/saturnnodes/debug/export");
-                        if (!resp.ok) resp = await api.fetchApi("/leafflow/debug/export");
+                        const resp = await api.fetchApi("/saturnnodes/debug/export");
                         const data = await resp.json();
                         const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
                         const url = URL.createObjectURL(blob);
@@ -656,8 +640,7 @@ app.registerExtension({
                 }
             },
             render: renderSettingButton("📥 Export Debug Profile", "⏳ Exporting...", "✅ Exported!", async () => {
-                let resp = await api.fetchApi("/saturnnodes/debug/export");
-                if (!resp.ok) resp = await api.fetchApi("/leafflow/debug/export");
+                const resp = await api.fetchApi("/saturnnodes/debug/export");
                 const data = await resp.json();
                 const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
                 const url = URL.createObjectURL(blob);

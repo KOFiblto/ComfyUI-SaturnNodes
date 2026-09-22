@@ -288,7 +288,7 @@ function mergeDynamicSeeds(snapPrompt, livePrompt) {
 // Sync with server if PersistentQueue is available
 async function syncBatchToServer(promptId, batchInfo) {
     try {
-        let resp = await authenticatedFetch("/saturnnodes/batch_queue/sync", {
+        await authenticatedFetch("/saturnnodes/batch_queue/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -296,16 +296,6 @@ async function syncBatchToServer(promptId, batchInfo) {
                 batch_info: batchInfo
             })
         }).catch(() => null);
-        if (!resp || !resp.ok) {
-            await authenticatedFetch("/leafflow/batch_queue/sync", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    prompt_id: promptId,
-                    batch_info: batchInfo
-                })
-            }).catch(() => null);
-        }
     } catch (e) {
         // Silently ignore if server endpoint is not present
     }
@@ -314,10 +304,7 @@ async function syncBatchToServer(promptId, batchInfo) {
 async function loadBatchFromServer() {
     try {
         if (!api || !api.fetchApi) return;
-        let res = await api.fetchApi("/saturnnodes/batch_queue/data", { cache: "no-store" }).catch(() => null);
-        if (!res || !res.ok) {
-            res = await api.fetchApi("/leafflow/batch_queue/data", { cache: "no-store" }).catch(() => null);
-        }
+        const res = await api.fetchApi("/saturnnodes/batch_queue/data", { cache: "no-store" }).catch(() => null);
         if (res && res.ok) {
             const data = await res.json();
             if (data && typeof data === "object") {

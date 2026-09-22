@@ -217,7 +217,7 @@ def get_env_setting(key, default_val):
     """
     Reads a key setting from ComfyUI/user/default/LeafFlow/.env safely.
     """
-    user_dir = get_leafflow_user_dir()
+    user_dir = get_saturnnodes_user_dir()
     env_file = os.path.join(user_dir, ".env")
     if os.path.exists(env_file):
         try:

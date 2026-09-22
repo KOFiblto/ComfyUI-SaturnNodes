@@ -19,7 +19,6 @@ app.registerExtension({
                 }
             };
             api.addEventListener("saturnnodes_prompt_iterator_progress", handleProgress);
-            api.addEventListener("leafflow_prompt_iterator_progress", handleProgress);
         }
     },
     async nodeCreated(node) {
@@ -33,18 +32,11 @@ app.registerExtension({
                 try {
                     resetBtn.name = "⏳ Resetting...";
                     app.graph?.setDirtyCanvas(true, true);
-                    let resp = await authenticatedFetch("/saturnnodes/prompt_iterator/reset_node", {
+                    const resp = await authenticatedFetch("/saturnnodes/prompt_iterator/reset_node", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ node_id: String(node.id) })
                     });
-                    if (!resp.ok) {
-                        resp = await authenticatedFetch("/leafflow/prompt_iterator/reset_node", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ node_id: String(node.id) })
-                        });
-                    }
                     const res = await resp.json();
                     if (res && res.status === "ok") {
                         resetBtn.name = "✅ Reset to 0!";
@@ -68,10 +60,7 @@ app.registerExtension({
                 try {
                     openFileBtn.name = "⏳ Opening...";
                     app.graph?.setDirtyCanvas(true, true);
-                    let resp = await authenticatedFetch("/saturnnodes/prompt_iterator/open_file", { method: "POST" });
-                    if (!resp.ok) {
-                        resp = await authenticatedFetch("/leafflow/prompt_iterator/open_file", { method: "POST" });
-                    }
+                    const resp = await authenticatedFetch("/saturnnodes/prompt_iterator/open_file", { method: "POST" });
                     const res = await resp.json();
                     if (res && res.status === "ok") {
                         openFileBtn.name = "✅ Opened in Editor!";

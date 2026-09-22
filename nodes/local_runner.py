@@ -157,7 +157,6 @@ def setup_local_runner_routes(server):
     routes = server.routes
 
     @routes.post("/saturnnodes/local_runner/authorize")
-    @routes.post("/leafflow/local_runner/authorize")
     async def authorize_endpoint(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -182,7 +181,6 @@ def setup_local_runner_routes(server):
         })
 
     @routes.get("/saturnnodes/local_runner/status")
-    @routes.get("/leafflow/local_runner/status")
     async def status_endpoint(request):
         if not is_local_request(request):
             return web.json_response({"error": "Forbidden: Local access only"}, status=403)

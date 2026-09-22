@@ -253,10 +253,7 @@ async function getImagePromptAndMeta(imgSrc) {
     if (!promptText && filename) {
         try {
             const query = `filename=${encodeURIComponent(filename)}&type=${encodeURIComponent(type)}&subfolder=${encodeURIComponent(subfolder)}`;
-            let response = await api.fetchApi(`/saturnnodes/get_image_prompt?${query}`);
-            if (!response.ok) {
-                response = await api.fetchApi(`/leafflow/get_image_prompt?${query}`);
-            }
+            const response = await api.fetchApi(`/saturnnodes/get_image_prompt?${query}`);
             if (response.ok) {
                 const data = await response.json();
                 if (data && data.prompt) promptText = data.prompt;
@@ -296,10 +293,7 @@ async function copyImagePrompt(imgSrc) {
 
             if (filename) {
                 const query = `filename=${encodeURIComponent(filename)}&type=${encodeURIComponent(type)}&subfolder=${encodeURIComponent(subfolder)}`;
-                let response = await api.fetchApi(`/saturnnodes/get_image_prompt?${query}`);
-                if (!response.ok) {
-                    response = await api.fetchApi(`/leafflow/get_image_prompt?${query}`);
-                }
+                const response = await api.fetchApi(`/saturnnodes/get_image_prompt?${query}`);
                 if (response.ok) {
                     const data = await response.json();
                     if (data && data.prompt) {

@@ -57,7 +57,7 @@ app.registerExtension({
                 if (!confirmed) return;
 
                 try {
-                    let resp = await authenticatedFetch("/saturnnodes/local_runner/authorize", {
+                    const resp = await authenticatedFetch("/saturnnodes/local_runner/authorize", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -65,16 +65,6 @@ app.registerExtension({
                             file_path: filePathWidget?.value || ""
                         })
                     });
-                    if (!resp.ok) {
-                        resp = await authenticatedFetch("/leafflow/local_runner/authorize", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                node_id: node.id,
-                                file_path: filePathWidget?.value || ""
-                            })
-                        });
-                    }
 
                     if (!resp.ok) {
                         const err = await resp.json().catch(() => ({}));

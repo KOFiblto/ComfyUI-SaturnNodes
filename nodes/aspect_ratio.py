@@ -151,7 +151,7 @@ class TextAspectRatioFinder:
             try:
                 from server import PromptServer
                 if hasattr(PromptServer, "instance") and PromptServer.instance:
-                    PromptServer.instance.send_sync("leafflow_node_error_state", {
+                    PromptServer.instance.send_sync("saturnnodes_node_error_state", {
                         "node_id": str(unique_id or ""),
                         "title": "Aspect Ratio Warning",
                         "message": err_msg,
@@ -241,7 +241,7 @@ class PreviewImageSizeAspectRatio:
                 display_text = f"1 x {h_disp}"
 
         try:
-            PromptServer.instance.send_sync("leafflow_update_preview_aspect_ratio", {
+            PromptServer.instance.send_sync("saturnnodes_update_preview_aspect_ratio", {
                 "node_id": str(unique_id),
                 "ratio": calc_ratio,
                 "display_text": display_text

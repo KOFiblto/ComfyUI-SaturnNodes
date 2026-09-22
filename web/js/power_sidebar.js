@@ -190,10 +190,7 @@ function updateSidebarButtonVisuals() {
 
 async function fetchPowerStatus() {
     try {
-        let resp = await api.fetchApi("/saturnnodes/power/status");
-        if (!resp.ok) {
-            resp = await api.fetchApi("/leafflow/power/status");
-        }
+        const resp = await api.fetchApi("/saturnnodes/power/status");
         if (resp.ok) {
             currentPowerState = await resp.json();
             updateSidebarButtonVisuals();
@@ -306,11 +303,7 @@ function closePowerPopup() {
 }
 
 async function powerFetch(endpointSuffix, options = {}) {
-    let resp = await authenticatedFetch(`/saturnnodes/power/${endpointSuffix}`, options);
-    if (!resp.ok) {
-        resp = await authenticatedFetch(`/leafflow/power/${endpointSuffix}`, options);
-    }
-    return resp;
+    return authenticatedFetch(`/saturnnodes/power/${endpointSuffix}`, options);
 }
 
 function showPowerSidePopup(anchorElement) {
@@ -699,7 +692,6 @@ app.registerExtension({
                 updateSidebarButtonVisuals();
             };
             api.addEventListener("saturnnodes_power_status", handlePowerStatus);
-            api.addEventListener("leafflow_power_status", handlePowerStatus);
         } catch (_) {}
 
         setInterval(fetchPowerStatus, 3000);

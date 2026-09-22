@@ -84,7 +84,6 @@ try:
     routes = PromptServer.instance.routes
 
     @routes.post("/saturnnodes/prompt_iterator/reset_node")
-    @routes.post("/leafflow/prompt_iterator/reset_node")
     async def reset_prompt_iterator_node(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -112,17 +111,11 @@ try:
                     PromptServer.instance.send_sync("saturnnodes_prompt_iterator_progress", progress_payload)
                 except Exception:
                     pass
-                try:
-                    PromptServer.instance.send_sync("leafflow_prompt_iterator_progress", progress_payload)
-                except Exception:
-                    pass
             return web.json_response({"status": "ok", "reset": matched})
         except Exception as e:
             return web.json_response({"status": "error", "message": str(e)}, status=500)
 
     @routes.post("/saturnnodes/prompt_iterator/clear")
-    @routes.post("/leafflow/prompt_iterator/clear")
-    @routes.post("/flow_control/prompt_iterator/clear")
     async def clear_prompt_iterator_endpoint(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -130,7 +123,6 @@ try:
         return web.json_response({"status": "ok" if success else "error"})
 
     @routes.post("/saturnnodes/prompt_iterator/open_file")
-    @routes.post("/leafflow/prompt_iterator/open_file")
     async def open_prompt_iterator_file(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -371,10 +363,6 @@ class PromptQueueIterator:
         }
         try:
             PromptServer.instance.send_sync("saturnnodes_prompt_iterator_progress", progress_data)
-        except Exception:
-            pass
-        try:
-            PromptServer.instance.send_sync("leafflow_prompt_iterator_progress", progress_data)
         except Exception:
             pass
 

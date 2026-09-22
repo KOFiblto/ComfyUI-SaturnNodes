@@ -108,7 +108,6 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
         # Notify frontend
         PromptServer.instance.send_sync("saturnnodes_decision_waiting", {"node_id": unique_id})
-        PromptServer.instance.send_sync("leafflow_decision_waiting", {"node_id": unique_id})
 
         if send_os_notification:
             self.send_notification("ComfyUI SaturnNodes", "Workflow paused! Waiting for your decision.")
@@ -129,7 +128,6 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
                     DecisionManager.unregister_wait(unique_id)
                     # Notify frontend to update UI back to normal
                     PromptServer.instance.send_sync("saturnnodes_decision_resolved", {"node_id": unique_id})
-                    PromptServer.instance.send_sync("leafflow_decision_resolved", {"node_id": unique_id})
                     return (False,)
             else:
                 while not event.is_set():
@@ -138,7 +136,6 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         except Exception:
             DecisionManager.unregister_wait(unique_id)
             PromptServer.instance.send_sync("saturnnodes_decision_resolved", {"node_id": unique_id})
-            PromptServer.instance.send_sync("leafflow_decision_resolved", {"node_id": unique_id})
             raise
 
         # Retrieve action
@@ -146,7 +143,6 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
         
         # Notify frontend that the decision has been resolved
         PromptServer.instance.send_sync("saturnnodes_decision_resolved", {"node_id": unique_id})
-        PromptServer.instance.send_sync("leafflow_decision_resolved", {"node_id": unique_id})
 
         if action == "cancel":
             print(f"[SaturnNodes] Node {unique_id} cancelled.")
@@ -174,7 +170,6 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 
 # Register API Route
 @PromptServer.instance.routes.post("/saturnnodes/decision")
-@PromptServer.instance.routes.post("/leafflow/decision")
 async def handle_decision(request):
     if not is_authenticated_local_request(request):
         return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)

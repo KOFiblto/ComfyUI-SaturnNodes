@@ -62,10 +62,7 @@ app.registerExtension({
         };
 
         api.addEventListener("saturnnodes_decision_waiting", handleWaiting);
-        api.addEventListener("leafflow_decision_waiting", handleWaiting);
-
         api.addEventListener("saturnnodes_decision_resolved", handleResolved);
-        api.addEventListener("leafflow_decision_resolved", handleResolved);
     },
     async nodeCreated(node) {
         if (node.comfyClass === "SaturnDecision" || node.comfyClass === "LeafFlowDecision") {
@@ -94,7 +91,7 @@ app.registerExtension({
             const sendDecision = async (action) => {
                 node.disableDecisionButtons();
                 try {
-                    let resp = await authenticatedFetch("/saturnnodes/decision", {
+                    await authenticatedFetch("/saturnnodes/decision", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({
@@ -102,16 +99,6 @@ app.registerExtension({
                             action: action
                         }),
                     });
-                    if (!resp.ok) {
-                        await authenticatedFetch("/leafflow/decision", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                                node_id: node.id.toString(),
-                                action: action
-                            }),
-                        });
-                    }
                 } catch (e) {
                     console.error("[SaturnNodes] Failed to send decision:", e);
                 }

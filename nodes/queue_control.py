@@ -491,7 +491,6 @@ class PowerControlManager:
         try:
             status = self.get_status()
             PromptServer.instance.send_sync("saturnnodes_power_status", status)
-            PromptServer.instance.send_sync("leafflow_power_status", status)
         except Exception:
             pass
 
@@ -615,14 +614,12 @@ def setup_queue_control_routes(server):
     routes = server.routes
 
     @routes.get("/saturnnodes/power/status")
-    @routes.get("/leafflow/power/status")
     async def get_power_status(request):
         if not is_local_request(request):
             return web.json_response({"error": "Forbidden: Local access only"}, status=403)
         return web.json_response(power_manager.get_status())
 
     @routes.post("/saturnnodes/power/arm")
-    @routes.post("/leafflow/power/arm")
     async def arm_power_action(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -640,7 +637,6 @@ def setup_queue_control_routes(server):
         return web.json_response(power_manager.get_status())
 
     @routes.post("/saturnnodes/power/request_token")
-    @routes.post("/leafflow/power/request_token")
     async def request_power_token(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -665,7 +661,6 @@ def setup_queue_control_routes(server):
         })
 
     @routes.post("/saturnnodes/power/confirm_action")
-    @routes.post("/leafflow/power/confirm_action")
     async def confirm_power_action(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -691,7 +686,6 @@ def setup_queue_control_routes(server):
         return web.json_response({"error": "Unknown action"}, status=400)
 
     @routes.post("/saturnnodes/power/restart")
-    @routes.post("/leafflow/power/restart")
     async def trigger_restart(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -711,7 +705,6 @@ def setup_queue_control_routes(server):
         return web.json_response({"status": "restarting"})
 
     @routes.post("/saturnnodes/power/shutdown")
-    @routes.post("/leafflow/power/shutdown")
     async def trigger_shutdown(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -731,7 +724,6 @@ def setup_queue_control_routes(server):
         return web.json_response({"status": "shutting_down"})
 
     @routes.post("/saturnnodes/assets/restore")
-    @routes.post("/leafflow/assets/restore")
     async def restore_assets_endpoint(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -745,21 +737,18 @@ def setup_queue_control_routes(server):
         return web.json_response({"success": True, "restored": count, "debug": assets_restore_manager.last_debug_report})
 
     @routes.get("/saturnnodes/assets/debug")
-    @routes.get("/leafflow/assets/debug")
     async def get_assets_debug(request):
         if not is_local_request(request):
             return web.json_response({"error": "Forbidden: Local access only"}, status=403)
         return web.json_response(assets_restore_manager.last_debug_report)
 
     @routes.get("/saturnnodes/batch_queue/data")
-    @routes.get("/leafflow/batch_queue/data")
     async def get_batch_queue_data(request):
         if not is_local_request(request):
             return web.json_response({"error": "Forbidden: Local access only"}, status=403)
         return web.json_response(persistent_manager.batch_meta)
 
     @routes.post("/saturnnodes/batch_queue/sync")
-    @routes.post("/leafflow/batch_queue/sync")
     async def sync_batch_queue_data(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)

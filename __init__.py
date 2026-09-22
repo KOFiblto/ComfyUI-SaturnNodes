@@ -102,7 +102,6 @@ except Exception:
     print(f"[ComfyUI-SaturnNodes] Loaded {len(NODE_CLASS_MAPPINGS)} nodes & visual endpoints successfully (v{__version__}).")
 
 @routes.get("/saturnnodes/auth/token")
-@routes.get("/leafflow/auth/token")
 async def get_csrf_token_endpoint(request):
     if not is_local_request(request):
         return web.json_response({"error": "Forbidden: Local access only"}, status=403)
@@ -110,8 +109,6 @@ async def get_csrf_token_endpoint(request):
 
 @routes.get("/saturnnodes/get_image_prompt")
 @routes.get("/saturnnodes/view_image_prompt")
-@routes.get("/leafflow/get_image_prompt")
-@routes.get("/leafflow/view_image_prompt")
 async def get_image_prompt_endpoint(request):
     if not is_local_request(request):
         return web.json_response({"success": False, "error": "Forbidden: Local access only"}, status=403)
@@ -154,8 +151,6 @@ async def get_image_prompt_endpoint(request):
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
 @routes.get("/saturnnodes/settings")
-@routes.get("/leafflow/settings")
-@routes.get("/flow_control/settings")
 async def get_settings(request):
     if not is_local_request(request):
         return web.json_response({"error": "Forbidden: Local access only"}, status=403)
@@ -206,8 +201,6 @@ def _clean_env_val(v):
     return str(v).replace("\n", "").replace("\r", "").strip()
 
 @routes.post("/saturnnodes/settings")
-@routes.post("/leafflow/settings")
-@routes.post("/flow_control/settings")
 async def save_settings(request):
     if not is_authenticated_local_request(request):
         return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -367,7 +360,6 @@ async def save_settings(request):
     return web.json_response({"status": "ok"})
 
 @routes.post("/saturnnodes/scrapes/clear")
-@routes.post("/leafflow/scrapes/clear")
 async def clear_scrapes_endpoint(request):
     if not is_authenticated_local_request(request):
         return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -381,7 +373,6 @@ async def clear_scrapes_endpoint(request):
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 @routes.get("/saturnnodes/debug/export")
-@routes.get("/leafflow/debug/export")
 async def export_debug_profile(request):
     try:
         import platform

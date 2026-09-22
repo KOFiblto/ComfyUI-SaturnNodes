@@ -296,7 +296,7 @@ app.registerExtension({
     }
 });
 
-api.addEventListener("leafflow_update_preview_aspect_ratio", (event) => {
+api.addEventListener("saturnnodes_update_preview_aspect_ratio", (event) => {
     const detail = event.detail;
     if (!detail || !detail.node_id) return;
 
