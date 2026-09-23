@@ -5,11 +5,11 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_helper
 
-from nodes.text_split import LeafFlowTextSplit
+from nodes.text_split import SaturnTextSplit
 
-class TestLeafFlowTextSplit(unittest.TestCase):
+class TestSaturnTextSplit(unittest.TestCase):
     def setUp(self):
-        self.node = LeafFlowTextSplit()
+        self.node = SaturnTextSplit()
 
     def test_forward_literal_split_basic(self):
         # User standard case: "Hello --- Bye" with delimiter "--"

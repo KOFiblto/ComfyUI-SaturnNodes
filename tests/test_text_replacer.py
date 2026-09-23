@@ -19,6 +19,10 @@ class TestMultiTextReplacer(unittest.TestCase):
         targets = parse_find_targets('"dog", "cat", "bird"')
         self.assertEqual(targets, ["dog", "cat", "bird"])
 
+    def test_parse_find_targets_with_comma_inside_quotes(self):
+        targets = parse_find_targets('"hello, world", "foo, bar", baz')
+        self.assertEqual(targets, ["hello, world", "foo, bar", "baz"])
+
     def test_replace_comma_separated_list(self):
         text, count = self.node.replace_text(
             find="dog, cat, bird",

@@ -1648,8 +1648,6 @@ app.registerExtension({
 
             const origOnDrawForeground = node.onDrawForeground;
             node.onDrawForeground = function(ctx) {
-                updateLoraBadgeColor();
-                node._enforceFixedLoraBadgeSize?.();
                 if (node.flags?.collapsed) {
                     const isSaturn = isSaturnColorsEnabled();
                     const count = node._selectedLoraCount ?? getSelectedLoras().length;
@@ -1685,6 +1683,12 @@ app.registerExtension({
                     ctx.restore();
                 }
                 if (origOnDrawForeground) origOnDrawForeground.apply(this, arguments);
+            };
+
+            const origOnResize = node.onResize;
+            node.onResize = function() {
+                if (origOnResize) origOnResize.apply(this, arguments);
+                node._enforceFixedLoraBadgeSize?.();
             };
 
             syncModeToggleUI();

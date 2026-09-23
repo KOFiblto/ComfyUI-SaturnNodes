@@ -17,13 +17,13 @@ from .nodes.image_loader import VisualImageLoader, ImageLoaderVisualPrettyV2
 from .nodes.auto_watcher import LoadImageFromFolder
 from .nodes.load_recent import LoadRecentOutputs
 from .nodes.preview_latent import PreviewLatentLiveNode
-from .nodes.decision_node import LeafFlowDecision, SaturnDecision
+from .nodes.decision_node import SaturnDecision
 from .nodes.aspect_ratio import TextAspectRatioFinder, AspectRatioFinder, PreviewImageSizeAspectRatio
 from .nodes.lora_finder import TextLoraFinder, LoraTextFinder
 from .nodes.prompt_iterator import PromptQueueIterator
 from .nodes.prompt_counter import PromptCounter
 from .nodes.text_replacer import MultiTextReplacer
-from .nodes.text_split import LeafFlowTextSplit, SaturnTextSplit
+from .nodes.text_split import SaturnTextSplit
 from .nodes.local_runner import RunLocalFileNode, setup_local_runner_routes
 from .nodes.utils import (
     get_saturnnodes_user_dir,
@@ -44,7 +44,6 @@ NODE_CLASS_MAPPINGS = {
     "LoadRecentOutputs": LoadRecentOutputs,
     "PreviewLatentLive": PreviewLatentLiveNode,
     "SaturnDecision": SaturnDecision,
-    "LeafFlowDecision": LeafFlowDecision,  # Backward compatibility alias
     "TextAspectRatioFinder": TextAspectRatioFinder,
     "PreviewImageSizeAspectRatio": PreviewImageSizeAspectRatio,
     "TextLoraFinder": TextLoraFinder,
@@ -52,7 +51,6 @@ NODE_CLASS_MAPPINGS = {
     "PromptCounter": PromptCounter,
     "MultiTextReplacer": MultiTextReplacer,
     "SaturnTextSplit": SaturnTextSplit,
-    "LeafFlowTextSplit": LeafFlowTextSplit,  # Backward compatibility alias
     "RunLocalFileNode": RunLocalFileNode,
 }
 
@@ -65,7 +63,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "LoadRecentOutputs": "🪐 ⏱️ Recent Outputs",
     "PreviewLatentLive": "🪐 👁️ Live Latent Preview",
     "SaturnDecision": "🪐 ⏸️ Saturn Decision",
-    "LeafFlowDecision": "🪐 ⏸️ Saturn Decision (Legacy)",
     "TextAspectRatioFinder": "🪐 📐 Text Aspect Ratio Finder",
     "PreviewImageSizeAspectRatio": "🪐 📐 Preview Image Size & Aspect Ratio",
     "TextLoraFinder": "🪐 🔎 Text LoRA Finder & Loader",
@@ -73,7 +70,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "PromptCounter": "🪐 📝 Prompt Counter",
     "MultiTextReplacer": "🪐 🔤 Multi Text Replacer",
     "SaturnTextSplit": "🪐 ✂️ Text Split",
-    "LeafFlowTextSplit": "🪐 ✂️ Text Split (Legacy)",
     "RunLocalFileNode": "🪐 ⚡ Run Local File"
 }
 

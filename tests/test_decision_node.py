@@ -6,11 +6,11 @@ import threading
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_helper
 
-from nodes.decision_node import DecisionManager, LeafFlowDecision
+from nodes.decision_node import DecisionManager, SaturnDecision
 
 class TestDecisionNode(unittest.TestCase):
     def setUp(self):
-        self.node = LeafFlowDecision()
+        self.node = SaturnDecision()
 
     def test_decision_manager_register_and_trigger(self):
         uid = "test_decision_123"

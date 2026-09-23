@@ -214,8 +214,6 @@ app.registerExtension({
             const origOnDrawForeground = node.onDrawForeground;
             node.onDrawForeground = function(ctx) {
                 hookInputEl();
-                updatePromptBadgeColor();
-                node._enforceFixedBadgeSize?.();
 
                 // If textWidget value changed without callback
                 const currentVal = (textWidget?.inputEl ? textWidget.inputEl.value : textWidget?.value) || "";
@@ -262,11 +260,18 @@ app.registerExtension({
                 if (origOnDrawForeground) origOnDrawForeground.apply(this, arguments);
             };
 
+            const origOnResize = node.onResize;
+            node.onResize = function() {
+                if (origOnResize) origOnResize.apply(this, arguments);
+                node._enforceFixedBadgeSize?.();
+            };
+
             const origOnConfigure = node.onConfigure;
             node.onConfigure = function() {
                 if (origOnConfigure) origOnConfigure.apply(this, arguments);
                 setTimeout(() => {
                     hookInputEl();
+                    node._enforceFixedBadgeSize?.();
                     updateCount();
                 }, 40);
             };

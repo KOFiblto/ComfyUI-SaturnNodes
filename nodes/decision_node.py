@@ -38,7 +38,7 @@ class DecisionManager:
         return False
 
 
-class LeafFlowDecision:
+class SaturnDecision:
     @classmethod
     def INPUT_TYPES(cls):
         return {
@@ -185,4 +185,5 @@ async def handle_decision(request):
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-SaturnDecision = LeafFlowDecision
+LeafFlowDecision = SaturnDecision
+SaturnDecision = SaturnDecision

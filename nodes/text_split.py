@@ -1,8 +1,8 @@
 import re
 
-class LeafFlowTextSplit:
+class SaturnTextSplit:
     """
-    LeafFlow Text Node:
+    SaturnNodes Text Split Node:
     Splits input text into two parts (text1 and text2) by either a literal character sequence
     or a regular expression pattern, supporting forward (from start) and backward (from end) splitting.
     """
@@ -86,4 +86,5 @@ class LeafFlowTextSplit:
 
         return (t1, t2)
 
-SaturnTextSplit = LeafFlowTextSplit
+LeafFlowTextSplit = SaturnTextSplit
+SaturnTextSplit = SaturnTextSplit

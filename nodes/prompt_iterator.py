@@ -306,6 +306,16 @@ class PromptQueueIterator:
                 selected_prompt = original_blocks[idx]
                 next_index = current_index + 1
                 display_run = (current_index % total_count) + 1
+            elif pop_mode in ["Random (Cycle)"]:
+                shuffled_order = list(node_state.get("shuffled_order", [])) if isinstance(node_state, dict) else []
+                cycle_index = current_index % total_count
+                if len(shuffled_order) != total_count or (cycle_index == 0 and current_index > 0) or not shuffled_order:
+                    shuffled_order = list(range(total_count))
+                    random.shuffle(shuffled_order)
+                idx = shuffled_order[cycle_index]
+                selected_prompt = original_blocks[idx]
+                next_index = (current_index + 1) % total_count
+                display_run = cycle_index + 1
             else: # Default fallback
                 idx = current_index % total_count
                 selected_prompt = original_blocks[idx]
@@ -335,7 +345,7 @@ class PromptQueueIterator:
         remaining_text = join_delim.join(original_blocks[display_run:]) if display_run < total_count else ""
 
         # Update state dictionary
-        state[state_key] = {
+        new_entry = {
             "index": next_index,
             "total": total_count,
             "last_run": display_run,
@@ -343,6 +353,9 @@ class PromptQueueIterator:
             "preview": selected_prompt[:60].replace('\n', ' '),
             "assigned_prompts": assigned_prompts
         }
+        if "shuffled_order" in locals():
+            new_entry["shuffled_order"] = shuffled_order
+        state[state_key] = new_entry
 
         # Keep at most 3 most recent text hashes per node_id
         node_prefix = f"node_{unique_id}_"

@@ -235,5 +235,36 @@ class TestPromptQueueIterator(unittest.TestCase):
             matching_keys = [k for k in state_db.keys() if k.startswith("node_prune_node_")]
             self.assertLessEqual(len(matching_keys), 3)
 
+    def test_random_cycle_permutation(self):
+        """
+        Verify that Random (Cycle) mode visits all items in a permutation before repeating.
+        """
+        pack = "A\n\nB\n\nC\n\nD\n\nE"
+        state_db = {}
+
+        def mock_load():
+            return dict(state_db)
+
+        def mock_save(new_state):
+            nonlocal state_db
+            state_db = dict(new_state)
+
+        with patch("nodes.prompt_iterator.load_state", side_effect=mock_load), \
+             patch("nodes.prompt_iterator.save_state", side_effect=mock_save), \
+             patch("nodes.prompt_iterator.PromptServer.instance.send_sync"):
+
+            picked = []
+            for _ in range(5):
+                p, _, _ = self.node.process_queue(
+                    pop_mode="Random (Cycle)",
+                    text=pack,
+                    unique_id="cycle_test_node"
+                )
+                picked.append(p)
+
+            # All 5 unique items must have been visited in 1 cycle
+            self.assertEqual(len(picked), 5)
+            self.assertEqual(set(picked), {"A", "B", "C", "D", "E"})
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,18 +1,31 @@
 import re
+import csv
+import io
 
 def parse_find_targets(find_str):
-    if not find_str:
+    if not find_str or not find_str.strip():
         return []
-    raw_items = []
-    # Split strictly by comma
-    parts = find_str.split(',')
-    for part in parts:
-        item = part.strip()
-        if (item.startswith('"') and item.endswith('"')) or (item.startswith("'") and item.endswith("'")):
-            item = item[1:-1].strip()
-        if item:
-            raw_items.append(item)
-    return raw_items
+    try:
+        reader = csv.reader(io.StringIO(find_str.strip()), skipinitialspace=True)
+        raw_items = []
+        for row in reader:
+            for item in row:
+                s = item.strip()
+                if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+                    s = s[1:-1].strip()
+                if s:
+                    raw_items.append(s)
+        return raw_items
+    except Exception:
+        raw_items = []
+        parts = find_str.split(',')
+        for part in parts:
+            item = part.strip()
+            if (item.startswith('"') and item.endswith('"')) or (item.startswith("'") and item.endswith("'")):
+                item = item[1:-1].strip()
+            if item:
+                raw_items.append(item)
+        return raw_items
 
 class MultiTextReplacer:
     @classmethod
