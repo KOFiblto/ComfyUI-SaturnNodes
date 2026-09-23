@@ -46,51 +46,14 @@ app.registerExtension({
             const sepWidget = node.widgets?.find(w => w.name === "separator");
             const regexWidget = node.widgets?.find(w => w.name === "custom_regex");
 
-            // Add the live count display widget
-            const countWidget = node.addWidget("text", "Prompts", "0 Prompts", () => {}, { serialize: false });
-            countWidget.disabled = true;
-
-            // Custom drawing for counter widget
-            countWidget.computeSize = function(width) {
-                return [width, 22];
-            };
-
-            countWidget.draw = function(ctx, n, widget_width, y, widget_height) {
-                ctx.save();
-                const count = n._promptCount ?? 0;
-                const label = `${count} Prompt${count === 1 ? "" : "s"}`;
-
-                const margin = 8;
-                const targetH = 22;
-                const badgeH = Math.min(widget_height ? widget_height - 4 : targetH, targetH);
-                const badgeY = y + (widget_height ? (widget_height - badgeH) / 2 : 2);
-                const badgeW = widget_width - margin * 2;
-                const badgeX = margin;
-                const radius = 6;
-
-                // Saturn Gold / Amber subtle background pill
-                ctx.fillStyle = count > 0 ? "rgba(217, 119, 6, 0.16)" : "rgba(255, 255, 255, 0.04)";
-                ctx.strokeStyle = count > 0 ? "rgba(245, 158, 11, 0.55)" : "rgba(255, 255, 255, 0.12)";
-                ctx.lineWidth = 1;
-
-                ctx.beginPath();
-                if (ctx.roundRect) {
-                    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, radius);
-                } else {
-                    ctx.rect(badgeX, badgeY, badgeW, badgeH);
-                }
-                ctx.fill();
-                ctx.stroke();
-
-                // Text
-                ctx.font = "bold 12px Inter, system-ui, sans-serif";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillStyle = count > 0 ? "#fbbf24" : "#94a3b8";
-                ctx.fillText(label, badgeX + badgeW / 2, badgeY + badgeH / 2);
-
-                ctx.restore();
-            };
+            // Add the live count display widget as a normal native widget (auto-scales with zoom)
+            let countWidget = node.widgets?.find(w => w.name === "Prompts" || w._isPromptCount);
+            if (!countWidget) {
+                countWidget = node.addWidget("button", "0 Prompts", "0 Prompts", () => {
+                    updateCount();
+                }, { serialize: false });
+                countWidget._isPromptCount = true;
+            }
 
             function updateCount() {
                 const text = (textWidget?.inputEl ? textWidget.inputEl.value : textWidget?.value) || "";
@@ -100,6 +63,8 @@ app.registerExtension({
                 node._promptCount = count;
                 const label = `${count} Prompt${count === 1 ? "" : "s"}`;
                 countWidget.value = label;
+                countWidget.name = label;
+                countWidget.label = label;
 
                 // Manage custom_regex enable/disable
                 if (regexWidget) {
@@ -199,8 +164,8 @@ app.registerExtension({
                     const bx = node.size[0] - tw - 16;
                     const by = -LiteGraph.NODE_TITLE_HEIGHT + 3;
 
-                    ctx.fillStyle = count > 0 ? "rgba(217, 119, 6, 0.2)" : "rgba(255, 255, 255, 0.08)";
-                    ctx.strokeStyle = count > 0 ? "rgba(245, 158, 11, 0.6)" : "rgba(255, 255, 255, 0.2)";
+                    ctx.fillStyle = count > 0 ? "rgba(180, 140, 95, 0.25)" : "rgba(255, 255, 255, 0.08)";
+                    ctx.strokeStyle = count > 0 ? "rgba(180, 140, 95, 0.6)" : "rgba(255, 255, 255, 0.2)";
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     if (ctx.roundRect) {
@@ -211,7 +176,7 @@ app.registerExtension({
                     ctx.fill();
                     ctx.stroke();
 
-                    ctx.fillStyle = count > 0 ? "#fbbf24" : "#cbd5e1";
+                    ctx.fillStyle = count > 0 ? "#decbb2" : "#cbd5e1";
                     ctx.textAlign = "left";
                     ctx.textBaseline = "middle";
                     ctx.fillText(badgeText, bx + 5, by + 9);

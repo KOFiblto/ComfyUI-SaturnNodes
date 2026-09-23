@@ -40,24 +40,30 @@ if (typeof document !== "undefined") {
                 transform: none !important;
             }
 
-            /* ComfyUI Settings Action Buttons (Buttons and Fallback Input Elements) */
-            .saturnnodes-settings-btn,
-            .leafflow-settings-btn,
+            /* Ensure outer wrapper divs created by ComfyUI Settings NEVER look like buttons */
+            div.saturnnodes-settings-btn,
+            div[id*="SaturnNodes"],
+            div[id*="saturnnodes"] {
+                background: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+            }
+
+            /* ComfyUI Settings Action Buttons (Buttons only, no container divs) */
             button.saturnnodes-settings-btn,
             button.leafflow-settings-btn,
-            input.saturnnodes-settings-btn,
-            input.leafflow-settings-btn,
             [data-setting-id*="SaturnNodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]),
             [data-setting-id*="saturnnodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]),
             [data-setting-id*="LeafFlow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]),
             [data-setting-id*="leafflow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]) {
-                background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
-                border: 1px solid #f59e0b !important;
+                background: #8b7355 !important;
+                border: 1px solid #a68a67 !important;
                 color: #ffffff !important;
-                font-weight: 600 !important;
-                font-size: 12px !important;
-                padding: 6px 14px !important;
-                border-radius: 6px !important;
+                font-weight: 500 !important;
+                font-size: 11px !important;
+                padding: 4px 11px !important;
+                border-radius: 4px !important;
                 width: auto !important;
                 min-width: max-content !important;
                 max-width: none !important;
@@ -66,37 +72,33 @@ if (typeof document !== "undefined") {
                 text-overflow: clip !important;
                 cursor: pointer !important;
                 text-align: center !important;
-                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
-                transition: all 0.2s ease !important;
+                box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+                transition: all 0.15s ease !important;
                 display: inline-flex !important;
                 align-items: center !important;
                 justify-content: center !important;
                 user-select: none !important;
                 box-sizing: border-box !important;
+                line-height: 1.2 !important;
             }
 
-            .saturnnodes-settings-btn:hover,
-            .leafflow-settings-btn:hover,
             button.saturnnodes-settings-btn:hover,
             button.leafflow-settings-btn:hover,
-            input.saturnnodes-settings-btn:hover,
-            input.leafflow-settings-btn:hover,
             [data-setting-id*="SaturnNodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover,
             [data-setting-id*="saturnnodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover,
             [data-setting-id*="LeafFlow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover,
             [data-setting-id*="leafflow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover {
-                background: linear-gradient(135deg, #b45309 0%, #d97706 100%) !important;
-                border-color: #fbbf24 !important;
+                background: #9e8565 !important;
+                border-color: #c4a780 !important;
                 color: #ffffff !important;
-                box-shadow: 0 0 10px rgba(245, 158, 11, 0.45) !important;
+                box-shadow: 0 0 8px rgba(180, 140, 95, 0.35) !important;
                 transform: translateY(-1px) !important;
             }
 
-            .saturnnodes-settings-btn:active,
-            .leafflow-settings-btn:active,
             button.saturnnodes-settings-btn:active,
-            input.saturnnodes-settings-btn:active,
+            button.leafflow-settings-btn:active,
             [data-setting-id*="SaturnNodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):active {
+                background: #7d6549 !important;
                 transform: translateY(0) !important;
             }
         `;
@@ -156,45 +158,43 @@ try {
  */
 function renderSettingButton(label, workingText, successText, onClickHandler) {
     return (name, setter, value) => {
-        const container = document.createElement("div");
-        container.style.cssText = "display: flex; align-items: center; justify-content: flex-end; width: 100%; padding: 2px 0;";
-
         const btn = document.createElement("button");
         btn.type = "button";
         btn.textContent = label;
-        btn.className = "p-button saturnnodes-settings-btn";
+        btn.className = "saturnnodes-settings-btn";
         btn.style.cssText = `
-            padding: 6px 14px !important;
-            background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+            padding: 4px 11px !important;
+            background: #8b7355 !important;
             color: #ffffff !important;
-            border: 1px solid #f59e0b !important;
-            border-radius: 6px !important;
-            font-weight: 600 !important;
-            font-size: 12px !important;
+            border: 1px solid #a68a67 !important;
+            border-radius: 4px !important;
+            font-weight: 500 !important;
+            font-size: 11px !important;
             cursor: pointer !important;
-            transition: all 0.2s ease !important;
+            transition: all 0.15s ease !important;
             outline: none !important;
             min-width: max-content !important;
             width: auto !important;
             white-space: nowrap !important;
             text-align: center !important;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
+            line-height: 1.2 !important;
         `;
 
         btn.onmouseover = () => {
             if (!btn.disabled) {
-                btn.style.background = "#b45309";
-                btn.style.borderColor = "#fbbf24";
+                btn.style.background = "#9e8565";
+                btn.style.borderColor = "#c4a780";
                 btn.style.transform = "translateY(-1px)";
-                btn.style.boxShadow = "0 0 10px rgba(245, 158, 11, 0.45)";
+                btn.style.boxShadow = "0 0 8px rgba(180, 140, 95, 0.35)";
             }
         };
         btn.onmouseout = () => {
             if (!btn.disabled) {
-                btn.style.background = "linear-gradient(135deg, #d97706 0%, #b45309 100%)";
-                btn.style.borderColor = "#f59e0b";
+                btn.style.background = "#8b7355";
+                btn.style.borderColor = "#a68a67";
                 btn.style.transform = "translateY(0)";
-                btn.style.boxShadow = "0 1px 3px rgba(0,0,0,0.4)";
+                btn.style.boxShadow = "0 1px 2px rgba(0, 0, 0, 0.25)";
             }
         };
 
@@ -212,34 +212,33 @@ function renderSettingButton(label, workingText, successText, onClickHandler) {
             try {
                 await onClickHandler();
                 btn.textContent = successText;
-                btn.style.background = "linear-gradient(135deg, #059669 0%, #047857 100%)";
+                btn.style.background = "#059669";
                 btn.style.borderColor = "#34d399";
                 setTimeout(() => {
                     btn.textContent = originalText;
                     btn.disabled = false;
                     btn.style.opacity = "1";
                     btn.style.cursor = "pointer";
-                    btn.style.background = "linear-gradient(135deg, #d97706 0%, #b45309 100%)";
-                    btn.style.borderColor = "#f59e0b";
+                    btn.style.background = "#8b7355";
+                    btn.style.borderColor = "#a68a67";
                 }, 2000);
             } catch (err) {
                 console.error("[SaturnNodes Settings] Action failed:", err);
                 btn.textContent = "❌ Failed";
-                btn.style.background = "linear-gradient(135deg, #dc2626 0%, #991b1b 100%)";
+                btn.style.background = "#dc2626";
                 btn.style.borderColor = "#f87171";
                 setTimeout(() => {
                     btn.textContent = originalText;
                     btn.disabled = false;
                     btn.style.opacity = "1";
                     btn.style.cursor = "pointer";
-                    btn.style.background = "linear-gradient(135deg, #d97706 0%, #b45309 100%)";
-                    btn.style.borderColor = "#f59e0b";
+                    btn.style.background = "#8b7355";
+                    btn.style.borderColor = "#a68a67";
                 }, 3000);
             }
         };
 
-        container.appendChild(btn);
-        return container;
+        return btn;
     };
 }
 
@@ -393,10 +392,8 @@ app.registerExtension({
             defaultValue: "🗑️ Clear Scrapes Cache",
             tooltip: "Immediately clears failed_scrapes.json so Civitai and TMDB can retry downloading missing preview thumbnails on the next folder scan.",
             attrs: {
-                className: "saturnnodes-settings-btn",
-                class: "saturnnodes-settings-btn",
                 readOnly: true,
-                style: "cursor: pointer; text-align: center;",
+                style: "display: flex; justify-content: flex-end; width: 100%; border: none !important; background: transparent !important; padding: 0 !important; box-shadow: none !important;",
                 onClick: async () => {
                     try {
                         const resp = await authenticatedFetch("/saturnnodes/scrapes/clear", { method: "POST" });
@@ -448,10 +445,8 @@ app.registerExtension({
             defaultValue: "🔄 Reset All Queues",
             tooltip: "Immediately empties all active prompt queues and resets iterator state across all workflows.",
             attrs: {
-                className: "saturnnodes-settings-btn",
-                class: "saturnnodes-settings-btn",
                 readOnly: true,
-                style: "cursor: pointer; text-align: center;",
+                style: "display: flex; justify-content: flex-end; width: 100%; border: none !important; background: transparent !important; padding: 0 !important; box-shadow: none !important;",
                 onClick: async () => {
                     try {
                         const resp = await authenticatedFetch("/saturnnodes/prompt_iterator/clear", { method: "POST" });
@@ -509,7 +504,7 @@ app.registerExtension({
             name: "Default State on Launch",
             type: "combo",
             options: ["Paused", "Running"],
-            defaultValue: getInitialSetting("SaturnNodes.4 - ⏸️ Pause Controls.01_DefaultStateOnLaunch", "Paused"),
+            defaultValue: getInitialSetting("SaturnNodes.4 - ⏸️ Pause Controls.01_DefaultStateOnLaunch", "Running"),
             tooltip: "Choose whether execution starts in Paused state or Running state on ComfyUI startup.",
             onChange(value) {
                 postSaturnNodesSettings({ default_pause_state: value });
@@ -702,10 +697,8 @@ app.registerExtension({
             defaultValue: "📥 Export Debug Profile",
             tooltip: "Exports non-sensitive environment diagnostics (OS, Python, PyTorch, SaturnNodes settings, local counts) as a JSON file to share when troubleshooting issues.",
             attrs: {
-                className: "saturnnodes-settings-btn",
-                class: "saturnnodes-settings-btn",
                 readOnly: true,
-                style: "cursor: pointer; text-align: center;",
+                style: "display: flex; justify-content: flex-end; width: 100%; border: none !important; background: transparent !important; padding: 0 !important; box-shadow: none !important;",
                 onClick: handleExportProfile
             }
         });
@@ -749,29 +742,63 @@ app.registerExtension({
         });
 
         // =========================================================================
-        // GROUP 10: 10 - 🪐 About & GitHub
-        // =========================================================================
-
-        const renderGitHubBtn = renderSettingButton("🪐 Open GitHub Profile (@KOFiblto)", "⏳ Opening...", "✅ Opened!", () => {
-            window.open("https://github.com/KOFiblto", "_blank", "noopener,noreferrer");
-        });
-
-        app.ui.settings.addSetting({
-            id: "SaturnNodes.10 - 🪐 GitHub.01_GitHubProfile",
-            name: "Author GitHub Profile & Repo",
-            type: renderGitHubBtn,
-            render: renderGitHubBtn,
-            defaultValue: "https://github.com/KOFiblto",
-            tooltip: "Opens the author's GitHub profile (@KOFiblto) and the ComfyUI-SaturnNodes repository to view updates, star the project, or report issues.",
-            attrs: {
-                className: "saturnnodes-settings-btn",
-                class: "saturnnodes-settings-btn",
-                readOnly: true,
-                style: "cursor: pointer; text-align: center;",
-                onClick: () => {
-                    window.open("https://github.com/KOFiblto", "_blank", "noopener,noreferrer");
-                }
-            }
-        });
+                // Automatically inject footer linking to GitHub and author profile at the bottom of SaturnNodes settings panel
+        setupSettingsFooterObserver();
     }
 });
+
+/**
+ * Injects a clean footer linking to GitHub and author profile at the bottom of the SaturnNodes settings panel.
+ */
+function setupSettingsFooterObserver() {
+    function injectFooterIfMissing() {
+        const saturnItem = document.querySelector('[data-setting-id^="SaturnNodes.9 - 🛡️ Security"]') ||
+                           document.querySelector('[data-setting-id^="SaturnNodes."]');
+        if (!saturnItem || !saturnItem.parentElement) return;
+
+        const container = saturnItem.parentElement;
+        if (container.querySelector(".saturnnodes-settings-footer")) return;
+
+        const footer = document.createElement("div");
+        footer.className = "saturnnodes-settings-footer";
+        footer.style.cssText = `
+            margin-top: 24px;
+            padding: 16px 10px 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 12px;
+            color: #a1a1aa;
+            width: 100%;
+            box-sizing: border-box;
+        `;
+        footer.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 15px;">🪐</span>
+                <span style="font-weight: 600; color: #e4e4e7;">ComfyUI-SaturnNodes</span>
+                <span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(180, 140, 95, 0.18); color: #decbb2; border: 1px solid rgba(180, 140, 95, 0.35);">v2.3.2</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <a href="https://github.com/KOFiblto/ComfyUI-SaturnNodes" target="_blank" rel="noopener noreferrer" style="color: #decbb2; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s;" onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#decbb2'">
+                    <span>📦</span> Repository
+                </a>
+                <a href="https://github.com/KOFiblto" target="_blank" rel="noopener noreferrer" style="color: #decbb2; text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s;" onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#decbb2'">
+                    <span>👤</span> Author (@KOFiblto)
+                </a>
+            </div>
+        `;
+        container.appendChild(footer);
+    }
+
+    try {
+        const observer = new MutationObserver(() => {
+            injectFooterIfMissing();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    } catch (_) {}
+
+    setInterval(injectFooterIfMissing, 1000);
+}

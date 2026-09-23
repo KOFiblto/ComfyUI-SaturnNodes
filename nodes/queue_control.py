@@ -39,7 +39,7 @@ def is_process_management_enabled():
 
 class PauseQueueManager:
     def __init__(self):
-        default_state = get_env_setting("DEFAULT_PAUSE_STATE", "Paused")
+        default_state = get_env_setting("DEFAULT_PAUSE_STATE", "Running")
         default_mode = get_env_setting("DEFAULT_PAUSE_MODE", "after_finish")
         
         self.paused = (default_state.lower() != "running")

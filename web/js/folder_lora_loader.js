@@ -1091,50 +1091,12 @@ app.registerExtension({
             );
             zoomWidget.serialize = false;
 
-            // Live Selected LoRAs Counter widget (matching Prompt Counter style)
-            const loraCountWidget = node.addWidget("text", "Selected LoRAs", "0 LoRAs Selected", () => {}, { serialize: false });
-            loraCountWidget.disabled = true;
-
-            loraCountWidget.computeSize = function(width) {
-                return [width, 22];
-            };
-
-            loraCountWidget.draw = function(ctx, n, widget_width, y, widget_height) {
-                ctx.save();
-                const count = n._selectedLoraCount ?? 0;
-                const label = `${count} LoRA${count === 1 ? "" : "s"} Selected`;
-
-                const margin = 8;
-                const targetH = 22;
-                const badgeH = Math.min(widget_height ? widget_height - 4 : targetH, targetH);
-                const badgeY = y + (widget_height ? (widget_height - badgeH) / 2 : 2);
-                const badgeW = widget_width - margin * 2;
-                const badgeX = margin;
-                const radius = 6;
-
-                // Saturn Gold / Amber subtle background pill
-                ctx.fillStyle = count > 0 ? "rgba(217, 119, 6, 0.16)" : "rgba(255, 255, 255, 0.04)";
-                ctx.strokeStyle = count > 0 ? "rgba(245, 158, 11, 0.55)" : "rgba(255, 255, 255, 0.12)";
-                ctx.lineWidth = 1;
-
-                ctx.beginPath();
-                if (ctx.roundRect) {
-                    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, radius);
-                } else {
-                    ctx.rect(badgeX, badgeY, badgeW, badgeH);
-                }
-                ctx.fill();
-                ctx.stroke();
-
-                // Text
-                ctx.font = "bold 12px Inter, system-ui, sans-serif";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillStyle = count > 0 ? "#fbbf24" : "#94a3b8";
-                ctx.fillText(label, badgeX + badgeW / 2, badgeY + badgeH / 2);
-
-                ctx.restore();
-            };
+            // Live Selected LoRAs Counter widget as a normal native widget (auto-scales with zoom)
+            let loraCountWidget = node.widgets?.find(w => w.name === "Selected LoRAs" || w._isLoraCount);
+            if (!loraCountWidget) {
+                loraCountWidget = node.addWidget("button", "0 LoRAs Selected", "0 LoRAs Selected", () => {}, { serialize: false });
+                loraCountWidget._isLoraCount = true;
+            }
 
             let activeRequest = null;
             let debounceTimer = null;
@@ -1165,6 +1127,8 @@ app.registerExtension({
                 node._selectedLoraCount = count;
                 const label = `${count} LoRA${count === 1 ? "" : "s"} Selected`;
                 loraCountWidget.value = label;
+                loraCountWidget.name = label;
+                loraCountWidget.label = label;
                 app.graph?.setDirtyCanvas(true, true);
             };
 
@@ -1623,8 +1587,8 @@ app.registerExtension({
                     const bx = node.size[0] - tw - 16;
                     const by = -LiteGraph.NODE_TITLE_HEIGHT + 3;
 
-                    ctx.fillStyle = count > 0 ? "rgba(217, 119, 6, 0.2)" : "rgba(255, 255, 255, 0.08)";
-                    ctx.strokeStyle = count > 0 ? "rgba(245, 158, 11, 0.6)" : "rgba(255, 255, 255, 0.2)";
+                    ctx.fillStyle = count > 0 ? "rgba(180, 140, 95, 0.25)" : "rgba(255, 255, 255, 0.08)";
+                    ctx.strokeStyle = count > 0 ? "rgba(180, 140, 95, 0.6)" : "rgba(255, 255, 255, 0.2)";
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     if (ctx.roundRect) {
@@ -1635,7 +1599,7 @@ app.registerExtension({
                     ctx.fill();
                     ctx.stroke();
 
-                    ctx.fillStyle = count > 0 ? "#fbbf24" : "#cbd5e1";
+                    ctx.fillStyle = count > 0 ? "#decbb2" : "#cbd5e1";
                     ctx.textAlign = "left";
                     ctx.textBaseline = "middle";
                     ctx.fillText(badgeText, bx + 5, by + 9);

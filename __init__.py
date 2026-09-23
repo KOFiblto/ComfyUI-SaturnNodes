@@ -427,7 +427,7 @@ async def export_debug_profile(request):
             "registered_nodes_count": len(NODE_CLASS_MAPPINGS),
             "settings": {
                 "enable_persistent_queue": get_env_setting("ENABLE_PERSISTENT_QUEUE", "true"),
-                "default_pause_state": get_env_setting("DEFAULT_PAUSE_STATE", "Paused"),
+                "default_pause_state": get_env_setting("DEFAULT_PAUSE_STATE", "Running"),
                 "default_pause_mode": get_env_setting("DEFAULT_PAUSE_MODE", "after_finish"),
                 "enable_civitai_scraping": get_env_setting("ENABLE_CIVITAI_SCRAPING", "true"),
                 "enable_tmdb_scraping": get_env_setting("ENABLE_TMDB_SCRAPING", "true"),

@@ -1,40 +1,38 @@
 import { app } from "/scripts/app.js";
 
-// Saturn Gold / Amber and Deep Space Emerald palette matching the 🪐 emoji
-const SATURN_GOLD = { color: "#d97706", bgcolor: "#78350f" };
-const SATURN_AMBER = { color: "#b45309", bgcolor: "#451a03" };
-const SATURN_SPACE = { color: "#059669", bgcolor: "#064e3b" };
+// Soft, desaturated pastel Saturn Gold/Amber theme consistent across all SaturnNodes
+const SATURN_PASTEL = { color: "#967d5e", bgcolor: "#2b2621" };
 
 export const COLOR_MAP = {
     // Visual Loaders
-    "VisualLoraLoader": SATURN_GOLD,
-    "FolderLoraLoader": SATURN_GOLD,
-    "FolderLoraLoaderPretty": SATURN_GOLD,
-    "FolderLoraLoaderVisualPrettyV2": SATURN_GOLD,
-    "VisualImageLoader": SATURN_GOLD,
-    "ImageLoaderVisualPrettyV2": SATURN_GOLD,
-    "LoadRecentOutputs": SATURN_GOLD,
+    "VisualLoraLoader": SATURN_PASTEL,
+    "FolderLoraLoader": SATURN_PASTEL,
+    "FolderLoraLoaderPretty": SATURN_PASTEL,
+    "FolderLoraLoaderVisualPrettyV2": SATURN_PASTEL,
+    "VisualImageLoader": SATURN_PASTEL,
+    "ImageLoaderVisualPrettyV2": SATURN_PASTEL,
+    "LoadRecentOutputs": SATURN_PASTEL,
 
     // Automation, Flow & Utilities
-    "LoadImageFromFolder": SATURN_AMBER,
-    "TextAspectRatioFinder": SATURN_AMBER,
-    "AspectRatioFinder": SATURN_AMBER,
-    "PreviewImageSizeAspectRatio": SATURN_AMBER,
-    "TextLoraFinder": SATURN_AMBER,
-    "LoraTextFinder": SATURN_AMBER,
-    "PromptQueueIterator": SATURN_AMBER,
-    "PromptCounter": SATURN_AMBER,
-    "MultiTextReplacer": SATURN_AMBER,
-    "SaturnTextSplit": SATURN_AMBER,
-    "LeafFlowTextSplit": SATURN_AMBER,
-    "SaturnDecision": SATURN_AMBER,
-    "LeafFlowDecision": SATURN_AMBER,
-    "RunLocalFileNode": SATURN_AMBER,
+    "LoadImageFromFolder": SATURN_PASTEL,
+    "TextAspectRatioFinder": SATURN_PASTEL,
+    "AspectRatioFinder": SATURN_PASTEL,
+    "PreviewImageSizeAspectRatio": SATURN_PASTEL,
+    "TextLoraFinder": SATURN_PASTEL,
+    "LoraTextFinder": SATURN_PASTEL,
+    "PromptQueueIterator": SATURN_PASTEL,
+    "PromptCounter": SATURN_PASTEL,
+    "MultiTextReplacer": SATURN_PASTEL,
+    "SaturnTextSplit": SATURN_PASTEL,
+    "LeafFlowTextSplit": SATURN_PASTEL,
+    "SaturnDecision": SATURN_PASTEL,
+    "LeafFlowDecision": SATURN_PASTEL,
+    "RunLocalFileNode": SATURN_PASTEL,
 
-    // Queue & Previews
-    "PreviewLatentLive": SATURN_SPACE,
-    "PauseQueueNode": SATURN_SPACE,
-    "PersistentQueueNode": SATURN_SPACE
+    // Queue & Previews (Live Latent Preview is now consistent with Saturn theme, not green)
+    "PreviewLatentLive": SATURN_PASTEL,
+    "PauseQueueNode": SATURN_PASTEL,
+    "PersistentQueueNode": SATURN_PASTEL
 };
 
 export function isSaturnColorsEnabled() {

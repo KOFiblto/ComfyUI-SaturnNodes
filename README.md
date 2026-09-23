@@ -354,7 +354,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 <details>
 <summary><b>4. ⏸️ Pause Controls</b></summary>
 
-- **`Default State on Launch`** (`combo`, *Default: `Paused`*): Sets whether the queue starts `Paused` or `Running` on boot.
+- **`Default State on Launch`** (`combo`, *Default: `Running`*): Sets whether the queue starts `Paused` or `Running` on boot.
 - **`Default Pause Action`** (`combo`, *Default: `Finish Active Prompt`*): Sets default pause behavior (`Finish Active Prompt` vs `Instant Resume Node`).
 - **`Enable Top Toolbar Button`** (`boolean`, *Default: true*): Toggle top action bar Pause & Continue button group ON/OFF.
 - **`Toolbar Button Unpaused Color`** (`text`, *Default: `#16a34a`*): Hex color for the toolbar unpaused/running state.
@@ -399,12 +399,6 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 
 - **`Allow Local File Execution`** (`boolean`, *Default: false*): Master toggle controlling whether the *Run Local File* node is permitted to execute local scripts or executables. Disabled by default for operator safety.
 - **Strict Confinement**: Execution is strictly limited to the `ComfyUI/scripts/` directory. Absolute paths and directory traversal (`..`) are permanently blocked.
-</details>
-
-<details>
-<summary><b>10. 🪐 About & GitHub</b></summary>
-
-- **`Author GitHub Profile & Repo`** (*Button: `🪐 Open GitHub Profile (@KOFiblto)`*): Direct shortcut opening [https://github.com/KOFiblto](https://github.com/KOFiblto) and the SaturnNodes repository.
 </details>
 
 ---
