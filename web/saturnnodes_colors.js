@@ -1,8 +1,8 @@
 import { app } from "/scripts/app.js";
 
 // Default Amber theme matching the Saturn theme (warm, deep amber, not blinding neon and not muddy brown)
-export const DEFAULT_HEADER_COLOR = "#b45309";
-export const DEFAULT_BG_COLOR = "#351e08";
+export const DEFAULT_HEADER_COLOR = "#6a3f20";
+export const DEFAULT_BG_COLOR = "#472a15";
 
 export const SATURN_NODE_TYPES = new Set([
     // Visual Loaders

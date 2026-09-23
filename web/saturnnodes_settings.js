@@ -680,13 +680,13 @@ app.registerExtension({
         });
 
         // 1.0b Custom Node Title Color (Kikotools-style Sketch Color Picker)
-        const renderTitleColor = renderSketchColorSetting("SaturnNodes.🖼️ Visual Loaders.00_CustomNodeHeaderColor", "#b45309");
+        const renderTitleColor = renderSketchColorSetting("SaturnNodes.🖼️ Visual Loaders.00_CustomNodeHeaderColor", "#6a3f20");
         app.ui.settings.addSetting({
             id: "SaturnNodes.🖼️ Visual Loaders.00_CustomNodeHeaderColor",
             name: "Custom Node Title Color",
             type: renderTitleColor,
             render: renderTitleColor,
-            defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.00_CustomNodeHeaderColor", "#b45309"),
+            defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.00_CustomNodeHeaderColor", "#6a3f20"),
             tooltip: "Title / header bar color for SaturnNodes on canvas when custom colors are enabled.",
             onChange(value) {
                 if (typeof localStorage !== "undefined") {
@@ -699,13 +699,13 @@ app.registerExtension({
         });
 
         // 1.0c Custom Node Body Color (Kikotools-style Sketch Color Picker)
-        const renderBgColor = renderSketchColorSetting("SaturnNodes.🖼️ Visual Loaders.00_CustomNodeBgColor", "#351e08");
+        const renderBgColor = renderSketchColorSetting("SaturnNodes.🖼️ Visual Loaders.00_CustomNodeBgColor", "#472a15");
         app.ui.settings.addSetting({
             id: "SaturnNodes.🖼️ Visual Loaders.00_CustomNodeBgColor",
             name: "Custom Node Body Color",
             type: renderBgColor,
             render: renderBgColor,
-            defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.00_CustomNodeBgColor", "#351e08"),
+            defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.00_CustomNodeBgColor", "#472a15"),
             tooltip: "Body background color for SaturnNodes on canvas when custom colors are enabled.",
             onChange(value) {
                 if (typeof localStorage !== "undefined") {
