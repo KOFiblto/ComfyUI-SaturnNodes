@@ -329,8 +329,8 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 <summary><b>🖼️ Visual Loaders (Civitai & TMDB Duo)</b></summary>
 
 - **`Enable Custom SaturnNodes Colors`** (`boolean`, *Default: false*): Applies custom amber colors to SaturnNodes on the canvas. When disabled (default), nodes use default ComfyUI colors.
-- **`Custom Node Title Color`** (`color`, *Default: `#c85a2c`*): Header / title bar color picker for SaturnNodes when custom colors are enabled.
-- **`Custom Node Body Color`** (`color`, *Default: `#210f09`*): Body background color picker for SaturnNodes when custom colors are enabled.
+- **`Custom Node Title Color`** (`color`, *Default: `#b45309`*): Header / title bar color picker for SaturnNodes when custom colors are enabled.
+- **`Custom Node Body Color`** (`color`, *Default: `#351e08`*): Body background color picker for SaturnNodes when custom colors are enabled.
 - **`Civitai API Key`** (`text`): Optional key for Civitai SHA256 model preview search (`Authorization: Bearer <key>`).
 - **`Enable Civitai Auto-Scraping`** (`boolean`, *Default: true*): Automatically download model preview images from Civitai via SHA256 file hashes. (Note: Local SHA256 hash searching always works).
 - **`TMDB Access Token`** (`text`): Optional key or v4 Read Access Token (`eyJ...`) for celebrity preview search.
