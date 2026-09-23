@@ -46,13 +46,32 @@ app.registerExtension({
             const sepWidget = node.widgets?.find(w => w.name === "separator");
             const regexWidget = node.widgets?.find(w => w.name === "custom_regex");
 
-            // Add the live count display widget as a normal native widget (auto-scales with zoom)
-            let countWidget = node.widgets?.find(w => w.name === "Prompts" || w._isPromptCount);
+            // Live Prompt Count preview widget matching ResolutionSelector styling
+            let countWidget = node.widgets?.find(w => w.name === "prompt_count_preview" || w._isPromptCount);
+            let badgeSpan = node._promptBadgeSpan;
             if (!countWidget) {
-                countWidget = node.addWidget("button", "0 Prompts", "0 Prompts", () => {
-                    updateCount();
-                }, { serialize: false });
+                const badgeEl = document.createElement("div");
+                badgeEl.className = "not-disabled:bg-component-node-widget-background not-disabled:text-component-node-foreground [[readonly]]:bg-component-node-widget-background-disabled border-none rounded-md flex w-full items-center justify-center gap-2 px-2 h-6 col-span-2";
+                badgeEl.setAttribute("data-widget-name", "prompt_count_preview");
+                badgeEl.setAttribute("node-type", "PromptCounter");
+                badgeEl.style.cssText = "display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; height: 24px; min-height: 24px; border-radius: 6px; background: var(--component-node-widget-background, rgba(255, 255, 255, 0.06)); color: var(--component-node-foreground, #e4e4e7); font-size: 12px; font-weight: 500; width: 100%; box-sizing: border-box; user-select: none;";
+
+                badgeSpan = document.createElement("span");
+                badgeSpan.className = "text-xs";
+                badgeSpan.style.cssText = "font-weight: 600; color: #f59e0b;";
+                badgeSpan.textContent = "0 Prompts";
+                badgeEl.appendChild(badgeSpan);
+                node._promptBadgeSpan = badgeSpan;
+
+                countWidget = node.addDOMWidget("prompt_count_preview", "preview", badgeEl, {
+                    serialize: false,
+                    getValue() { return badgeSpan.textContent; },
+                    setValue(v) { badgeSpan.textContent = v; }
+                });
                 countWidget._isPromptCount = true;
+                countWidget.computeSize = function() {
+                    return [node.size[0] - 20, 24];
+                };
             }
 
             function updateCount() {
@@ -62,9 +81,12 @@ app.registerExtension({
                 const count = countPromptsInText(text, sep, regex);
                 node._promptCount = count;
                 const label = `${count} Prompt${count === 1 ? "" : "s"}`;
-                countWidget.value = label;
-                countWidget.name = label;
-                countWidget.label = label;
+                if (node._promptBadgeSpan) {
+                    node._promptBadgeSpan.textContent = label;
+                }
+                if (countWidget) {
+                    countWidget.value = label;
+                }
 
                 // Manage custom_regex enable/disable
                 if (regexWidget) {

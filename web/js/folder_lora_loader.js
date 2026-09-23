@@ -1091,11 +1091,32 @@ app.registerExtension({
             );
             zoomWidget.serialize = false;
 
-            // Live Selected LoRAs Counter widget as a normal native widget (auto-scales with zoom)
-            let loraCountWidget = node.widgets?.find(w => w.name === "Selected LoRAs" || w._isLoraCount);
+            // Live Selected LoRAs count preview widget matching ResolutionSelector styling
+            let loraCountWidget = node.widgets?.find(w => w.name === "lora_count_preview" || w._isLoraCount);
+            let loraBadgeSpan = node._loraBadgeSpan;
             if (!loraCountWidget) {
-                loraCountWidget = node.addWidget("button", "0 LoRAs Selected", "0 LoRAs Selected", () => {}, { serialize: false });
+                const loraBadgeEl = document.createElement("div");
+                loraBadgeEl.className = "not-disabled:bg-component-node-widget-background not-disabled:text-component-node-foreground [[readonly]]:bg-component-node-widget-background-disabled border-none rounded-md flex w-full items-center justify-center gap-2 px-2 h-6 col-span-2";
+                loraBadgeEl.setAttribute("data-widget-name", "lora_count_preview");
+                loraBadgeEl.setAttribute("node-type", "VisualLoraLoader");
+                loraBadgeEl.style.cssText = "display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; height: 24px; min-height: 24px; border-radius: 6px; background: var(--component-node-widget-background, rgba(255, 255, 255, 0.06)); color: var(--component-node-foreground, #e4e4e7); font-size: 12px; font-weight: 500; width: 100%; box-sizing: border-box; user-select: none;";
+
+                loraBadgeSpan = document.createElement("span");
+                loraBadgeSpan.className = "text-xs";
+                loraBadgeSpan.style.cssText = "font-weight: 600; color: #f59e0b;";
+                loraBadgeSpan.textContent = "0 LoRAs Selected";
+                loraBadgeEl.appendChild(loraBadgeSpan);
+                node._loraBadgeSpan = loraBadgeSpan;
+
+                loraCountWidget = node.addDOMWidget("lora_count_preview", "preview", loraBadgeEl, {
+                    serialize: false,
+                    getValue() { return loraBadgeSpan.textContent; },
+                    setValue(v) { loraBadgeSpan.textContent = v; }
+                });
                 loraCountWidget._isLoraCount = true;
+                loraCountWidget.computeSize = function() {
+                    return [node.size[0] - 20, 24];
+                };
             }
 
             let activeRequest = null;
@@ -1126,9 +1147,12 @@ app.registerExtension({
                 const count = getSelectedLoras().length;
                 node._selectedLoraCount = count;
                 const label = `${count} LoRA${count === 1 ? "" : "s"} Selected`;
-                loraCountWidget.value = label;
-                loraCountWidget.name = label;
-                loraCountWidget.label = label;
+                if (node._loraBadgeSpan) {
+                    node._loraBadgeSpan.textContent = label;
+                }
+                if (loraCountWidget) {
+                    loraCountWidget.value = label;
+                }
                 app.graph?.setDirtyCanvas(true, true);
             };
 

@@ -1,39 +1,63 @@
 import { app } from "/scripts/app.js";
 
-// Soft, desaturated pastel Saturn Gold/Amber theme consistent across all SaturnNodes
-const SATURN_PASTEL = { color: "#967d5e", bgcolor: "#2b2621" };
+// Default Amber theme matching the Saturn theme (warm, deep amber, not blinding neon and not muddy brown)
+export const DEFAULT_HEADER_COLOR = "#b45309";
+export const DEFAULT_BG_COLOR = "#351e08";
 
-export const COLOR_MAP = {
+export const SATURN_NODE_TYPES = new Set([
     // Visual Loaders
-    "VisualLoraLoader": SATURN_PASTEL,
-    "FolderLoraLoader": SATURN_PASTEL,
-    "FolderLoraLoaderPretty": SATURN_PASTEL,
-    "FolderLoraLoaderVisualPrettyV2": SATURN_PASTEL,
-    "VisualImageLoader": SATURN_PASTEL,
-    "ImageLoaderVisualPrettyV2": SATURN_PASTEL,
-    "LoadRecentOutputs": SATURN_PASTEL,
+    "VisualLoraLoader",
+    "FolderLoraLoader",
+    "FolderLoraLoaderPretty",
+    "FolderLoraLoaderVisualPrettyV2",
+    "VisualImageLoader",
+    "ImageLoaderVisualPrettyV2",
+    "LoadRecentOutputs",
 
     // Automation, Flow & Utilities
-    "LoadImageFromFolder": SATURN_PASTEL,
-    "TextAspectRatioFinder": SATURN_PASTEL,
-    "AspectRatioFinder": SATURN_PASTEL,
-    "PreviewImageSizeAspectRatio": SATURN_PASTEL,
-    "TextLoraFinder": SATURN_PASTEL,
-    "LoraTextFinder": SATURN_PASTEL,
-    "PromptQueueIterator": SATURN_PASTEL,
-    "PromptCounter": SATURN_PASTEL,
-    "MultiTextReplacer": SATURN_PASTEL,
-    "SaturnTextSplit": SATURN_PASTEL,
-    "LeafFlowTextSplit": SATURN_PASTEL,
-    "SaturnDecision": SATURN_PASTEL,
-    "LeafFlowDecision": SATURN_PASTEL,
-    "RunLocalFileNode": SATURN_PASTEL,
+    "LoadImageFromFolder",
+    "TextAspectRatioFinder",
+    "AspectRatioFinder",
+    "PreviewImageSizeAspectRatio",
+    "TextLoraFinder",
+    "LoraTextFinder",
+    "PromptQueueIterator",
+    "PromptCounter",
+    "MultiTextReplacer",
+    "SaturnTextSplit",
+    "LeafFlowTextSplit",
+    "SaturnDecision",
+    "LeafFlowDecision",
+    "RunLocalFileNode",
 
-    // Queue & Previews (Live Latent Preview is now consistent with Saturn theme, not green)
-    "PreviewLatentLive": SATURN_PASTEL,
-    "PauseQueueNode": SATURN_PASTEL,
-    "PersistentQueueNode": SATURN_PASTEL
-};
+    // Queue & Previews
+    "PreviewLatentLive",
+    "PauseQueueNode",
+    "PersistentQueueNode"
+]);
+
+export function getSaturnTheme() {
+    let headerColor = DEFAULT_HEADER_COLOR;
+    let bgColor = DEFAULT_BG_COLOR;
+    try {
+        if (app.ui?.settings?.get) {
+            const hc = app.ui.settings.get("SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeHeaderColor");
+            if (hc) headerColor = hc;
+            const bg = app.ui.settings.get("SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeBgColor");
+            if (bg) bgColor = bg;
+        } else if (typeof localStorage !== "undefined") {
+            const hc = localStorage.getItem("Comfy.Settings.SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeHeaderColor");
+            if (hc) {
+                try { headerColor = JSON.parse(hc); } catch (_) { headerColor = hc; }
+            }
+            const bg = localStorage.getItem("Comfy.Settings.SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeBgColor");
+            if (bg) {
+                try { bgColor = JSON.parse(bg); } catch (_) { bgColor = bg; }
+            }
+        }
+    } catch (_) {}
+    return { color: headerColor, bgcolor: bgColor };
+}
 
 export function isSaturnColorsEnabled() {
     try {
@@ -48,9 +72,7 @@ export function isSaturnColorsEnabled() {
         if (typeof localStorage !== "undefined") {
             for (const key of [
                 "Comfy.Settings.SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors",
-                "SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors",
-                "Comfy.Settings.LeafFlow.1 - 🖼️ Visual Loaders.00_EnableCustomColors",
-                "LeafFlow.1 - 🖼️ Visual Loaders.00_EnableCustomColors"
+                "SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors"
             ]) {
                 const item = localStorage.getItem(key);
                 if (item !== null && item !== undefined) {
@@ -59,16 +81,16 @@ export function isSaturnColorsEnabled() {
             }
         }
     } catch (_) {}
-    return true; // Default is enabled
+    return false; // Default is disabled (false)
 }
 
 export function applySaturnColorToNode(node) {
     if (!node) return;
     const type = node.comfyClass || node.type || node.constructor?.comfyClass || node.constructor?.type;
-    const theme = COLOR_MAP[type];
-    if (!theme) return;
+    if (!SATURN_NODE_TYPES.has(type)) return;
 
     if (isSaturnColorsEnabled()) {
+        const theme = getSaturnTheme();
         node.color = theme.color;
         node.bgcolor = theme.bgcolor;
     } else {
@@ -88,13 +110,18 @@ export function updateAllSaturnNodeColors() {
 app.registerExtension({
     name: "ComfyUI.SaturnNodes.Colors",
     beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData && nodeData.name && COLOR_MAP[nodeData.name]) {
-            const theme = COLOR_MAP[nodeData.name];
+        if (nodeData && nodeData.name && SATURN_NODE_TYPES.has(nodeData.name)) {
             if (isSaturnColorsEnabled()) {
+                const theme = getSaturnTheme();
                 nodeType.color = theme.color;
                 nodeType.bgcolor = theme.bgcolor;
                 nodeType.prototype.color = theme.color;
                 nodeType.prototype.bgcolor = theme.bgcolor;
+            } else {
+                nodeType.color = undefined;
+                nodeType.bgcolor = undefined;
+                nodeType.prototype.color = undefined;
+                nodeType.prototype.bgcolor = undefined;
             }
         }
     },

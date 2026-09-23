@@ -294,17 +294,51 @@ app.registerExtension({
         // GROUP 1: 1 - 🖼️ Visual Loaders
         // =========================================================================
 
-        // 1.0 Custom Node Colors Toggle
+        // 1.0 Custom Node Colors Toggle (Default: false)
         app.ui.settings.addSetting({
             id: "SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors",
             name: "Enable Custom SaturnNodes Colors",
             type: "boolean",
-            defaultValue: getInitialSetting("SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors", true),
-            tooltip: "Applies a Saturn Gold/Amber color theme to SaturnNodes on the canvas. When disabled, nodes use default ComfyUI colors.",
+            defaultValue: getInitialSetting("SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors", false),
+            tooltip: "Applies custom amber colors to SaturnNodes on the canvas. When disabled (default), nodes use default ComfyUI colors.",
             onChange(value) {
                 if (typeof localStorage !== "undefined") {
                     try {
                         localStorage.setItem("Comfy.Settings.SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors", JSON.stringify(Boolean(value)));
+                    } catch (_) {}
+                }
+                updateAllSaturnNodeColors();
+            }
+        });
+
+        // 1.0b Custom Node Title Color (Amber color picker)
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeHeaderColor",
+            name: "Custom Node Title Color",
+            type: "color",
+            defaultValue: getInitialSetting("SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeHeaderColor", "#b45309"),
+            tooltip: "Title / header bar color for SaturnNodes on canvas when custom colors are enabled.",
+            onChange(value) {
+                if (typeof localStorage !== "undefined") {
+                    try {
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeHeaderColor", JSON.stringify(value));
+                    } catch (_) {}
+                }
+                updateAllSaturnNodeColors();
+            }
+        });
+
+        // 1.0c Custom Node Body Color (Dark amber color picker)
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeBgColor",
+            name: "Custom Node Body Color",
+            type: "color",
+            defaultValue: getInitialSetting("SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeBgColor", "#351e08"),
+            tooltip: "Body background color for SaturnNodes on canvas when custom colors are enabled.",
+            onChange(value) {
+                if (typeof localStorage !== "undefined") {
+                    try {
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeBgColor", JSON.stringify(value));
                     } catch (_) {}
                 }
                 updateAllSaturnNodeColors();
