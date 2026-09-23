@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-saturnnodes"
 description = "Essential workflow controls, mid-generation pausing, real-time queue persistence, folder watcher, and visual model loaders for ComfyUI."
-version = "2.3.2"
+version = "2.4.0"
 readme = "README.md"
 license = "MIT"
 dependencies = ["pillow", "numpy", "piexif"]

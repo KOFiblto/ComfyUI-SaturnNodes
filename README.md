@@ -1,6 +1,6 @@
 # 🪐 ComfyUI-SaturnNodes
 
-A unified workflow control and productivity suite for **ComfyUI**. Built for **ComfyUI Frontend V2 (Nodes 2.0 / Vue UI)** (fully supported and actively tested) with backwards compatibility for the **Classic ComfyUI Frontend (Nodes 1.0 / LiteGraph)** (supported as-is, but untested—no guarantees).
+A unified workflow control and productivity suite for **ComfyUI**. Both **Frontend V1 (LiteGraph)** and **Frontend V2 (Vue UI)** are supported, though `VisualLoraLoader` breaks on V1 for now (will be fixed).
 
 ---
 
@@ -81,6 +81,9 @@ Visual thumbnail browser for LoRAs with Civitai SHA256 search & TMDB auto-scrapi
 - **`MODEL`**: Patched model.
 - **`CLIP`**: Patched CLIP.
 - **`lora_name`** (`STRING`): Comma-separated list of active LoRA names.
+
+> [!NOTE]
+> Frontend V1 and V2 are supported, though `VisualLoraLoader` breaks on Frontend V1 for now (will be fixed). Frontend V2 (Vue UI) is recommended for visual LoRA browsing.
 </details>
 
 <details>

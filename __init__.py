@@ -4,7 +4,7 @@ import subprocess
 from aiohttp import web
 from server import PromptServer
 
-__version__ = "2.3.2"
+__version__ = "2.4.0"
 
 from .nodes.queue_control import setup_queue_control_routes, tray_manager
 from .nodes.lora_loader import (
