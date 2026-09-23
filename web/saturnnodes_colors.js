@@ -118,6 +118,9 @@ export function updateAllSaturnNodeColors() {
     if (!app.graph?._nodes) return;
     for (const node of app.graph._nodes) {
         applySaturnColorToNode(node);
+        if (typeof node._updateCounterBadgeColor === "function") {
+            node._updateCounterBadgeColor();
+        }
     }
     app.graph.setDirtyCanvas(true, true);
 }

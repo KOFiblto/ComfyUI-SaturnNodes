@@ -1,5 +1,6 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
+import { isSaturnColorsEnabled } from "../saturnnodes_colors.js";
 
 // Hash folder name to get a consistent color for the border
 function getFolderBorderColor(folderName) {
@@ -1103,10 +1104,11 @@ app.registerExtension({
 
                 loraBadgeSpan = document.createElement("span");
                 loraBadgeSpan.className = "text-xs";
-                loraBadgeSpan.style.cssText = "font-weight: 600; color: #f59e0b;";
+                loraBadgeSpan.style.cssText = "font-weight: 600;";
                 loraBadgeSpan.textContent = "0 LoRAs Selected";
                 loraBadgeEl.appendChild(loraBadgeSpan);
                 node._loraBadgeSpan = loraBadgeSpan;
+                node._loraBadgeEl = loraBadgeEl;
 
                 const enforceFixedLoraBadgeSize = () => {
                     loraBadgeEl.style.setProperty("height", "24px", "important");
@@ -1115,18 +1117,8 @@ app.registerExtension({
                     loraBadgeEl.style.setProperty("flex-grow", "0", "important");
                     loraBadgeEl.style.setProperty("flex-shrink", "0", "important");
                     loraBadgeEl.style.setProperty("align-self", "center", "important");
-                    if (loraBadgeEl.parentElement) {
-                        loraBadgeEl.parentElement.style.setProperty("height", "24px", "important");
-                        loraBadgeEl.parentElement.style.setProperty("min-height", "24px", "important");
-                        loraBadgeEl.parentElement.style.setProperty("max-height", "24px", "important");
-                        loraBadgeEl.parentElement.style.setProperty("align-self", "center", "important");
-                        loraBadgeEl.parentElement.style.setProperty("flex-grow", "0", "important");
-                    }
                     const widgetContainer = loraBadgeEl.closest?.(".lg-node-widget");
                     if (widgetContainer) {
-                        widgetContainer.style.setProperty("height", "24px", "important");
-                        widgetContainer.style.setProperty("min-height", "24px", "important");
-                        widgetContainer.style.setProperty("max-height", "24px", "important");
                         widgetContainer.style.setProperty("align-self", "center", "important");
                         widgetContainer.style.setProperty("flex-grow", "0", "important");
                     }
@@ -1135,17 +1127,42 @@ app.registerExtension({
 
                 loraCountWidget = node.addDOMWidget("lora_count_preview", "preview", loraBadgeEl, {
                     serialize: false,
-                    getHeight() { return 24; },
-                    getMinHeight() { return 24; },
-                    getMaxHeight() { return 24; },
                     getValue() { return loraBadgeSpan.textContent; },
                     setValue(v) { loraBadgeSpan.textContent = v; }
                 });
                 loraCountWidget._isLoraCount = true;
+            }
+
+            if (loraCountWidget) {
+                // Crucial: shadow computeLayoutSize so ComfyUI Vue deriveWidgetRenderState evaluates hasLayoutSize to false.
+                // This forces grid-template-rows to use 'min-content' (24px) instead of 'auto' (which was stealing half the node height).
+                Object.defineProperty(loraCountWidget, "computeLayoutSize", {
+                    value: undefined,
+                    writable: true,
+                    configurable: true
+                });
+                loraCountWidget.hasLayoutSize = false;
                 loraCountWidget.computeSize = function() {
                     return [node.size ? (node.size[0] - 20) : 200, 24];
                 };
             }
+
+            const updateLoraBadgeColor = () => {
+                const enabled = isSaturnColorsEnabled();
+                if (node._loraBadgeSpan) {
+                    node._loraBadgeSpan.style.color = enabled ? "#f59e0b" : "var(--text-muted, #a1a1aa)";
+                }
+                const badgeEl = node._loraBadgeEl;
+                if (badgeEl) {
+                    badgeEl.style.background = enabled
+                        ? "rgba(180, 140, 95, 0.12)"
+                        : "var(--component-node-widget-background, rgba(255, 255, 255, 0.06))";
+                    badgeEl.style.border = enabled
+                        ? "1px solid rgba(180, 140, 95, 0.35)"
+                        : "none";
+                }
+            };
+            node._updateCounterBadgeColor = updateLoraBadgeColor;
 
             let activeRequest = null;
             let debounceTimer = null;
@@ -1182,6 +1199,7 @@ app.registerExtension({
                 if (loraCountWidget) {
                     loraCountWidget.value = label;
                 }
+                updateLoraBadgeColor();
                 app.graph?.setDirtyCanvas(true, true);
             };
 
@@ -1630,7 +1648,10 @@ app.registerExtension({
 
             const origOnDrawForeground = node.onDrawForeground;
             node.onDrawForeground = function(ctx) {
+                updateLoraBadgeColor();
+                node._enforceFixedLoraBadgeSize?.();
                 if (node.flags?.collapsed) {
+                    const isSaturn = isSaturnColorsEnabled();
                     const count = node._selectedLoraCount ?? getSelectedLoras().length;
                     const label = `${count} LoRA${count === 1 ? "" : "s"}`;
                     ctx.save();
@@ -1640,8 +1661,13 @@ app.registerExtension({
                     const bx = node.size[0] - tw - 16;
                     const by = -LiteGraph.NODE_TITLE_HEIGHT + 3;
 
-                    ctx.fillStyle = count > 0 ? "rgba(180, 140, 95, 0.25)" : "rgba(255, 255, 255, 0.08)";
-                    ctx.strokeStyle = count > 0 ? "rgba(180, 140, 95, 0.6)" : "rgba(255, 255, 255, 0.2)";
+                    if (isSaturn) {
+                        ctx.fillStyle = count > 0 ? "rgba(180, 140, 95, 0.25)" : "rgba(255, 255, 255, 0.08)";
+                        ctx.strokeStyle = count > 0 ? "rgba(180, 140, 95, 0.6)" : "rgba(255, 255, 255, 0.2)";
+                    } else {
+                        ctx.fillStyle = count > 0 ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.08)";
+                        ctx.strokeStyle = count > 0 ? "rgba(255, 255, 255, 0.25)" : "rgba(255, 255, 255, 0.2)";
+                    }
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     if (ctx.roundRect) {
@@ -1652,7 +1678,7 @@ app.registerExtension({
                     ctx.fill();
                     ctx.stroke();
 
-                    ctx.fillStyle = count > 0 ? "#decbb2" : "#cbd5e1";
+                    ctx.fillStyle = isSaturn ? (count > 0 ? "#decbb2" : "#cbd5e1") : (count > 0 ? "#e2e8f0" : "#cbd5e1");
                     ctx.textAlign = "left";
                     ctx.textBaseline = "middle";
                     ctx.fillText(badgeText, bx + 5, by + 9);

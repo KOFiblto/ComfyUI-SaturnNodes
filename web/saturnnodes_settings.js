@@ -121,6 +121,29 @@ if (typeof document !== "undefined") {
                 background: #7d6549 !important;
                 transform: translateY(0) !important;
             }
+
+            /* Fixed 24px height badge styling for PromptCounter and VisualLoraLoader */
+            div[data-widget-name="prompt_count_preview"],
+            div[data-widget-name="lora_count_preview"] {
+                height: 24px !important;
+                min-height: 24px !important;
+                max-height: 24px !important;
+                flex-grow: 0 !important;
+                flex-shrink: 0 !important;
+                align-self: center !important;
+                box-sizing: border-box !important;
+            }
+
+            .lg-node-widget:has(> div[data-widget-name="prompt_count_preview"]),
+            .lg-node-widget:has(> div[data-widget-name="lora_count_preview"]),
+            .lg-node-widget:has([data-widget-name="prompt_count_preview"]),
+            .lg-node-widget:has([data-widget-name="lora_count_preview"]) {
+                align-self: center !important;
+                min-height: 24px !important;
+                max-height: 28px !important;
+                height: auto !important;
+                flex-grow: 0 !important;
+            }
         `;
         document.head.appendChild(style);
     }
