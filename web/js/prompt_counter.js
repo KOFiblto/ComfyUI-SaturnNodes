@@ -54,7 +54,7 @@ app.registerExtension({
                 badgeEl.className = "not-disabled:bg-component-node-widget-background not-disabled:text-component-node-foreground [[readonly]]:bg-component-node-widget-background-disabled border-none rounded-md flex w-full items-center justify-center gap-2 px-2 h-6 col-span-2";
                 badgeEl.setAttribute("data-widget-name", "prompt_count_preview");
                 badgeEl.setAttribute("node-type", "PromptCounter");
-                badgeEl.style.cssText = "display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; height: 24px; min-height: 24px; border-radius: 6px; background: var(--component-node-widget-background, rgba(255, 255, 255, 0.06)); color: var(--component-node-foreground, #e4e4e7); font-size: 12px; font-weight: 500; width: 100%; box-sizing: border-box; user-select: none;";
+                badgeEl.style.cssText = "display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; flex-grow: 0 !important; flex-shrink: 0 !important; align-self: center !important; overflow: hidden !important; border-radius: 6px; background: var(--component-node-widget-background, rgba(255, 255, 255, 0.06)); color: var(--component-node-foreground, #e4e4e7); font-size: 12px; font-weight: 500; width: 100%; box-sizing: border-box; user-select: none;";
 
                 badgeSpan = document.createElement("span");
                 badgeSpan.className = "text-xs";
@@ -63,14 +63,42 @@ app.registerExtension({
                 badgeEl.appendChild(badgeSpan);
                 node._promptBadgeSpan = badgeSpan;
 
+                const enforceFixedBadgeSize = () => {
+                    badgeEl.style.setProperty("height", "24px", "important");
+                    badgeEl.style.setProperty("min-height", "24px", "important");
+                    badgeEl.style.setProperty("max-height", "24px", "important");
+                    badgeEl.style.setProperty("flex-grow", "0", "important");
+                    badgeEl.style.setProperty("flex-shrink", "0", "important");
+                    badgeEl.style.setProperty("align-self", "center", "important");
+                    if (badgeEl.parentElement) {
+                        badgeEl.parentElement.style.setProperty("height", "24px", "important");
+                        badgeEl.parentElement.style.setProperty("min-height", "24px", "important");
+                        badgeEl.parentElement.style.setProperty("max-height", "24px", "important");
+                        badgeEl.parentElement.style.setProperty("align-self", "center", "important");
+                        badgeEl.parentElement.style.setProperty("flex-grow", "0", "important");
+                    }
+                    const widgetContainer = badgeEl.closest?.(".lg-node-widget");
+                    if (widgetContainer) {
+                        widgetContainer.style.setProperty("height", "24px", "important");
+                        widgetContainer.style.setProperty("min-height", "24px", "important");
+                        widgetContainer.style.setProperty("max-height", "24px", "important");
+                        widgetContainer.style.setProperty("align-self", "center", "important");
+                        widgetContainer.style.setProperty("flex-grow", "0", "important");
+                    }
+                };
+                node._enforceFixedBadgeSize = enforceFixedBadgeSize;
+
                 countWidget = node.addDOMWidget("prompt_count_preview", "preview", badgeEl, {
                     serialize: false,
+                    getHeight() { return 24; },
+                    getMinHeight() { return 24; },
+                    getMaxHeight() { return 24; },
                     getValue() { return badgeSpan.textContent; },
                     setValue(v) { badgeSpan.textContent = v; }
                 });
                 countWidget._isPromptCount = true;
                 countWidget.computeSize = function() {
-                    return [node.size[0] - 20, 24];
+                    return [node.size ? (node.size[0] - 20) : 200, 24];
                 };
             }
 
@@ -168,6 +196,7 @@ app.registerExtension({
             const origOnDrawForeground = node.onDrawForeground;
             node.onDrawForeground = function(ctx) {
                 hookInputEl();
+                node._enforceFixedBadgeSize?.();
 
                 // If textWidget value changed without callback
                 const currentVal = (textWidget?.inputEl ? textWidget.inputEl.value : textWidget?.value) || "";

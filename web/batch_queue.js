@@ -46,10 +46,12 @@ const STORAGE_KEY = "saturnnodes_batch_queue_meta";
 const LEGACY_STORAGE_KEY = "leafflow_batch_queue_meta";
 const BATCH_COUNTER_KEY = "saturnnodes_batch_counter";
 const LEGACY_BATCH_COUNTER_KEY = "leafflow_batch_counter";
-const SETTING_ID = "SaturnNodes.8 - 🎨 Batch Queue.01_ShowBatchLines";
+const SETTING_ID = "SaturnNodes.🎨 Batch Queue.01_ShowBatchLines";
+const LEGACY_SETTING_ID_0 = "SaturnNodes.8 - 🎨 Batch Queue.01_ShowBatchLines";
 const LEGACY_SETTING_ID_1 = "SaturnNodes.BatchQueue.Enabled";
 const LEGACY_SETTING_ID_2 = "LeafFlow.BatchQueue.Enabled";
-const SETTING_SNAPSHOT_GUARD = "SaturnNodes.8 - 🎨 Batch Queue.02_SnapshotGuard";
+const SETTING_SNAPSHOT_GUARD = "SaturnNodes.🎨 Batch Queue.02_SnapshotGuard";
+const LEGACY_SETTING_SNAPSHOT_GUARD_0 = "SaturnNodes.8 - 🎨 Batch Queue.02_SnapshotGuard";
 const LEGACY_SETTING_SNAPSHOT_GUARD_1 = "SaturnNodes.BatchQueue.SnapshotGuard";
 const LEGACY_SETTING_SNAPSHOT_GUARD_2 = "LeafFlow.BatchQueue.SnapshotGuard";
 
@@ -207,19 +209,18 @@ function removeBatchLineFromElement(element) {
 // Check if SaturnNodes Batch Queue is enabled in settings
 function isBatchQueueEnabled() {
     try {
+        const keys = [SETTING_ID, LEGACY_SETTING_ID_0, LEGACY_SETTING_ID_1, LEGACY_SETTING_ID_2];
         if (app.extensionManager?.setting?.get) {
-            let val = app.extensionManager.setting.get(SETTING_ID);
-            if (val !== undefined) return val !== false;
-            val = app.extensionManager.setting.get(LEGACY_SETTING_ID_1);
-            if (val !== undefined) return val !== false;
-            return app.extensionManager.setting.get(LEGACY_SETTING_ID_2) !== false;
+            for (const k of keys) {
+                const val = app.extensionManager.setting.get(k);
+                if (val !== undefined) return val !== false;
+            }
         }
         if (app.ui?.settings?.get) {
-            let val = app.ui.settings.get(SETTING_ID);
-            if (val !== undefined) return val !== false;
-            val = app.ui.settings.get(LEGACY_SETTING_ID_1);
-            if (val !== undefined) return val !== false;
-            return app.ui.settings.get(LEGACY_SETTING_ID_2) !== false;
+            for (const k of keys) {
+                const val = app.ui.settings.get(k);
+                if (val !== undefined) return val !== false;
+            }
         }
     } catch (e) {}
     return true;
@@ -227,19 +228,18 @@ function isBatchQueueEnabled() {
 
 function isSnapshotGuardEnabled() {
     try {
+        const keys = [SETTING_SNAPSHOT_GUARD, LEGACY_SETTING_SNAPSHOT_GUARD_0, LEGACY_SETTING_SNAPSHOT_GUARD_1, LEGACY_SETTING_SNAPSHOT_GUARD_2];
         if (app.extensionManager?.setting?.get) {
-            let val = app.extensionManager.setting.get(SETTING_SNAPSHOT_GUARD);
-            if (val !== undefined) return val !== false;
-            val = app.extensionManager.setting.get(LEGACY_SETTING_SNAPSHOT_GUARD_1);
-            if (val !== undefined) return val !== false;
-            return app.extensionManager.setting.get(LEGACY_SETTING_SNAPSHOT_GUARD_2) !== false;
+            for (const k of keys) {
+                const val = app.extensionManager.setting.get(k);
+                if (val !== undefined) return val !== false;
+            }
         }
         if (app.ui?.settings?.get) {
-            let val = app.ui.settings.get(SETTING_SNAPSHOT_GUARD);
-            if (val !== undefined) return val !== false;
-            val = app.ui.settings.get(LEGACY_SETTING_SNAPSHOT_GUARD_1);
-            if (val !== undefined) return val !== false;
-            return app.ui.settings.get(LEGACY_SETTING_SNAPSHOT_GUARD_2) !== false;
+            for (const k of keys) {
+                const val = app.ui.settings.get(k);
+                if (val !== undefined) return val !== false;
+            }
         }
     } catch (e) {}
     return true;

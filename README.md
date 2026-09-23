@@ -320,12 +320,13 @@ Safely executes a local script or executable (`.bat`, `.cmd`, `.ps1`, `.exe` on 
 
 ---
 
+<a id="comfyui-settings-menu-reference"></a>
 ## ⚙️ ComfyUI Settings Menu Reference
 
 Configure options directly under ComfyUI Settings (⚙ gear icon):
 
 <details>
-<summary><b>1. 🖼️ Visual Loaders (Civitai & TMDB Duo)</b></summary>
+<summary><b>🖼️ Visual Loaders (Civitai & TMDB Duo)</b></summary>
 
 - **`Enable Custom SaturnNodes Colors`** (`boolean`, *Default: false*): Applies custom amber colors to SaturnNodes on the canvas. When disabled (default), nodes use default ComfyUI colors.
 - **`Custom Node Title Color`** (`color`, *Default: `#b45309`*): Header / title bar color picker for SaturnNodes when custom colors are enabled.
@@ -339,14 +340,14 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 </details>
 
 <details>
-<summary><b>2. 🔄 Prompt Iterator</b></summary>
+<summary><b>🔄 Prompt Iterator</b></summary>
 
 - **`Clear State on Launch`** (`boolean`, *Default: false*): Privacy toggle to empty `prompt_iterator_state.json` on ComfyUI startup.
 - **`Reset All Queues`** (*Button: `🔄 Reset All Queues`*): Immediately empties all active prompt queues and resets iterator state.
 </details>
 
 <details>
-<summary><b>3. 📋 Prompt Actions</b></summary>
+<summary><b>📋 Prompt Actions</b></summary>
 
 - **`Show "Copy Prompt" Button on Images`** (`boolean`, *Default: true*): Shows the 📋 "Copy Prompt" overlay action button when hovering over generated images in the Assets / History pane and preview nodes.
 - **`Show Right-Click "Copy Prompt" Menu Action`** (`boolean`, *Default: true*): Adds "📋 Copy Prompt" to node right-click context menus.
@@ -354,7 +355,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 </details>
 
 <details>
-<summary><b>4. ⏸️ Pause Controls</b></summary>
+<summary><b>⏸️ Pause Controls</b></summary>
 
 - **`Default State on Launch`** (`combo`, *Default: `Running`*): Sets whether the queue starts `Paused` or `Running` on boot.
 - **`Default Pause Action`** (`combo`, *Default: `Finish Active Prompt`*): Sets default pause behavior (`Finish Active Prompt` vs `Instant Resume Node`).
@@ -366,27 +367,27 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 </details>
 
 <details>
-<summary><b>5. 💾 Persistent Queue</b></summary>
+<summary><b>💾 Persistent Queue</b></summary>
 
 - **`Persistent Queue (Auto-Recovery)`** (`boolean`, *Default: true*): Automatically saves unfinished queue items and restores them after restart/crash.
 - **`Recovery Launch State`** (`combo`, *Default: `Match Default`*): Override launch state when restored queue items are recovered on startup (`Match Default`, `Force Paused`, `Force Running`).
 </details>
 
 <details>
-<summary><b>6. 🖼️ Assets & History Restore</b></summary>
+<summary><b>🖼️ Assets & History Restore</b></summary>
 
 - **`Restore Assets on Launch`** (`boolean`, *Default: true*): Automatically restores your latest generated images into the Assets / History pane on startup.
 - **`Restored Assets Count`** (`number`, *Default: 64*): The number of newest images from the output folder to populate into the Assets pane.
 </details>
 
 <details>
-<summary><b>7. 🩺 Diagnostics & Debug</b></summary>
+<summary><b>🩺 Diagnostics & Debug</b></summary>
 
 - **`Export Debug Profile`** (*Button: `📥 Export Debug Profile`*): Exports non-sensitive system environment details (OS, Python, PyTorch, SaturnNodes settings, local cache counts) to a JSON file to share when reporting bugs or requesting assistance. Sensitive API keys and tokens are never exported.
 </details>
 
 <details>
-<summary><b>8. 🎨 Batch Queue Visuals</b></summary>
+<summary><b>🎨 Batch Queue Visuals</b></summary>
 
 - **`Show Batch Queue 1D Lines`** (`boolean`, *Default: true*): Renders a 1D git-graph style colored line on the left side of queued items in the queue list.
   - **36 Cycling Colors:** Every queued batch is assigned a vibrant, high-contrast color from a 36-color sequence.
@@ -397,7 +398,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 </details>
 
 <details>
-<summary><b>9. 🛡️ Security & Script Execution</b></summary>
+<summary><b>🛡️ Security & Script Execution</b></summary>
 
 - **`Allow Local File Execution`** (`boolean`, *Default: false*): Master toggle controlling whether the *Run Local File* node is permitted to execute local scripts or executables. Disabled by default for operator safety.
 - **Strict Confinement**: Execution is strictly limited to the `ComfyUI/scripts/` directory. Absolute paths and directory traversal (`..`) are permanently blocked.

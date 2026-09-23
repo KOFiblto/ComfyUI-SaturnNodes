@@ -40,45 +40,60 @@ export function getSaturnTheme() {
     let headerColor = DEFAULT_HEADER_COLOR;
     let bgColor = DEFAULT_BG_COLOR;
     try {
-        if (app.ui?.settings?.get) {
-            const hc = app.ui.settings.get("SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeHeaderColor");
-            if (hc) headerColor = hc;
-            const bg = app.ui.settings.get("SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeBgColor");
-            if (bg) bgColor = bg;
-        } else if (typeof localStorage !== "undefined") {
-            const hc = localStorage.getItem("Comfy.Settings.SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeHeaderColor");
-            if (hc) {
-                try { headerColor = JSON.parse(hc); } catch (_) { headerColor = hc; }
+        const getSetting = (plainId, numId) => {
+            if (app.ui?.settings?.get) {
+                const val = app.ui.settings.get(plainId) || app.ui.settings.get(numId);
+                if (val) return val;
             }
-            const bg = localStorage.getItem("Comfy.Settings.SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeBgColor");
-            if (bg) {
-                try { bgColor = JSON.parse(bg); } catch (_) { bgColor = bg; }
+            if (typeof localStorage !== "undefined") {
+                for (const k of [plainId, numId]) {
+                    for (const prefix of ["Comfy.Settings.", ""]) {
+                        const raw = localStorage.getItem(`${prefix}${k}`);
+                        if (raw !== null && raw !== undefined) {
+                            try { return JSON.parse(raw); } catch (_) { return raw; }
+                        }
+                    }
+                }
             }
-        }
+            return null;
+        };
+
+        const hc = getSetting("SaturnNodes.🖼️ Visual Loaders.00_CustomNodeHeaderColor", "SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeHeaderColor");
+        if (hc) headerColor = hc;
+        const bg = getSetting("SaturnNodes.🖼️ Visual Loaders.00_CustomNodeBgColor", "SaturnNodes.1 - 🖼️ Visual Loaders.00_CustomNodeBgColor");
+        if (bg) bgColor = bg;
     } catch (_) {}
     return { color: headerColor, bgcolor: bgColor };
 }
 
 export function isSaturnColorsEnabled() {
     try {
-        if (app.ui?.settings?.get) {
-            const val = app.ui.settings.get("SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors");
-            if (val !== undefined && val !== null) return Boolean(val);
-        }
-        if (app.ui?.settings?.getSettingValue) {
-            const val = app.ui.settings.getSettingValue("SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors");
-            if (val !== undefined && val !== null) return Boolean(val);
-        }
-        if (typeof localStorage !== "undefined") {
-            for (const key of [
-                "Comfy.Settings.SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors",
-                "SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors"
-            ]) {
-                const item = localStorage.getItem(key);
-                if (item !== null && item !== undefined) {
-                    try { return JSON.parse(item); } catch (_) { return Boolean(item); }
+        const checkVal = (k) => {
+            if (app.ui?.settings?.get) {
+                const val = app.ui.settings.get(k);
+                if (val !== undefined && val !== null) return Boolean(val);
+            }
+            if (app.ui?.settings?.getSettingValue) {
+                const val = app.ui.settings.getSettingValue(k);
+                if (val !== undefined && val !== null) return Boolean(val);
+            }
+            if (typeof localStorage !== "undefined") {
+                for (const prefix of ["Comfy.Settings.", ""]) {
+                    const raw = localStorage.getItem(`${prefix}${k}`);
+                    if (raw !== null && raw !== undefined) {
+                        try { return JSON.parse(raw); } catch (_) { return Boolean(raw); }
+                    }
                 }
             }
+            return null;
+        };
+
+        for (const k of [
+            "SaturnNodes.🖼️ Visual Loaders.00_EnableCustomColors",
+            "SaturnNodes.1 - 🖼️ Visual Loaders.00_EnableCustomColors"
+        ]) {
+            const res = checkVal(k);
+            if (res !== null) return res;
         }
     } catch (_) {}
     return false; // Default is disabled (false)

@@ -36,17 +36,26 @@ async function copyToClipboard(text) {
 function isCopyEnabled(settingKey, defaultVal = true) {
     try {
         let val;
-        const saturnKey = settingKey.replace(/^LeafFlow\./, "SaturnNodes.");
+        const saturnNumberedKey = settingKey.replace(/^LeafFlow\./, "SaturnNodes.");
+        const saturnPlainKey = saturnNumberedKey.replace(/\d+\s*-\s*/, "");
+        const keysToCheck = [saturnPlainKey, saturnNumberedKey, settingKey];
+
         if (app.extensionManager?.setting?.get) {
-            val = app.extensionManager.setting.get(saturnKey);
-            if (val === undefined || val === null || val === "") {
-                val = app.extensionManager.setting.get(settingKey);
+            for (const k of keysToCheck) {
+                val = app.extensionManager.setting.get(k);
+                if (val !== undefined && val !== null && val !== "") break;
             }
         }
         if ((val === undefined || val === null || val === "") && app.ui?.settings?.getSettingValue) {
-            val = app.ui.settings.getSettingValue(saturnKey);
-            if (val === undefined || val === null || val === "") {
-                val = app.ui.settings.getSettingValue(settingKey);
+            for (const k of keysToCheck) {
+                val = app.ui.settings.getSettingValue(k);
+                if (val !== undefined && val !== null && val !== "") break;
+            }
+        }
+        if ((val === undefined || val === null || val === "") && app.ui?.settings?.get) {
+            for (const k of keysToCheck) {
+                val = app.ui.settings.get(k);
+                if (val !== undefined && val !== null && val !== "") break;
             }
         }
         if (val === undefined || val === null || val === "") {

@@ -1099,7 +1099,7 @@ app.registerExtension({
                 loraBadgeEl.className = "not-disabled:bg-component-node-widget-background not-disabled:text-component-node-foreground [[readonly]]:bg-component-node-widget-background-disabled border-none rounded-md flex w-full items-center justify-center gap-2 px-2 h-6 col-span-2";
                 loraBadgeEl.setAttribute("data-widget-name", "lora_count_preview");
                 loraBadgeEl.setAttribute("node-type", "VisualLoraLoader");
-                loraBadgeEl.style.cssText = "display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; height: 24px; min-height: 24px; border-radius: 6px; background: var(--component-node-widget-background, rgba(255, 255, 255, 0.06)); color: var(--component-node-foreground, #e4e4e7); font-size: 12px; font-weight: 500; width: 100%; box-sizing: border-box; user-select: none;";
+                loraBadgeEl.style.cssText = "display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; height: 24px !important; min-height: 24px !important; max-height: 24px !important; flex-grow: 0 !important; flex-shrink: 0 !important; align-self: center !important; overflow: hidden !important; border-radius: 6px; background: var(--component-node-widget-background, rgba(255, 255, 255, 0.06)); color: var(--component-node-foreground, #e4e4e7); font-size: 12px; font-weight: 500; width: 100%; box-sizing: border-box; user-select: none;";
 
                 loraBadgeSpan = document.createElement("span");
                 loraBadgeSpan.className = "text-xs";
@@ -1108,14 +1108,42 @@ app.registerExtension({
                 loraBadgeEl.appendChild(loraBadgeSpan);
                 node._loraBadgeSpan = loraBadgeSpan;
 
+                const enforceFixedLoraBadgeSize = () => {
+                    loraBadgeEl.style.setProperty("height", "24px", "important");
+                    loraBadgeEl.style.setProperty("min-height", "24px", "important");
+                    loraBadgeEl.style.setProperty("max-height", "24px", "important");
+                    loraBadgeEl.style.setProperty("flex-grow", "0", "important");
+                    loraBadgeEl.style.setProperty("flex-shrink", "0", "important");
+                    loraBadgeEl.style.setProperty("align-self", "center", "important");
+                    if (loraBadgeEl.parentElement) {
+                        loraBadgeEl.parentElement.style.setProperty("height", "24px", "important");
+                        loraBadgeEl.parentElement.style.setProperty("min-height", "24px", "important");
+                        loraBadgeEl.parentElement.style.setProperty("max-height", "24px", "important");
+                        loraBadgeEl.parentElement.style.setProperty("align-self", "center", "important");
+                        loraBadgeEl.parentElement.style.setProperty("flex-grow", "0", "important");
+                    }
+                    const widgetContainer = loraBadgeEl.closest?.(".lg-node-widget");
+                    if (widgetContainer) {
+                        widgetContainer.style.setProperty("height", "24px", "important");
+                        widgetContainer.style.setProperty("min-height", "24px", "important");
+                        widgetContainer.style.setProperty("max-height", "24px", "important");
+                        widgetContainer.style.setProperty("align-self", "center", "important");
+                        widgetContainer.style.setProperty("flex-grow", "0", "important");
+                    }
+                };
+                node._enforceFixedLoraBadgeSize = enforceFixedLoraBadgeSize;
+
                 loraCountWidget = node.addDOMWidget("lora_count_preview", "preview", loraBadgeEl, {
                     serialize: false,
+                    getHeight() { return 24; },
+                    getMinHeight() { return 24; },
+                    getMaxHeight() { return 24; },
                     getValue() { return loraBadgeSpan.textContent; },
                     setValue(v) { loraBadgeSpan.textContent = v; }
                 });
                 loraCountWidget._isLoraCount = true;
                 loraCountWidget.computeSize = function() {
-                    return [node.size[0] - 20, 24];
+                    return [node.size ? (node.size[0] - 20) : 200, 24];
                 };
             }
 
@@ -1144,6 +1172,7 @@ app.registerExtension({
             };
 
             const updateLoraCountDisplay = () => {
+                node._enforceFixedLoraBadgeSize?.();
                 const count = getSelectedLoras().length;
                 node._selectedLoraCount = count;
                 const label = `${count} LoRA${count === 1 ? "" : "s"} Selected`;
