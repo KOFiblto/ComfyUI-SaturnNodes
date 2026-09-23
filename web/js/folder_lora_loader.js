@@ -551,10 +551,9 @@ app.registerExtension({
                 };
             }
 
-            // Adjust sizing constraints dynamically
-            domWidget.computeSize = function() {
-                return [node.size[0] - 30, node.size[1] - 160];
-            };
+            // In ComfyUI LiteGraph (V1), computeLayoutSize handles dynamic widget space distribution.
+            // Removing computeSize avoids an infinite expansion loop in _arrangeWidgets.
+            delete domWidget.computeSize;
 
             // Add Zoom slider widget
             const zoomWidget = node.addWidget(
@@ -809,14 +808,6 @@ app.registerExtension({
         if (node.comfyClass === "FolderLoraLoaderVisualPrettyV2" || node.comfyClass === "VisualLoraLoader" || node.type === "FolderLoraLoaderVisualPrettyV2" || node.type === "VisualLoraLoader") {
             node.size = [380, 360];
 
-            node.computeSize = function() {
-                const displayModeWidget = node.widgets ? node.widgets.find(w => w.name === "display_mode") : null;
-                if (displayModeWidget && displayModeWidget.value === "Show All") {
-                    const viewContainer = document.querySelector(".lora-visual-container"); 
-                }
-                return [node.size[0], Math.max(360, node.size[1])];
-            };
-
             const folderWidget = node.widgets.find(w => w.name === "folder");
             
             const getHiddenWidget = () => {
@@ -920,7 +911,7 @@ app.registerExtension({
                     viewContainer.classList.remove("show-all-mode");
                     viewContainer.classList.add("scrollable-mode");
                     const restoredH = node.userCustomHeight || userSavedHeight || 420;
-                    const containerH = Math.max(200, restoredH - 100);
+                    const containerH = Math.max(180, restoredH - 150);
                     
                     viewContainer.style.setProperty("height", `${containerH}px`, "important");
                     viewContainer.style.setProperty("max-height", `${containerH}px`, "important");
@@ -939,9 +930,9 @@ app.registerExtension({
             node.computeSize = function() {
                 const displayModeWidget = node.widgets ? node.widgets.find(w => w.name === "display_mode") : null;
                 if (displayModeWidget && displayModeWidget.value === "Show All" && gridContainer) {
-                    return [node.size[0], Math.max(360, (gridContainer.scrollHeight || 0) + 160)];
+                    return [Math.max(380, node.size[0]), Math.max(360, (gridContainer.scrollHeight || 0) + 160)];
                 }
-                return [node.size[0], Math.max(360, node.size[1])];
+                return [Math.max(380, node.size[0]), 360];
             };
 
             const updateNodeSize = () => {
@@ -1055,12 +1046,14 @@ app.registerExtension({
             const domWidget = node.addDOMWidget("lora_visual_picker", "HTML", viewContainer, {
                 getValue() { return getHiddenWidget().value; },
                 setValue(val) { getHiddenWidget().value = val; },
-                serialize: false
+                serialize: false,
+                getMinHeight() { return 180; }
             });
 
-            domWidget.computeSize = function() {
-                return [node.size[0] - 30, node.size[1] - 190];
-            };
+            // In ComfyUI LiteGraph (V1), computeLayoutSize handles dynamic widget space distribution.
+            // A computeSize returning (node.size[1] - offset) causes an infinite loop in _arrangeWidgets
+            // because LiteGraph sees (l > t) and expands node.size on every animation frame.
+            delete domWidget.computeSize;
 
             const onResize = node.onResize;
             node.onResize = function(size) {
@@ -1071,7 +1064,7 @@ app.registerExtension({
                     node.userCustomHeight = size[1];
                     userSavedHeight = size[1];
                     if (viewContainer && viewContainer.style) {
-                        const h = Math.max(200, size[1] - 100);
+                        const h = Math.max(180, size[1] - 150);
                         viewContainer.style.setProperty("height", `${h}px`, "important");
                         viewContainer.style.setProperty("max-height", `${h}px`, "important");
                     }

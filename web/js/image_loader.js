@@ -216,14 +216,6 @@ app.registerExtension({
         if (isVisualImageLoader) {
             node.size = [380, 480];
 
-            node.computeSize = function() {
-                const displayModeWidget = node.widgets ? node.widgets.find(w => w.name === "display_mode") : null;
-                if (displayModeWidget && displayModeWidget.value === "Show All") {
-                    // Logic added below
-                }
-                return [node.size[0], Math.max(480, node.size[1])];
-            };
-
             const folderWidget = node.widgets ? node.widgets.find(w => w.name === "folder_path") : null;
 
             const getHiddenWidget = (name, defaultVal) => {
@@ -288,8 +280,6 @@ app.registerExtension({
             gridContainer.className = "img-grid-container";
             viewContainer.appendChild(gridContainer);
 
-            node.computeSize = function() {
-                const displayModeWidget = node.widgets ? node.widgets.find(w => w.name === "display_mode") : null;
             let userSavedHeight = 480;
 
             const applyDisplayMode = (mode) => {
@@ -314,7 +304,7 @@ app.registerExtension({
                     viewContainer.classList.remove("show-all-mode");
                     viewContainer.classList.add("scrollable-mode");
                     const restoredH = node.userCustomHeight || userSavedHeight || 480;
-                    const containerH = Math.max(200, restoredH - 100);
+                    const containerH = Math.max(180, restoredH - 150);
                     
                     viewContainer.style.setProperty("height", `${containerH}px`, "important");
                     viewContainer.style.setProperty("max-height", `${containerH}px`, "important");
@@ -333,9 +323,9 @@ app.registerExtension({
             node.computeSize = function() {
                 const displayModeWidget = node.widgets ? node.widgets.find(w => w.name === "display_mode") : null;
                 if (displayModeWidget && displayModeWidget.value === "Show All" && gridContainer) {
-                    return [node.size[0], Math.max(420, (gridContainer.scrollHeight || 0) + 160)];
+                    return [Math.max(380, node.size[0]), Math.max(420, (gridContainer.scrollHeight || 0) + 160)];
                 }
-                return [node.size[0], Math.max(420, node.size[1])];
+                return [Math.max(380, node.size[0]), 420];
             };
 
             const updateNodeSize = () => {
@@ -355,8 +345,13 @@ app.registerExtension({
             const domWidget = node.addDOMWidget("img_visual_picker", "HTML", viewContainer, {
                 getValue() { return getHiddenWidget("_selected_image", "").value; },
                 setValue(val) { getHiddenWidget("_selected_image", "").value = val; },
-                serialize: false
+                serialize: false,
+                getMinHeight() { return 180; }
             });
+
+            // In ComfyUI LiteGraph (V1), computeLayoutSize handles dynamic widget space distribution.
+            // Removing computeSize avoids an infinite expansion loop in _arrangeWidgets.
+            delete domWidget.computeSize;
 
             const onResize = node.onResize;
             node.onResize = function(size) {
@@ -367,15 +362,11 @@ app.registerExtension({
                     node.userCustomHeight = size[1];
                     userSavedHeight = size[1];
                     if (viewContainer && viewContainer.style) {
-                        const h = Math.max(200, size[1] - 100);
+                        const h = Math.max(180, size[1] - 150);
                         viewContainer.style.setProperty("height", `${h}px`, "important");
                         viewContainer.style.setProperty("max-height", `${h}px`, "important");
                     }
                 }
-            };
-
-            domWidget.computeSize = function() {
-                return [node.size[0] - 30, node.size[1] - 140];
             };
 
             // Zoom Slider Widget
