@@ -13,8 +13,12 @@ from nodes.load_recent import LoadRecentOutputs
 
 class TestLoadRecent(unittest.TestCase):
     def setUp(self):
+        import folder_paths
         self.node = LoadRecentOutputs()
-        self.temp_dir = tempfile.mkdtemp()
+        out_dir = folder_paths.get_output_directory()
+        os.makedirs(out_dir, exist_ok=True)
+        self.temp_dir = tempfile.mkdtemp(dir=out_dir)
+        self.rel_dir = os.path.relpath(self.temp_dir, out_dir)
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -26,16 +30,14 @@ class TestLoadRecent(unittest.TestCase):
         img.save(f1)
         img.save(f2)
 
-        with patch("nodes.load_recent.folder_paths.get_output_directory", return_value=self.temp_dir):
-            out_tensor, = self.node.load_single_image(output_folder=self.temp_dir, amount=2, index=0)
-            self.assertEqual(out_tensor.shape[0], 1)
-            self.assertEqual(out_tensor.shape[1], 64)
-            self.assertEqual(out_tensor.shape[2], 64)
+        out_tensor, = self.node.load_single_image(output_folder=self.rel_dir, amount=2, index=0)
+        self.assertEqual(out_tensor.shape[0], 1)
+        self.assertEqual(out_tensor.shape[1], 64)
+        self.assertEqual(out_tensor.shape[2], 64)
 
     def test_load_recent_empty_directory_returns_dummy(self):
-        with patch("nodes.load_recent.folder_paths.get_output_directory", return_value=self.temp_dir):
-            out_tensor, = self.node.load_single_image(output_folder=self.temp_dir, amount=5, index=0)
-            self.assertEqual(out_tensor.shape, (1, 512, 512, 3))
+        out_tensor, = self.node.load_single_image(output_folder=self.rel_dir, amount=5, index=0)
+        self.assertEqual(out_tensor.shape, (1, 512, 512, 3))
 
 if __name__ == "__main__":
     unittest.main()

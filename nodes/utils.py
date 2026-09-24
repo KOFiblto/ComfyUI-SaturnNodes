@@ -180,26 +180,43 @@ def is_safe_path(target_path, allowed_bases=None):
 def sanitize_image_loader_folder(folder_input, default_to_output=True):
     """
     Resolves folder input strictly within ComfyUI input/output/temp directories.
-    If folder_input attempts to escape or points outside allowed bases, falls back safely.
+    Rejects directory traversal ('..') and unapproved absolute paths, strictly verifying confinement via commonpath.
     """
     allowed_bases = get_allowed_image_directories()
-    input_dir = folder_paths.get_input_directory()
-    output_dir = folder_paths.get_output_directory()
-    default_dir = output_dir if default_to_output else input_dir
+    input_dir = folder_paths.get_input_directory() if hasattr(folder_paths, "get_input_directory") else "."
+    output_dir = folder_paths.get_output_directory() if hasattr(folder_paths, "get_output_directory") else "."
+    default_dir = os.path.abspath(os.path.realpath(output_dir if default_to_output else input_dir))
 
     if not folder_input or not str(folder_input).strip():
         return default_dir
 
     clean = str(folder_input).strip().rstrip("\\/")
-    
+
+    # 1. Reject directory traversal sequences ('..')
+    norm_slashes = clean.replace("\\", "/")
+    if any(p == ".." for p in norm_slashes.split("/")):
+        print(f"[SaturnNodes Security] Blocked directory traversal in image folder path '{clean}'. Confining to ComfyUI directories.")
+        return default_dir
+
+    # 2. Reject absolute paths (drive letters C:\, POSIX root /, UNC \\server)
+    is_absolute = (
+        os.path.isabs(clean)
+        or bool(re.match(r'^[A-Za-z]:', clean))
+        or clean.startswith(("//", "\\\\"))
+    )
+    if is_absolute:
+        if not is_safe_path(clean, allowed_bases):
+            print(f"[SaturnNodes Security] Blocked absolute image folder path '{clean}'. Confining to ComfyUI directories.")
+            return default_dir
+        return os.path.abspath(os.path.realpath(clean))
+
+    # 3. Handle relative 'input' or 'output' prefixes
     if clean.lower() == "input" or clean.lower().startswith("input/") or clean.lower().startswith("input\\"):
         sub = clean[5:].lstrip("\\/")
         resolved = os.path.join(input_dir, sub) if sub else input_dir
     elif clean.lower() == "output" or clean.lower().startswith("output/") or clean.lower().startswith("output\\"):
         sub = clean[6:].lstrip("\\/")
         resolved = os.path.join(output_dir, sub) if sub else output_dir
-    elif os.path.isabs(clean):
-        resolved = clean
     else:
         cand_out = os.path.join(output_dir, clean)
         cand_inp = os.path.join(input_dir, clean)
@@ -209,7 +226,7 @@ def sanitize_image_loader_folder(folder_input, default_to_output=True):
             resolved = cand_out
 
     if is_safe_path(resolved, allowed_bases):
-        return os.path.normpath(resolved)
+        return os.path.abspath(os.path.realpath(resolved))
 
     return default_dir
 
@@ -262,7 +279,48 @@ def parse_pretty_name_with_version(filepath):
             return f"{pretty_name} {version_candidate.upper()}"
     return pretty_name
 
+def get_allowed_folder_watch_directories():
+    """
+    Returns approved base directories for folder watching and recent output scanning:
+    strictly ComfyUI input and output directories.
+    """
+    allowed = []
+    try:
+        inp = folder_paths.get_input_directory()
+        if inp:
+            allowed.append(os.path.abspath(os.path.realpath(inp)))
+    except Exception:
+        pass
+    try:
+        out = folder_paths.get_output_directory()
+        if out:
+            allowed.append(os.path.abspath(os.path.realpath(out)))
+    except Exception:
+        pass
+    return allowed
+
 def sanitize_folder_path(folder_input, default_dir=None):
+    """
+    Confines folder paths strictly within ComfyUI's input and output directories.
+    Rejects absolute paths and '..' directory traversal sequences.
+    Resolves canonical realpath and verifies commonpath containment.
+    """
+    allowed_bases = get_allowed_folder_watch_directories()
+    input_dir = folder_paths.get_input_directory() if hasattr(folder_paths, "get_input_directory") else None
+    safe_fallback = os.path.join(input_dir, "watch") if input_dir else "watch"
+    if default_dir:
+        if os.path.isabs(default_dir):
+            try:
+                real_def = os.path.abspath(os.path.realpath(default_dir))
+                for base in allowed_bases:
+                    if os.path.commonpath([base, real_def]) == base:
+                        safe_fallback = real_def
+                        break
+            except Exception:
+                pass
+        else:
+            safe_fallback = default_dir
+
     if folder_input is None:
         folder_input = ""
     clean_folder = str(folder_input).strip()
@@ -270,66 +328,84 @@ def sanitize_folder_path(folder_input, default_dir=None):
     # Strip any trailing wildcards (e.g. "krea2\*" -> "krea2", "krea2/*" -> "krea2")
     clean_folder = re.sub(r'[\*\?]+$', '', clean_folder).rstrip("\\/")
     
-    if not clean_folder and default_dir:
-        clean_folder = default_dir
-
     if not clean_folder:
-        return ""
+        clean_folder = safe_fallback
 
-    # 1. If absolute path, verify directly with case-insensitive check
+    # 1. Reject absolute paths (drive letters C:\, POSIX root /, UNC \\server)
+    is_absolute = (
+        os.path.isabs(clean_folder)
+        or bool(re.match(r'^[A-Za-z]:', clean_folder))
+        or clean_folder.startswith(("//", "\\\\"))
+    )
+
+    # 2. Reject directory traversal sequences ('..')
+    normalized_slashes = clean_folder.replace("\\", "/")
+    parts = normalized_slashes.split("/")
+    has_traversal = any(p == ".." for p in parts)
+
+    if is_absolute or has_traversal:
+        is_safe_default = False
+        if is_absolute and safe_fallback and clean_folder == safe_fallback:
+            try:
+                real_clean = os.path.abspath(os.path.realpath(clean_folder))
+                for base in allowed_bases:
+                    if os.path.commonpath([base, real_clean]) == base:
+                        is_safe_default = True
+                        break
+            except Exception:
+                pass
+
+        if not is_safe_default:
+            print(f"[SaturnNodes Security] Blocked unsafe folder path '{clean_folder}' (absolute={is_absolute}, traversal={has_traversal}). Confining to ComfyUI input/output directories.")
+            clean_folder = safe_fallback
+
+    # 3. If clean_folder is an already-confined absolute path (e.g. from internal safe_fallback)
     if os.path.isabs(clean_folder):
-        norm_path = os.path.normpath(clean_folder)
-        if os.path.exists(norm_path):
-            return norm_path
-        parent_dir = os.path.dirname(norm_path)
-        base_name = os.path.basename(norm_path)
-        if os.path.exists(parent_dir):
-            try:
-                for entry in os.listdir(parent_dir):
-                    if entry.lower() == base_name.lower():
-                        return os.path.join(parent_dir, entry)
-            except Exception:
-                pass
-        return norm_path
+        try:
+            real_cand = os.path.abspath(os.path.realpath(clean_folder))
+            for base in allowed_bases:
+                if os.path.commonpath([base, real_cand]) == base:
+                    return real_cand
+        except Exception:
+            pass
+        return os.path.abspath(os.path.realpath(safe_fallback))
 
-    # 2. If relative path, check output directory, input directory, then base path
+    # 4. For relative paths, evaluate candidates strictly within allowed_bases
     candidates = []
-    try:
-        output_dir = folder_paths.get_output_directory()
-        if output_dir:
-            candidates.append(os.path.normpath(os.path.join(output_dir, clean_folder)))
-    except Exception:
-        pass
+    for base in allowed_bases:
+        target = os.path.abspath(os.path.realpath(os.path.join(base, clean_folder)))
+        try:
+            if os.path.commonpath([base, target]) == base:
+                candidates.append((target, os.path.exists(target)))
+        except Exception:
+            continue
 
-    try:
-        input_dir = folder_paths.get_input_directory()
-        if input_dir:
-            candidates.append(os.path.normpath(os.path.join(input_dir, clean_folder)))
-    except Exception:
-        pass
+    # Return existing candidate if present on disk
+    for target, exists in candidates:
+        if exists:
+            return target
 
-    try:
-        if folder_paths.base_path:
-            candidates.append(os.path.normpath(os.path.join(folder_paths.base_path, clean_folder)))
-    except Exception:
-        pass
-
-    for cand in candidates:
-        if os.path.exists(cand):
-            return cand
-
-    for cand in candidates:
-        parent_dir = os.path.dirname(cand)
-        base_name = os.path.basename(cand)
+    # Case-insensitive resolution within candidate parent folders
+    for target, _ in candidates:
+        parent_dir = os.path.dirname(target)
+        base_name = os.path.basename(target)
         if os.path.exists(parent_dir):
             try:
                 for entry in os.listdir(parent_dir):
                     if entry.lower() == base_name.lower():
-                        return os.path.join(parent_dir, entry)
+                        match_path = os.path.join(parent_dir, entry)
+                        real_match = os.path.abspath(os.path.realpath(match_path))
+                        for base in allowed_bases:
+                            if os.path.commonpath([base, real_match]) == base:
+                                return real_match
             except Exception:
                 pass
 
-    return candidates[0] if candidates else os.path.normpath(os.path.join(folder_paths.base_path, clean_folder))
+    if candidates:
+        return candidates[0][0]
+
+    default_input = folder_paths.get_input_directory() if hasattr(folder_paths, "get_input_directory") else "."
+    return os.path.abspath(os.path.realpath(os.path.join(default_input, "watch")))
 
 def format_lora_output_name(resolved_path, display_name, output_format="Parsed Name", custom_regex=""):
     if not resolved_path or resolved_path in ["[ NONE ]", "[ RANDOM ]"]:

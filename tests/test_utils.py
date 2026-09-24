@@ -133,8 +133,43 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(custom_reg, "ana_de")
 
     def test_sanitize_folder_path_wildcard_stripping(self):
-        clean = sanitize_folder_path("input/watch/*")
+        clean = sanitize_folder_path("watch/*")
         self.assertNotIn("*", clean)
+
+    def test_sanitize_folder_path_blocks_absolute_paths(self):
+        import folder_paths
+        inp = os.path.abspath(os.path.realpath(folder_paths.get_input_directory()))
+        out = os.path.abspath(os.path.realpath(folder_paths.get_output_directory()))
+        
+        # Test Windows drive letters and root paths
+        for bad_path in ["C:\\Windows\\System32", "D:\\SecretData", "/etc/passwd", "\\\\server\\share"]:
+            res = sanitize_folder_path(bad_path)
+            res_norm = os.path.abspath(os.path.realpath(res))
+            # Must be confined strictly within input or output directory
+            is_confined = (os.path.commonpath([inp, res_norm]) == inp) or (os.path.commonpath([out, res_norm]) == out)
+            self.assertTrue(is_confined, f"Path '{bad_path}' escaped confinement! Got: '{res_norm}'")
+
+    def test_sanitize_folder_path_blocks_directory_traversal(self):
+        import folder_paths
+        inp = os.path.abspath(os.path.realpath(folder_paths.get_input_directory()))
+        out = os.path.abspath(os.path.realpath(folder_paths.get_output_directory()))
+
+        for bad_traversal in ["../../etc", "watch/../../secret", "..\\..\\Windows", "sub/../../../root"]:
+            res = sanitize_folder_path(bad_traversal)
+            res_norm = os.path.abspath(os.path.realpath(res))
+            is_confined = (os.path.commonpath([inp, res_norm]) == inp) or (os.path.commonpath([out, res_norm]) == out)
+            self.assertTrue(is_confined, f"Traversal '{bad_traversal}' escaped confinement! Got: '{res_norm}'")
+
+    def test_sanitize_folder_path_allows_safe_subfolders(self):
+        import folder_paths
+        inp = os.path.abspath(os.path.realpath(folder_paths.get_input_directory()))
+        out = os.path.abspath(os.path.realpath(folder_paths.get_output_directory()))
+
+        for safe_sub in ["watch", "my_images", "subfolder/nested"]:
+            res = sanitize_folder_path(safe_sub)
+            res_norm = os.path.abspath(os.path.realpath(res))
+            is_confined = (os.path.commonpath([inp, res_norm]) == inp) or (os.path.commonpath([out, res_norm]) == out)
+            self.assertTrue(is_confined, f"Safe subfolder '{safe_sub}' failed confinement! Got: '{res_norm}'")
 
     def test_is_safe_external_image_url(self):
         from nodes.lora_loader import is_safe_external_image_url
@@ -154,6 +189,18 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(parse_pretty_name(None), "")
         self.assertEqual(parse_pretty_name("[ NONE ]"), "")
         self.assertEqual(parse_pretty_name("[ RANDOM ]"), "")
+
+    def test_sanitize_image_loader_folder_confinement(self):
+        from nodes.utils import sanitize_image_loader_folder
+        import folder_paths
+        inp = os.path.abspath(os.path.realpath(folder_paths.get_input_directory()))
+        out = os.path.abspath(os.path.realpath(folder_paths.get_output_directory()))
+
+        for bad in ["C:\\Windows", "/etc", "../../escape", "output/../../secret", "\\\\server\\share"]:
+            res = sanitize_image_loader_folder(bad)
+            res_norm = os.path.abspath(os.path.realpath(res))
+            is_confined = (os.path.commonpath([inp, res_norm]) == inp) or (os.path.commonpath([out, res_norm]) == out)
+            self.assertTrue(is_confined, f"Image folder '{bad}' escaped confinement: '{res_norm}'")
 
 if __name__ == "__main__":
     unittest.main()

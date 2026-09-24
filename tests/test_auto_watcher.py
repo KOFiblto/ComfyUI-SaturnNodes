@@ -12,8 +12,12 @@ from nodes.auto_watcher import LoadImageFromFolder
 
 class TestAutoWatcher(unittest.TestCase):
     def setUp(self):
+        import folder_paths
         self.node = LoadImageFromFolder()
-        self.temp_dir = tempfile.mkdtemp()
+        inp_dir = folder_paths.get_input_directory()
+        os.makedirs(inp_dir, exist_ok=True)
+        self.temp_dir = tempfile.mkdtemp(dir=inp_dir)
+        self.rel_dir = os.path.relpath(self.temp_dir, inp_dir)
 
     def tearDown(self):
         shutil.rmtree(self.temp_dir, ignore_errors=True)
@@ -44,8 +48,9 @@ class TestAutoWatcher(unittest.TestCase):
     def test_empty_folder_returns_dummy(self):
         empty_dir = os.path.join(self.temp_dir, "empty")
         os.makedirs(empty_dir, exist_ok=True)
+        empty_rel = os.path.join(self.rel_dir, "empty")
         img_tensor, has_image = self.node.watch(
-            folder=empty_dir,
+            folder=empty_rel,
             wait_if_folder_is_empty=False,
             rescan_interval=1,
             sort_by="date_modified",
@@ -62,15 +67,15 @@ class TestAutoWatcher(unittest.TestCase):
         Image.new("RGB", (64, 64), color="green").save(f2)
 
         # Run 1 -> loads img_a
-        t1, has1 = self.node.watch(folder=self.temp_dir, wait_if_folder_is_empty=False, rescan_interval=1, sort_by="name", regex_filter=".*", delete_image=False, unique_id="cycle_test")
+        t1, has1 = self.node.watch(folder=self.rel_dir, wait_if_folder_is_empty=False, rescan_interval=1, sort_by="name", regex_filter=".*", delete_image=False, unique_id="cycle_test")
         self.assertTrue(has1)
 
         # Run 2 -> loads img_b (cycled!)
-        t2, has2 = self.node.watch(folder=self.temp_dir, wait_if_folder_is_empty=False, rescan_interval=1, sort_by="name", regex_filter=".*", delete_image=False, unique_id="cycle_test")
+        t2, has2 = self.node.watch(folder=self.rel_dir, wait_if_folder_is_empty=False, rescan_interval=1, sort_by="name", regex_filter=".*", delete_image=False, unique_id="cycle_test")
         self.assertTrue(has2)
 
         # Run 3 -> loops back to img_a
-        t3, has3 = self.node.watch(folder=self.temp_dir, wait_if_folder_is_empty=False, rescan_interval=1, sort_by="name", regex_filter=".*", delete_image=False, unique_id="cycle_test")
+        t3, has3 = self.node.watch(folder=self.rel_dir, wait_if_folder_is_empty=False, rescan_interval=1, sort_by="name", regex_filter=".*", delete_image=False, unique_id="cycle_test")
         self.assertTrue(has3)
 
     def test_load_and_remove_image_with_delete_toggle(self):

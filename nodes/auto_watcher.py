@@ -5,7 +5,7 @@ import numpy as np
 import re
 from PIL import Image, ImageOps
 import comfy.model_management
-from .utils import sanitize_folder_path
+from .utils import sanitize_folder_path, is_safe_path, get_allowed_folder_watch_directories
 
 def get_current_prompt_id():
     try:
@@ -70,6 +70,9 @@ class LoadImageFromFolder:
             img_tensor = torch.from_numpy(image_array)[None,]
         
         if delete_image:
+            if not is_safe_path(filepath, allowed_bases=get_allowed_folder_watch_directories()):
+                print(f"[SaturnNodes Security] Refusing to delete '{filepath}': file is outside ComfyUI input/output directories.")
+                return img_tensor
             try:
                 os.remove(filepath)
             except Exception as e:
@@ -148,7 +151,7 @@ class LoadImageFromFolder:
         return files[idx]
 
     def watch(self, folder, wait_if_folder_is_empty, rescan_interval, sort_by, regex_filter, delete_image=False, unique_id="default", **kwargs):
-        folder = sanitize_folder_path(folder, default_dir="input/watch")
+        folder = sanitize_folder_path(folder, default_dir="watch")
         
         if wait_if_folder_is_empty:
             while True:
