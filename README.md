@@ -17,11 +17,10 @@ A unified workflow control and productivity suite for **ComfyUI**. Both **Fronte
 
 ## 📦 Individual Nodes Reference
 
-Below is the complete reference for all nodes included in SaturnNodes, with descriptions, widget parameters, and output types.
+Expand any node below to view its description, inputs, outputs, and usage documentation.
 
----
-
-### 🪐 📁 LoRA Loader (Folder) — `FolderLoraLoader`
+<details>
+<summary><b>🪐 📁 LoRA Loader (Folder)</b> (<code>FolderLoraLoader</code>)</summary>
 
 #### Overview
 Loads a LoRA by folder path using raw filename matching or formatted names with customizable output formatting options.
@@ -40,10 +39,10 @@ Loads a LoRA by folder path using raw filename matching or formatted names with 
 - **`MODEL`**: Patched model.
 - **`CLIP`**: Patched CLIP.
 - **`lora_name`** (`STRING`): Formatted name or filename of the loaded LoRA.
+</details>
 
----
-
-### 🪐 ✨ LoRA Loader (Pretty) — `FolderLoraLoaderPretty`
+<details>
+<summary><b>🪐 ✨ LoRA Loader (Pretty)</b> (<code>FolderLoraLoaderPretty</code>)</summary>
 
 #### Overview
 Loads a LoRA using formatted pretty names (e.g. `Cyberpunk Character V1` instead of `char_Cyberpunk-Character_v1.safetensors`).
@@ -60,10 +59,10 @@ Loads a LoRA using formatted pretty names (e.g. `Cyberpunk Character V1` instead
 - **`MODEL`**: Patched model.
 - **`CLIP`**: Patched CLIP.
 - **`lora_name`** (`STRING`): Selected LoRA name.
+</details>
 
----
-
-### 🪐 🖼️ Visual LoRA Loader — `VisualLoraLoader` (alias `FolderLoraLoaderVisualPrettyV2`)
+<details>
+<summary><b>🪐 🖼️ Visual LoRA Loader</b> (<code>VisualLoraLoader</code> / alias <code>FolderLoraLoaderVisualPrettyV2</code>)</summary>
 
 #### Overview
 Visual thumbnail browser for LoRAs with Civitai SHA256 search & TMDB auto-scraping, popularity rank badges (🔥), multi-selection support, and independent per-node thumbnail zoom sizing.
@@ -85,10 +84,10 @@ Visual thumbnail browser for LoRAs with Civitai SHA256 search & TMDB auto-scrapi
 
 > [!NOTE]
 > Frontend V1 and V2 are supported, though `VisualLoraLoader` breaks on Frontend V1 for now (will be fixed). Frontend V2 (Vue UI) is recommended for visual LoRA browsing.
+</details>
 
----
-
-### 🪐 📷 Visual Image Loader — `VisualImageLoader` (alias `ImageLoaderVisualPrettyV2`)
+<details>
+<summary><b>🪐 📷 Visual Image Loader</b> (<code>VisualImageLoader</code> / alias <code>ImageLoaderVisualPrettyV2</code>)</summary>
 
 #### Overview
 Visual thumbnail browser for image folders with instant preview selection, independent per-node thumbnail zoom sizing, and EXIF positive prompt metadata extraction. Path access is strictly confined to ComfyUI `input`, `output`, and `temp` directories for safe operation.
@@ -104,10 +103,10 @@ Visual thumbnail browser for image folders with instant preview selection, indep
 - **`positive_prompt`** (`STRING`): Extracted prompt metadata.
 - **`width`** (`INT`): Image width.
 - **`height`** (`INT`): Image height.
+</details>
 
----
-
-### 🪐 📂 Load Image From Folder — `LoadImageFromFolder`
+<details>
+<summary><b>🪐 📂 Load Image From Folder</b> (<code>LoadImageFromFolder</code>)</summary>
 
 #### Overview
 Monitors a folder for incoming images, loads the target image into a PyTorch tensor, with an optional toggle to delete the image after loading. Path access and deletion are strictly confined to ComfyUI `input` and `output` directories.
@@ -123,10 +122,10 @@ Monitors a folder for incoming images, loads the target image into a PyTorch ten
 #### Outputs
 - **`image`** (`IMAGE`): Loaded image tensor.
 - **`has_image`** (`BOOLEAN`): True if image loaded, False if folder empty.
+</details>
 
----
-
-### 🪐 ⏱️ Recent Outputs — `LoadRecentOutputs`
+<details>
+<summary><b>🪐 ⏱️ Recent Outputs</b> (<code>LoadRecentOutputs</code>)</summary>
 
 #### Overview
 Loads the N newest images from an output directory with step-through index selection.
@@ -138,10 +137,10 @@ Loads the N newest images from an output directory with step-through index selec
 
 #### Outputs
 - **`IMAGE`**: Output image tensor.
+</details>
 
----
-
-### 🪐 👁️ Live Latent Preview — `PreviewLatentLiveNode`
+<details>
+<summary><b>🪐 👁️ Live Latent Preview</b> (<code>PreviewLatentLiveNode</code>)</summary>
 
 #### Overview
 Canvas rendering node that listens to sampler WebSocket latent binary streams and displays real-time live previews on the canvas during generation.
@@ -149,10 +148,10 @@ Canvas rendering node that listens to sampler WebSocket latent binary streams an
 #### Inputs & Outputs
 - **Category**: `🪐 SaturnNodes/Previews`
 - **Output Node**: True
+</details>
 
----
-
-### 🪐 ⏸️ Saturn Decision — `SaturnDecision` (alias `LeafFlowDecision`)
+<details>
+<summary><b>🪐 ⏸️ Saturn Decision</b> (<code>SaturnDecision</code> / alias <code>LeafFlowDecision</code>)</summary>
 
 #### Overview
 Pauses workflow execution at a specific step and displays an inline UI popup with Continue, Cancel, or Stop Workflow actions, plus optional native OS desktop notifications. Fully backward compatible with workflows containing `LeafFlowDecision`.
@@ -164,10 +163,10 @@ Pauses workflow execution at a specific step and displays an inline UI popup wit
 
 #### Outputs
 - **`cancel`** (`BOOLEAN`): False on Continue, True on Cancel (for branch routing).
+</details>
 
----
-
-### 🪐 📐 Text Aspect Ratio Finder — `TextAspectRatioFinder` (alias `AspectRatioFinder`)
+<details>
+<summary><b>🪐 📐 Text Aspect Ratio Finder</b> (<code>TextAspectRatioFinder</code> / alias <code>AspectRatioFinder</code>)</summary>
 
 #### Overview
 Parses input text for aspect ratios (e.g. `16:9`, `2.35:1`), syntax-checks them, and calculates pixel resolution for a target megapixel target.
@@ -187,10 +186,10 @@ Parses input text for aspect ratios (e.g. `16:9`, `2.35:1`), syntax-checks them,
 - **`height`** (`INT`): Computed height in pixels.
 - **`aspect_ratio`** (`STRING`): Detected or fallback aspect ratio string.
 - **`cleaned_text`** (`STRING`): Input text with the aspect ratio token stripped.
+</details>
 
----
-
-### 🪐 📐 Preview Image Size & Aspect Ratio — `PreviewImageSizeAspectRatio`
+<details>
+<summary><b>🪐 📐 Preview Image Size & Aspect Ratio</b> (<code>PreviewImageSizeAspectRatio</code>)</summary>
 
 #### Overview
 Computes image dimensions and aspect ratio from an input image tensor and formats the result for previewing.
@@ -202,10 +201,10 @@ Computes image dimensions and aspect ratio from an input image tensor and format
 - **`width`** (`INT`): Image width.
 - **`height`** (`INT`): Image height.
 - **`aspect_ratio`** (`STRING`): Closest matched aspect ratio string.
+</details>
 
----
-
-### 🪐 🔎 Text LoRA Finder & Loader — `TextLoraFinder` (alias `LoraTextFinder`)
+<details>
+<summary><b>🪐 🔎 Text LoRA Finder & Loader</b> (<code>TextLoraFinder</code> / alias <code>LoraTextFinder</code>)</summary>
 
 #### Overview
 Scans input prompt text for `<lora:name:strength>` tags or names matching a folder on disk, dynamically applies them, and returns patched models along with sanitized prompt text.
@@ -224,10 +223,10 @@ Scans input prompt text for `<lora:name:strength>` tags or names matching a fold
 - **`CLIP`**: Patched CLIP.
 - **`text`** (`STRING`): Cleaned prompt text.
 - **`lora_name`** (`STRING`): Comma-separated list of loaded LoRAs.
+</details>
 
----
-
-### 🪐 🔄 Prompt Queue Iterator — `PromptQueueIterator`
+<details>
+<summary><b>🪐 🔄 Prompt Queue Iterator</b> (<code>PromptQueueIterator</code>)</summary>
 
 #### Overview
 Deterministically iterates over multiline prompt text blocks per queue run with live progress display, counter reset controls, and index tracking. Supports splitting prompts by empty lines, newlines, or a custom regular expression delimiter.
@@ -243,10 +242,10 @@ Deterministically iterates over multiline prompt text blocks per queue run with 
 - **`prompt`** (`STRING`): The selected prompt block for the current queue run.
 - **`remaining_text`** (`STRING`): All remaining prompt blocks joined by the delimiter.
 - **`remaining_count`** (`INT`): Count of remaining items in queue.
+</details>
 
----
-
-### 🪐 📝 Prompt Counter — `PromptCounter`
+<details>
+<summary><b>🪐 📝 Prompt Counter</b> (<code>PromptCounter</code>)</summary>
 
 #### Overview
 Multiline text prompt input node that functions identically to a standard multiline string node, with real-time prompt counting according to your chosen delimiter (`>1 Empty Line`, `Newline`, `>2 Empty Lines`, or `Custom Regex`). Displays the live prompt count directly on the node on every keystroke, allowing you to easily determine and set the exact ComfyUI batch size before running your queue.
@@ -259,10 +258,10 @@ Multiline text prompt input node that functions identically to a standard multil
 #### Outputs
 - **`STRING`**: The unmodified prompt text (ready to connect into samplers or *Prompt Queue Iterator*).
 - **`count`** (`INT`): The registered prompt count integer.
+</details>
 
----
-
-### 🪐 🔤 Multi Text Replacer — `MultiTextReplacer`
+<details>
+<summary><b>🪐 🔤 Multi Text Replacer</b> (<code>MultiTextReplacer</code>)</summary>
 
 #### Overview
 Performs multiple text replacements in a single step using comma-separated or newline-separated find/replace lists, with support for exact phrases and regex matching.
@@ -276,10 +275,10 @@ Performs multiple text replacements in a single step using comma-separated or ne
 
 #### Outputs
 - **`text`** (`STRING`): Modified text.
+</details>
 
----
-
-### 🪐 ✂️ Text Split — `SaturnTextSplit` (alias `LeafFlowTextSplit`)
+<details>
+<summary><b>🪐 ✂️ Text Split</b> (<code>SaturnTextSplit</code> / alias <code>LeafFlowTextSplit</code>)</summary>
 
 #### Overview
 Splits text into two parts at a specified delimiter. Supports forward (from start) and backward (from end) search, as well as regular expressions.
@@ -294,10 +293,10 @@ Splits text into two parts at a specified delimiter. Supports forward (from star
 #### Outputs
 - **`text1`** (`STRING`): Text before the split delimiter.
 - **`text2`** (`STRING`): Text after the split delimiter.
+</details>
 
----
-
-### 🪐 ⚡ Run Local File — `RunLocalFileNode`
+<details>
+<summary><b>🪐 ⚡ Run Local File</b> (<code>RunLocalFileNode</code>)</summary>
 
 #### Overview
 Safely executes a local script or executable (`.bat`, `.cmd`, `.ps1`, `.exe` on Windows; `.sh` or binaries on Linux/macOS) with command-line parameters and working directory control. Built with multi-layered security guards to ensure malicious workflows or dropped images cannot execute code without explicit authorization.
@@ -320,6 +319,7 @@ Safely executes a local script or executable (`.bat`, `.cmd`, `.ps1`, `.exe` on 
 - **`exit_code`** (`INT`): Process exit return code (`0` = success, `-1` = blocked / timed out).
 - **`success`** (`BOOLEAN`): `True` if `exit_code == 0`, `False` otherwise.
 - **`passthrough`** (`*`): Passes input `trigger` data through untouched to downstream nodes.
+</details>
 
 ---
 
@@ -328,9 +328,8 @@ Safely executes a local script or executable (`.bat`, `.cmd`, `.ps1`, `.exe` on 
 
 Configure options directly under ComfyUI Settings (⚙ gear icon):
 
----
-
-### 🖼️ Visual Loaders (Civitai & TMDB Duo)
+<details>
+<summary><b>🖼️ Visual Loaders (Civitai & TMDB Duo)</b></summary>
 
 - **`Enable Custom SaturnNodes Colors`** (`boolean`, *Default: false*): Applies custom amber colors to SaturnNodes on the canvas. When disabled (default), nodes use default ComfyUI colors.
 - **`Custom Node Title Color`** (`color`, *Default: `#6a3f20`*): Header / title bar color picker for SaturnNodes when custom colors are enabled.
@@ -341,25 +340,25 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`Enable TMDB Auto-Scraping`** (`boolean`, *Default: false*): Automatically download media preview images from TMDB.
 - **`Enable LoRA Usage Tracking`** (`boolean`, *Default: true*): Toggle LoRA usage counting and visual rank badges (🔥, Gold, Silver, Bronze) in the picker.
 - **`Reset Failed Scrapes Cache`** (*Button: `🗑️ Clear Scrapes Cache`*): Clears failed scrape history so Civitai/TMDB can retry downloading missing preview images.
+</details>
 
----
-
-### 🔄 Prompt Iterator
+<details>
+<summary><b>🔄 Prompt Iterator</b></summary>
 
 - **`Clear State on Launch`** (`boolean`, *Default: false*): Privacy toggle to empty `prompt_iterator_state.json` on ComfyUI startup.
 - **`Reset All Queues`** (*Button: `🔄 Reset All Queues`*): Immediately empties all active prompt queues and resets iterator state.
+</details>
 
----
-
-### 📋 Prompt Actions
+<details>
+<summary><b>📋 Prompt Actions</b></summary>
 
 - **`Show "Copy Prompt" Button on Images`** (`boolean`, *Default: true*): Shows the 📋 "Copy Prompt" overlay action button when hovering over generated images in the Assets / History pane and preview nodes.
 - **`Show Right-Click "Copy Prompt" Menu Action`** (`boolean`, *Default: true*): Adds "📋 Copy Prompt" to node right-click context menus.
 - **`Show "Inspect Asset" (Zoom) Button on Images`** (`boolean`, *Default: false*): Restores the 🔍 "Inspect asset" (zoom in) button directly onto image cards in the Assets pane next to Download and Copy Prompt (restoring one-click access moved behind the 3-dots menu in newer ComfyUI versions).
+</details>
 
----
-
-### ⏸️ Pause Controls
+<details>
+<summary><b>⏸️ Pause Controls</b></summary>
 
 - **`Default State on Launch`** (`combo`, *Default: `Running`*): Sets whether the queue starts `Paused` or `Running` on boot.
 - **`Default Pause Action`** (`combo`, *Default: `Finish Active Prompt`*): Sets default pause behavior (`Finish Active Prompt` vs `Instant Resume Node`).
@@ -368,30 +367,30 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`Toolbar Button Paused Color`** (`text`, *Default: `#ea580c`*): Hex color for the toolbar paused state.
 - **`Enable System Tray Icon`** (`boolean`, *Default: false*): Displays an OS system tray icon with real-time queue status colors and outside-browser controls.
 - **`Allow Process Management (Restart / Shutdown)`** (`boolean`, *Default: false*): Opt-in authorization allowing server restart and shutdown actions from the SaturnNodes power controls. Disabled by default for maximum security.
+</details>
 
----
-
-### 💾 Persistent Queue
+<details>
+<summary><b>💾 Persistent Queue</b></summary>
 
 - **`Persistent Queue (Auto-Recovery)`** (`boolean`, *Default: true*): Automatically saves unfinished queue items and restores them after restart/crash.
 - **`Recovery Launch State`** (`combo`, *Default: `Match Default`*): Override launch state when restored queue items are recovered on startup (`Match Default`, `Force Paused`, `Force Running`).
+</details>
 
----
-
-### 🖼️ Assets & History Restore
+<details>
+<summary><b>🖼️ Assets & History Restore</b></summary>
 
 - **`Restore Assets on Launch`** (`boolean`, *Default: true*): Automatically restores your latest generated images into the Assets / History pane on startup.
 - **`Restored Assets Count`** (`number`, *Default: 64*): The number of newest images from the output folder to populate into the Assets pane.
+</details>
 
----
-
-### 🩺 Diagnostics & Debug
+<details>
+<summary><b>🩺 Diagnostics & Debug</b></summary>
 
 - **`Export Debug Profile`** (*Button: `📥 Export Debug Profile`*): Exports non-sensitive system environment details (OS, Python, PyTorch, SaturnNodes settings, local cache counts) to a JSON file to share when reporting bugs or requesting assistance. Sensitive API keys and tokens are never exported.
+</details>
 
----
-
-### 🎨 Batch Queue Visuals
+<details>
+<summary><b>🎨 Batch Queue Visuals</b></summary>
 
 - **`Show Batch Queue 1D Lines`** (`boolean`, *Default: true*): Renders a 1D git-graph style colored line on the left side of queued items in the queue list.
   - **36 Cycling Colors:** Every queued batch is assigned a vibrant, high-contrast color from a 36-color sequence.
@@ -399,13 +398,14 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
   - **In-between Infiltration Detection:** If a different prompt is queued in-between items of a batch, the interrupted batch maintains its open line ends without false curves, while the inserted item is highlighted with its own bracket.
   - **Works Standalone or with PersistentQueue:** Operates client-side via `localStorage` when standalone, and syncs with `PersistentQueue` to retain batch relationships after server restarts.
 - **`Batch Graph Snapshot Guard`** (`boolean`, *Default: true*): Background prompt and node input snapshotting ensuring canvas edits don't mutate active batches.
+</details>
 
----
-
-### 🛡️ Security & Script Execution
+<details>
+<summary><b>🛡️ Security & Script Execution</b></summary>
 
 - **`Allow Local File Execution`** (`boolean`, *Default: false*): Master toggle controlling whether the *Run Local File* node is permitted to execute local scripts or executables. Disabled by default for operator safety.
 - **Strict Confinement**: Execution is strictly limited to the `ComfyUI/scripts/` directory. Absolute paths and directory traversal (`..`) are permanently blocked.
+</details>
 
 ---
 
