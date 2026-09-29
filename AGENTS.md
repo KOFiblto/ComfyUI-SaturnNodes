@@ -238,31 +238,40 @@ If legacy files need to be migrated in future multi-user releases or version upg
 
 ---
 
-## 6. Git, Branching & Commit Conventions
+## 6. Git, Branching, Versioning & Release Strategy (MANDATORY)
 
-### 6.1 Strict Branch Naming Classification
-Never create misleading or overly narrow branch names when multiple components, fixes, and features are bundled together!
-- **Atomic Feature Branches** (`feature/<feature-name>`):
-  - Used **ONLY** when implementing a single, isolated new feature or node.
-  - Examples: `feature/prompt-iterator-privacy`, `feature/visual-loaders-pathing`
-- **Atomic Bug Fix Branches** (`fix/<bug-name>`):
-  - Used **ONLY** for targeted bug fixes.
-  - Examples: `fix/preview-latent-insets`, `fix/tray-icon-persistence`
-- **Comprehensive Integration & Release Branches** (`release/vX.Y.Z-<summary>` or `dev/<summary>`):
-  - **MANDATORY**: Whenever bundling multiple features, fixes, rebrands, or architectural updates into a combined testing or release candidate, use a `release/...` or `dev/...` branch name.
-  - **STRICTLY PROHIBITED**: Never disguise a multi-feature/fix release bundle under a single isolated `feature/<narrow-name>`.
-  - Examples: `release/v2.2.0-leafflow-update`, `dev/v2.2.0-full-integration`
+### 6.1 Version-Named Branching Workflow
+From version `v2.5.0` onward, all development work in this repository strictly adheres to a version-scoped branching model:
+1. **Active Work Occurs ONLY in the Current Version Branch**:
+   - All active development, bug fixes, UI improvements, and code changes **MUST** occur on a dedicated branch named directly after the target version prefixed with `v` (e.g. `v2.5.0`).
+   - Git and GitHub fully support dots in branch names (`v2.5.0`, `v2.6.0`, `v3.0.0`).
+   - **STRICTLY PROHIBITED**: Never commit or push directly to `main` during active development.
+2. **Strict User-Approval Gate for Merges & Releases**:
+   - Merging to `main` is **STRICTLY GATED** by explicit user approval.
+   - **NEVER** merge a version branch into `main` unless the user explicitly commands: *"merge to main"* or *"make a release"*.
+3. **Release & Tagging Execution Steps (Upon User Command)**:
+   When explicit permission to release is granted:
+   - **Merge**: Merge the version branch (e.g. `v2.5.0`) into `main`.
+   - **Tag**: Create an annotated Git tag prefixed with `v` (e.g. `git tag -a v2.5.0 -m "v2.5.0 ..."`).
+     - *Rule*: **ALWAYS** use the `v` prefix (`v2.5.0`, `v2.6.0`). **NEVER** create bare tags without `v` (like `2.5.0`).
+   - **GitHub Release**: Publish or update the GitHub Release attached to that `vX.Y.Z` tag.
+     - *Rule*: Every release **MUST** include a clear, descriptive title (e.g. `v2.5.0 - <Feature/Theme Summary> 🪐`) and a concise markdown bullet-point explanation of what changed and what was fixed (matching the standard of `v2.3.2` and `v2.4.0`), never just bare automated compare links.
+   - **Next Version Transition**:
+     - Immediately checkout a new branch from `main` named after the next target version (e.g. `git checkout -b v2.6.0` or `git checkout -b v3.0.0`).
+     - Update version identifiers in `pyproject.toml`, `__init__.py`, `CHANGELOG.md`, and frontend info to the new development version.
+     - Continue all subsequent work exclusively on the new version branch.
 
 ### 6.2 Excluded Files & Privacy
-Never commit sensitive keys, runtime states, or caches:
+Never commit sensitive keys, personal paths, runtime states, or caches:
 - `.env`, `.env.local`
 - `persistent_queue.json`, `lora_usage.json`, `failed_scrapes.json`, `image_prompts_cache.json`
 - `user/` directory
+- Personal user names, machine paths (`C:\Users\...`), or private model names.
 
 ### 6.3 Commit Messages
 Use atomic, descriptive English commit headers:
 - `Feat: ...` (New features or nodes)
-- `Fix: ...` (Bug fixes, UI sync repairs)
+- `Fix: ...` (Bug fixes, UI repairs)
 - `Docs: ...` (Documentation, README, Walkthrough updates)
-- `Refactor: ...` (Code restructuring or rebrands)
-- `Release: ...` (Consolidated version releases)
+- `Refactor: ...` (Code restructuring or cleanup)
+- `Release: ...` (Consolidated version release merge)
