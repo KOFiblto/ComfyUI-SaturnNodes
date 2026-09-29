@@ -771,7 +771,7 @@ app.registerExtension({
             name: "TMDB Access Token",
             type: "text",
             defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.03_TMDBApiKey", ""),
-            tooltip: "Optional. Accepts TMDB v3 API keys or TMDB v4 Read Access Tokens (eyJ...). Used for celebrity poster and preview image lookup. Whitespace is automatically stripped.",
+            tooltip: "Optional. Accepts TMDB v3 API keys or TMDB v4 Read Access Tokens (eyJ...). Used for actor and media preview image lookup. Whitespace is automatically stripped.",
             onChange(value) {
                 const cleanKey = (value || "").trim();
                 postSaturnNodesSettings({ tmdb_api_key: cleanKey });
@@ -784,7 +784,7 @@ app.registerExtension({
             name: "Enable TMDB Auto-Scraping",
             type: "boolean",
             defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.04_EnableTMDBScraping", false),
-            tooltip: "Toggles automated downloading of celebrity preview thumbnails from TMDB. Default is disabled.",
+            tooltip: "Toggles automated downloading of media preview thumbnails from TMDB. Default is disabled.",
             onChange(value) {
                 postSaturnNodesSettings({ enable_tmdb_scraping: value ? "true" : "false" });
             }

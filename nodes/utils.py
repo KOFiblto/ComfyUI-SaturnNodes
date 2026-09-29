@@ -325,7 +325,7 @@ def sanitize_folder_path(folder_input, default_dir=None):
         folder_input = ""
     clean_folder = str(folder_input).strip()
     
-    # Strip any trailing wildcards (e.g. "krea2\*" -> "krea2", "krea2/*" -> "krea2")
+    # Strip any trailing wildcards (e.g. "subfolder\*" -> "subfolder", "subfolder/*" -> "subfolder")
     clean_folder = re.sub(r'[\*\?]+$', '', clean_folder).rstrip("\\/")
     
     if not clean_folder:

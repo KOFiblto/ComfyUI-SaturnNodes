@@ -197,7 +197,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Visual LoRA Loader**: Folder-filtered LoRA selector with formatted pretty names, usage tracking, and Civitai SHA256 API preview thumbnail downloading.
 - **Visual Image Loader**: Folder image picker with PNG parameters & EXIF user comments metadata parsing.
 - **Auto Watcher**: Folder watcher with non-blocking check (`wait_for_image = False`) and blocking poll (`wait_for_image = True`).
-- **Undo Placeholder**: Prompt placeholder restoration tool for LoRA/celebrity names.
+- **Undo Placeholder**: Prompt placeholder restoration tool for LoRA/subject names.
 - **Recent Outputs**: Output image loader by recent step index for assets/sidebar integration.
 - **Live Latent Preview**: Real-time sampler latent preview canvas node renderer.
 - **Settings Panel**: Native ComfyUI Settings menu controls for API keys and UI toggles.

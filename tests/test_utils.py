@@ -105,8 +105,8 @@ class TestUtils(unittest.TestCase):
         shutil.rmtree(base1, ignore_errors=True)
 
     def test_parse_pretty_name(self):
-        name = parse_pretty_name("krea2_ana-de-armas_v1.safetensors")
-        self.assertEqual(name, "Ana De Armas")
+        name = parse_pretty_name("char_cyberpunk-character_v1.safetensors")
+        self.assertEqual(name, "Cyberpunk Character")
 
     def test_parse_pretty_name_special_keywords(self):
         name = parse_pretty_name("tag_cyberpunk-nsfw-v2.safetensors")
@@ -114,23 +114,23 @@ class TestUtils(unittest.TestCase):
         self.assertIn("V2", name)
 
     def test_parse_pretty_name_with_version(self):
-        name_v = parse_pretty_name_with_version("krea2_ana-de-armas_v1.safetensors")
-        self.assertEqual(name_v, "Ana De Armas V1")
+        name_v = parse_pretty_name_with_version("char_cyberpunk-character_v1.safetensors")
+        self.assertEqual(name_v, "Cyberpunk Character V1")
 
     def test_format_lora_output_name_modes(self):
-        rel_path = os.path.join("celebrities", "ana_de_armas.safetensors")
+        rel_path = os.path.join("characters", "cyberpunk_character.safetensors")
         
-        parsed = format_lora_output_name(rel_path, "Ana De Armas", "Parsed Name")
-        self.assertEqual(parsed, "Ana De Armas")
+        parsed = format_lora_output_name(rel_path, "Cyberpunk Character", "Parsed Name")
+        self.assertEqual(parsed, "Cyberpunk Character")
 
-        filename = format_lora_output_name(rel_path, "Ana De Armas", "Filename")
-        self.assertEqual(filename, "ana_de_armas.safetensors")
+        filename = format_lora_output_name(rel_path, "Cyberpunk Character", "Filename")
+        self.assertEqual(filename, "cyberpunk_character.safetensors")
 
-        no_ext = format_lora_output_name(rel_path, "Ana De Armas", "Filename without extension")
-        self.assertEqual(no_ext, "ana_de_armas")
+        no_ext = format_lora_output_name(rel_path, "Cyberpunk Character", "Filename without extension")
+        self.assertEqual(no_ext, "cyberpunk_character")
 
-        custom_reg = format_lora_output_name(rel_path, "Ana De Armas", "Custom Regex", custom_regex=r"ana_([a-z]+)")
-        self.assertEqual(custom_reg, "ana_de")
+        custom_reg = format_lora_output_name(rel_path, "Cyberpunk Character", "Custom Regex", custom_regex=r"cyberpunk_([a-z]+)")
+        self.assertEqual(custom_reg, "cyberpunk_character")
 
     def test_sanitize_folder_path_wildcard_stripping(self):
         clean = sanitize_folder_path("watch/*")

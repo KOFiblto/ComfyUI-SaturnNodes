@@ -129,8 +129,8 @@ When implementing a new custom node, you **must complete all 5 steps**:
   - Previews & Decisions: Violet (`color: "#7c3aed"`, `bgcolor: "#6d28d9"`)
 
 ### Step 2.4: Documentation (`README.md` & `WALKTHROUGH.md`)
-- [ ] Add a collapsible `<details>` section in [`README.md`](./README.md) under `## 📦 Individual Nodes Reference`:
-  - Node summary tag: `<summary><b>🍃 🏷️ Display Name</b> (<code>ClassName</code>)</summary>`
+- [ ] Add a clean heading section in [`README.md`](./README.md) under `## 📦 Individual Nodes Reference`:
+  - Heading: `### 🪐 🏷️ Display Name — \`ClassName\``
   - `#### Overview`
   - `#### Inputs & Widgets`
   - `#### Outputs`
