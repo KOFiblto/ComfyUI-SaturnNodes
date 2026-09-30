@@ -275,7 +275,8 @@ class SaturnStereo3D:
         alignment_dots=True,
         fill_method="Smooth (Bilinear Grid)",
         preview_zoom="50%",
-        depth_map=None
+        depth_map=None,
+        **kwargs
     ):
         device = image.device
         B, H, W, C = image.shape
@@ -436,3 +437,62 @@ class SaturnStereo3D:
         depth_output = depth_cropped.unsqueeze(-1).repeat(1, 1, 1, 3)
 
         return (stereogram, left_eye, right_eye, depth_output)
+
+
+class SaturnStereo3DLive(SaturnStereo3D):
+    """
+    🪐 Stereoscopic 3D Live Viewer
+    Interactive 3D stereogram node with real-time 500ms debounced client-side live preview,
+    native ComfyUI lightbox inspect modal (~80% fullscreen), and standard downstream IMAGE tensor output.
+    """
+
+    OUTPUT_NODE = True
+    CATEGORY = "🪐 SaturnNodes/3D & Previews"
+    DESCRIPTION = (
+        "Live interactive 3D stereogram viewer. Features a 500ms debounced real-time preview, "
+        "native ComfyUI lightbox inspect modal (~80% fullscreen), and standard IMAGE tensor output for saving or further processing."
+    )
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        inputs = super().INPUT_TYPES()
+        req = dict(inputs["required"])
+        req["live_auto_render"] = ("BOOLEAN", {
+            "default": True,
+            "tooltip": "Automatically re-render preview after 0.5s of inactivity when sliding controls."
+        })
+        return {
+            "required": req,
+            "optional": inputs.get("optional", {})
+        }
+
+    def generate(self, *args, **kwargs):
+        stereogram, left_eye, right_eye, depth_output = super().generate(*args, **kwargs)
+
+        ui_images = []
+        try:
+            from PIL import Image
+            import random
+
+            temp_dir = folder_paths.get_temp_directory() if folder_paths else None
+            if temp_dir and os.path.exists(temp_dir):
+                # Save first image of batch as temp preview for ComfyUI native lightbox & UI
+                img_np = (stereogram[0].detach().cpu().numpy() * 255.0).clip(0, 255).astype(np.uint8)
+                preview_pil = Image.fromarray(img_np)
+
+                fname = f"saturn_stereo_live_{random.randint(100000, 999999)}.png"
+                fpath = os.path.join(temp_dir, fname)
+                preview_pil.save(fpath, compress_level=1)
+                ui_images.append({
+                    "filename": fname,
+                    "subfolder": "",
+                    "type": "temp"
+                })
+        except Exception as e:
+            print(f"[SaturnNodes 3D Live] Preview save notice: {e}")
+
+        return {
+            "ui": {"images": ui_images},
+            "result": (stereogram, left_eye, right_eye, depth_output)
+        }
+

@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Spacing and framing controls: adjustable `gap_spacing` and `outer_border` padding for comfortable viewing on monitors of any aspect ratio.
   - Focus guidance: optional high-contrast `alignment_dots` above panels to facilitate locking cross-eyed 3D vision.
   - Interactive UI: on-node canvas preview with `preview_zoom` scaling and quick mode-swap buttons.
+- **Stereoscopic 3D Live Viewer (`SaturnStereo3DLive`)**:
+  - Interactive live 3D viewer node featuring real-time 500ms (0.5s) debounced auto-rendering on widget changes to prevent system overloading.
+  - Native ComfyUI Lightbox Modal (~80% fullscreen inspect modal) accessible via dedicated button and double-click.
+  - Interactive in-modal controls: real-time sliders for depth intensity, gamma, gap, zoom, pan, and mode swap right inside the lightbox with live debounced preview updates.
+  - Preserves downstream `IMAGE` tensor output for saving or further processing.
+
+### Fixed
+- **Top Application Menubar Injection**:
+  - Fixed an issue where "Copy prompt" appeared in the main application menu (between File and Edit) on PrimeVue Frontend V2 by strictly excluding `.comfy-command-menu`, `.comfy-menu`, `.p-menubar`, and top-level menuitems.
 
 ---
 

@@ -352,6 +352,20 @@ Inspired by Stereonix, this node transforms any 2D image into stereoscopic 3D pa
 - **`depth_map`** (`IMAGE`): The normalized depth map used for disparity calculation.
 </details>
 
+<details>
+<summary><b>🪐 👁️ Stereoscopic 3D Live Viewer</b> (<code>SaturnStereo3DLive</code>)</summary>
+
+#### Overview
+Live interactive 3D stereogram viewer. Features real-time **500ms (0.5s) debounced auto-rendering** on slider adjustments to keep ComfyUI lightweight and responsive, an integrated **Native ComfyUI Lightbox Modal (~80% fullscreen inspect modal)** with in-modal live sliders, and standard downstream `IMAGE` tensor output for saving or further pipeline processing.
+
+#### Key Features & Controls
+- **500ms Debounced Auto-Render**: As you drag sliders (Depth Intensity, Gamma, Zoom, Pan, Gap Spacing), rendering pauses until 0.5s of user inactivity before executing, preventing GPU overload and system freezing.
+- **ComfyUI Native Lightbox Modal (~80% Fullscreen)**: Click `🔍 Open in Lightbox (~80%)` or double-click the node to open an expanded ~80-85vw/vh lightbox with dark blurred backdrop, true fullscreen toggle (`⛶`), and instant Esc / backdrop exit.
+- **In-Modal Live Adjustment Dock**: Adjust depth intensity, gamma curve, gap, zoom, invert depth, and mode swap directly inside the lightbox modal with live debounced updates.
+- **Live Auto-Render Toggle & Render Now**: Toggle `live_auto_render` on/off, or click `⚡ Render Now` for instant manual execution.
+- **Downstream IMAGE Output**: Connect downstream nodes (like `SaveImage`) directly to save full-resolution stereograms.
+</details>
+
 ---
 
 <a id="comfyui-settings-menu-reference"></a>

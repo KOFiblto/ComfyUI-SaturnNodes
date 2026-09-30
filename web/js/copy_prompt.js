@@ -537,17 +537,34 @@ function injectContextMenuCopy(contextMenu) {
     if (contextMenu.querySelector(".leafflow-contextmenu-copy")) return;
     if (!isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.02_EnableContextMenuCopyPrompt")) return;
 
-    let downloadLi = contextMenu.querySelector(
-        'li[aria-label="Download"], li[aria-label*="ownload" i], [data-pc-section="item"][aria-label*="ownload" i]'
-    );
-    if (!downloadLi) {
-        const items = contextMenu.querySelectorAll('li, [data-pc-section="item"]');
-        for (const item of items) {
-            const text = item.textContent?.trim().toLowerCase() || "";
-            if (text.includes("download") || item.querySelector('.icon-[lucide--download], [class*="download" i]')) {
-                downloadLi = item;
-                break;
-            }
+    // Guard: strictly ignore top menu, menubar, command menus, and main application menus!
+    if (
+        contextMenu.closest?.(".comfy-command-menu, .comfy-menu, .p-menubar, [data-pc-name='menubar'], [data-pc-name='tieredmenu']") ||
+        contextMenu.classList?.contains("comfy-command-menu") ||
+        contextMenu.classList?.contains("p-tieredmenu") ||
+        contextMenu.querySelector?.(".p-menubar-root-list, .p-tieredmenu-root-list, li[aria-label='File'], li[aria-label='New'], li[aria-label='Edit'], li[aria-label='View']")
+    ) {
+        return;
+    }
+
+    let downloadLi = null;
+    const candidates = contextMenu.querySelectorAll('li[role="menuitem"], [data-pc-section="item"]');
+    for (const item of candidates) {
+        const label = (item.getAttribute("aria-label") || "").trim().toLowerCase();
+        const text = (item.textContent || "").trim().toLowerCase();
+
+        // Strictly ignore workflow export / save actions
+        if (label.includes("export") || text.includes("export") || label.includes("save as") || text.includes("save as")) {
+            continue;
+        }
+
+        if (label === "download" || label === "download image" || text === "download" || text === "download image") {
+            downloadLi = item;
+            break;
+        }
+
+        if (!downloadLi && (label.includes("download") || text.includes("download"))) {
+            downloadLi = item;
         }
     }
     if (!downloadLi || !downloadLi.parentElement) return;
@@ -672,7 +689,7 @@ function scanAndInject() {
     );
     downloadBtns.forEach(injectCopyPromptNextToDownload);
 
-    const menus = document.querySelectorAll('.p-contextmenu, .p-menu, .p-tieredmenu, [data-pc-name="contextmenu"], [data-pc-name="menu"], [data-pc-name="tieredmenu"]');
+    const menus = document.querySelectorAll('.p-contextmenu, [data-pc-name="contextmenu"]');
     menus.forEach(injectContextMenuCopy);
 
     const olderOverlays = document.querySelectorAll(
@@ -694,7 +711,7 @@ document.addEventListener("pointerover", (e) => {
         const cardDl = card.querySelector('button[aria-label="Download"], button[aria-label*="ownload" i]');
         if (cardDl) injectCopyPromptNextToDownload(cardDl);
     }
-    const menu = e.target.closest?.('.p-contextmenu, .p-menu, .p-tieredmenu, [data-pc-name="contextmenu"], [data-pc-name="menu"], [data-pc-name="tieredmenu"]');
+    const menu = e.target.closest?.('.p-contextmenu, [data-pc-name="contextmenu"]');
     if (menu) {
         injectContextMenuCopy(menu);
     }
@@ -710,7 +727,7 @@ const observer = new MutationObserver((mutations) => {
 
                     if (node.matches?.('button[aria-label="Download"], button[aria-label*="ownload" i]')) {
                         injectCopyPromptNextToDownload(node);
-                    } else if (node.matches?.('.p-contextmenu, .p-menu, .p-tieredmenu, [data-pc-name="contextmenu"], [data-pc-name="menu"], [data-pc-name="tieredmenu"]')) {
+                    } else if (node.matches?.('.p-contextmenu, [data-pc-name="contextmenu"]')) {
                         injectContextMenuCopy(node);
                     } else if (node.matches?.('[data-testid="asset-card-actions"], .asset-card-overlay, .asset-item-overlay')) {
                         injectHoverCopyAction(node);
@@ -718,7 +735,7 @@ const observer = new MutationObserver((mutations) => {
                         const dlBtns = node.querySelectorAll('button[aria-label="Download"], button[aria-label*="ownload" i]');
                         dlBtns.forEach(injectCopyPromptNextToDownload);
 
-                        const ctxMenus = node.querySelectorAll('.p-contextmenu, .p-menu, .p-tieredmenu, [data-pc-name="contextmenu"], [data-pc-name="menu"], [data-pc-name="tieredmenu"]');
+                        const ctxMenus = node.querySelectorAll('.p-contextmenu, [data-pc-name="contextmenu"]');
                         ctxMenus.forEach(injectContextMenuCopy);
 
                         const overlays = node.querySelectorAll('[data-testid="asset-card-actions"], .asset-card-overlay, .asset-item-overlay');
