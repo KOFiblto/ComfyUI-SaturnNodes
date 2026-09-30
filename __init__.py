@@ -25,6 +25,7 @@ from .nodes.prompt_counter import PromptCounter
 from .nodes.text_replacer import MultiTextReplacer
 from .nodes.text_split import SaturnTextSplit
 from .nodes.local_runner import RunLocalFileNode, setup_local_runner_routes
+from .nodes.stereogram import SaturnStereo3D
 from .nodes.utils import (
     get_saturnnodes_user_dir,
     get_leafflow_user_dir,
@@ -52,6 +53,7 @@ NODE_CLASS_MAPPINGS = {
     "MultiTextReplacer": MultiTextReplacer,
     "SaturnTextSplit": SaturnTextSplit,
     "RunLocalFileNode": RunLocalFileNode,
+    "SaturnStereo3D": SaturnStereo3D,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -70,7 +72,8 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "PromptCounter": "🪐 📝 Prompt Counter",
     "MultiTextReplacer": "🪐 🔤 Multi Text Replacer",
     "SaturnTextSplit": "🪐 ✂️ Text Split",
-    "RunLocalFileNode": "🪐 ⚡ Run Local File"
+    "RunLocalFileNode": "🪐 ⚡ Run Local File",
+    "SaturnStereo3D": "🪐 👓 Stereoscopic 3D / Cross-Eye Generator"
 }
 
 WEB_DIRECTORY = "./web"

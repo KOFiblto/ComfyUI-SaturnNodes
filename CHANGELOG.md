@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.5.0] - In Development
 
-### Changed
-- Active development track for subsequent features, patches, and visual LoRA loader V1 enhancements.
+### Added
+- **Stereoscopic 3D / Cross-Eye Generator (`SaturnStereo3D`)**:
+  - Convert any 2D image into stereoscopic 3D pairs for cross-eye viewing, parallel viewers, VR/3D displays, and red-cyan anaglyphs.
+  - Hybrid depth execution: accepts any input `depth_map` (zero downloads, 1ms execution) or automatically falls back to built-in Depth Anything V2 Small ONNX model cached locally.
+  - Complete Stereonix-inspired controls: `depth_intensity`, `depth_gamma`, `invert_depth`, `convergence_plane`, `image_zoom`, `pan_horizontal`, `pan_vertical`.
+  - Spacing and framing controls: adjustable `gap_spacing` and `outer_border` padding for comfortable viewing on monitors of any aspect ratio.
+  - Focus guidance: optional high-contrast `alignment_dots` above panels to facilitate locking cross-eyed 3D vision.
+  - Interactive UI: on-node canvas preview with `preview_zoom` scaling and quick mode-swap buttons.
 
 ---
 

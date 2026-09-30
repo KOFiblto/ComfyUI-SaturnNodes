@@ -7,6 +7,7 @@ A unified workflow control and productivity suite for **ComfyUI**. Both **Fronte
 ## 🚀 Key Capabilities & Overview
 
 - **Live Latent Preview**: Watch generations materialize step-by-step directly inside your graph canvas nodes in real time.
+- **Stereoscopic 3D & Cross-Eye Generator**: Convert 2D artwork and renders into 3D stereograms, parallel views, and red-cyan anaglyphs with automatic Depth Anything V2 fallback.
 - **Batch Prompting & Iteration**: Queue multiple prompts automatically with delimiter splits, regex blocks, and persistent queue state tracking.
 - **Visual Thumbnail Browsing**: Browse LoRAs and image folders with auto-scraped Civitai & TMDB previews, ranking badges, and multi-selection.
 - **Real-Time Queue & Pause Controls**: Pause, resume, or cleanly cancel execution mid-generation, with automatic crash recovery for interrupted queues.
@@ -319,6 +320,36 @@ Safely executes a local script or executable (`.bat`, `.cmd`, `.ps1`, `.exe` on 
 - **`exit_code`** (`INT`): Process exit return code (`0` = success, `-1` = blocked / timed out).
 - **`success`** (`BOOLEAN`): `True` if `exit_code == 0`, `False` otherwise.
 - **`passthrough`** (`*`): Passes input `trigger` data through untouched to downstream nodes.
+</details>
+
+<details>
+<summary><b>🪐 👓 Stereoscopic 3D / Cross-Eye Generator</b> (<code>SaturnStereo3D</code>)</summary>
+
+#### Overview
+Inspired by Stereonix, this node transforms any 2D image into stereoscopic 3D pairs for cross-eye viewing, parallel 3D viewers, VR/3D displays, and red-cyan anaglyph 3D glasses using depth-based horizontal disparity mapping (DIBR). Features automatic on-demand Depth Anything V2 Small fallback, crop/zoom/pan controls, outer border framing, empty gap spacing, and focus alignment guide dots.
+
+#### Inputs & Widgets
+- **`image`** (`IMAGE`): The source 2D image.
+- **`mode`** (`COMBO`): 3D viewing format (`Cross-Eye`, `Parallel (Wall-Eyed)`, `Red-Cyan Anaglyph`, `Side-by-Side (Parallel)`, `Top-Bottom (Over-Under)`, `Left Eye Only`, `Right Eye Only`).
+- **`depth_intensity`** (`FLOAT` slider, `0.0` - `100.0`, default `25.0`): Controls how much the left and right eye perspectives shift apart horizontally.
+- **`depth_gamma`** (`FLOAT` slider, `0.1` - `3.0`, default `0.50`): Adjusts the depth curve for realistic falloff.
+- **`invert_depth`** (`BOOLEAN`, default `False`): Flips near and far depth planes.
+- **`convergence_plane`** (`FLOAT` slider, `0.0` - `1.0`, default `0.50`): Focal depth plane where horizontal shift is zero (the screen surface). Depths closer pop out; depths farther sink in.
+- **`image_zoom`** (`FLOAT` slider, `10.0` - `300.0`, default `100.0`): Zoom into areas of interest before generating 3D disparity.
+- **`pan_horizontal`** (`FLOAT` slider, `-100.0` - `100.0`, default `0.0`): Horizontal pan offset.
+- **`pan_vertical`** (`FLOAT` slider, `-100.0` - `100.0`, default `0.0`): Vertical pan offset.
+- **`gap_spacing`** (`INT`, default `20`): Empty black space between the left and right eye panels.
+- **`outer_border`** (`INT`, default `0`): Black border padding around the canvas (allows shrinking images for easier cross-eye viewing on large monitors).
+- **`alignment_dots`** (`BOOLEAN`, default `True`): Renders focus guide dots centered above each eye view to easily lock into 3D cross-eye view.
+- **`fill_method`** (`COMBO`): Hole-filling method (`Smooth (Bilinear Grid)` vs `Nearest Neighbor (Stereonix)`).
+- **`preview_zoom`** (`COMBO`): Scale preview for comfortable canvas cross-eye viewing (`Fit`, `25%`, `33%`, `50%`, `75%`, `100%`).
+- **`depth_map`** (`IMAGE`, *Optional Input*): Optional depth map from any node. If not connected, automatically downloads and runs Depth Anything V2 Small ONNX model internally.
+
+#### Outputs
+- **`stereogram`** (`IMAGE`): The composited 3D stereogram image.
+- **`left_eye`** (`IMAGE`): The warped left eye viewpoint.
+- **`right_eye`** (`IMAGE`): The warped right eye viewpoint.
+- **`depth_map`** (`IMAGE`): The normalized depth map used for disparity calculation.
 </details>
 
 ---
