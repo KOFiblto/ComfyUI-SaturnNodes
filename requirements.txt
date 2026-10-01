@@ -2,3 +2,5 @@ Pillow
 piexif
 numpy
 # pystray  # Optional: install manually if desktop system tray icon integration is enabled
+# onnxruntime  # Optional: install manually for built-in Depth Anything V2 estimation in 3D stereogram nodes
+

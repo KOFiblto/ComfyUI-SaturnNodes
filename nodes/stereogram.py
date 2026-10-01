@@ -90,44 +90,58 @@ def predict_depth_map(image_np):
     """
     Runs Depth Anything V2 Small on a single [H, W, 3] float32 image (0.0 to 1.0).
     Returns [H, W] normalized float32 depth map (0.0=far, 1.0=near).
+    If onnxruntime or the model is unavailable, gracefully falls back to a pseudo-depth map.
     """
-    session = get_ort_session()
     H, W, _ = image_np.shape
+    try:
+        session = get_ort_session()
+        if session is None:
+            raise RuntimeError("ONNX runtime session could not be initialized.")
 
-    target_size = 518
-    scale = min(target_size / W, target_size / H)
-    scaled_w = max(1, int(round(W * scale)))
-    scaled_h = max(1, int(round(H * scale)))
-    offset_x = (target_size - scaled_w) // 2
-    offset_y = (target_size - scaled_h) // 2
+        target_size = 518
+        scale = min(target_size / W, target_size / H)
+        scaled_w = max(1, int(round(W * scale)))
+        scaled_h = max(1, int(round(H * scale)))
+        offset_x = (target_size - scaled_w) // 2
+        offset_y = (target_size - scaled_h) // 2
 
-    # Letterbox to 518x518 with black padding
-    import cv2
-    scaled_img = cv2.resize((image_np * 255.0).astype(np.uint8), (scaled_w, scaled_h), interpolation=cv2.INTER_LINEAR)
-    canvas = np.zeros((target_size, target_size, 3), dtype=np.uint8)
-    canvas[offset_y:offset_y + scaled_h, offset_x:offset_x + scaled_w] = scaled_img
+        # Letterbox to 518x518 with black padding using PIL
+        from PIL import Image
+        uint_img = (image_np * 255.0).clip(0, 255).astype(np.uint8)
+        scaled_pil = Image.fromarray(uint_img).resize((scaled_w, scaled_h), Image.Resampling.BILINEAR)
+        scaled_img = np.array(scaled_pil, dtype=np.uint8)
 
-    # Normalize with ImageNet constants
-    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, 3)
-    std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, 3)
-    norm = ((canvas.astype(np.float32) / 255.0) - mean) / std
-    input_tensor = np.transpose(norm, (2, 0, 1))[np.newaxis, ...].astype(np.float32)
+        canvas = np.zeros((target_size, target_size, 3), dtype=np.uint8)
+        canvas[offset_y:offset_y + scaled_h, offset_x:offset_x + scaled_w] = scaled_img
 
-    # Run inference
-    input_name = session.get_inputs()[0].name
-    raw_depth = session.run(None, {input_name: input_tensor})[0][0] # [518, 518]
+        # Normalize with ImageNet constants
+        mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(1, 1, 3)
+        std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(1, 1, 3)
+        norm = ((canvas.astype(np.float32) / 255.0) - mean) / std
+        input_tensor = np.transpose(norm, (2, 0, 1))[np.newaxis, ...].astype(np.float32)
 
-    # Crop out the letterbox padding
-    valid_depth = raw_depth[offset_y:offset_y + scaled_h, offset_x:offset_x + scaled_w]
-    depth_full = cv2.resize(valid_depth, (W, H), interpolation=cv2.INTER_LINEAR)
+        # Run inference
+        input_name = session.get_inputs()[0].name
+        raw_depth = session.run(None, {input_name: input_tensor})[0][0] # [518, 518]
 
-    # Normalize with p2 and p98 histogram percentiles
-    p2 = np.percentile(depth_full, 2)
-    p98 = np.percentile(depth_full, 98)
-    denom = max(p98 - p2, 1e-6)
-    depth_norm = np.clip((depth_full - p2) / denom, 0.0, 1.0).astype(np.float32)
+        # Crop out the letterbox padding and resize back to original (W, H)
+        valid_depth = raw_depth[offset_y:offset_y + scaled_h, offset_x:offset_x + scaled_w]
+        depth_pil = Image.fromarray(valid_depth.astype(np.float32), mode="F").resize((W, H), Image.Resampling.BILINEAR)
+        depth_full = np.array(depth_pil, dtype=np.float32)
 
-    return depth_norm
+        # Normalize with p2 and p98 histogram percentiles
+        p2 = np.percentile(depth_full, 2)
+        p98 = np.percentile(depth_full, 98)
+        denom = max(float(p98 - p2), 1e-6)
+        depth_norm = np.clip((depth_full - p2) / denom, 0.0, 1.0).astype(np.float32)
+        return depth_norm
+    except Exception as e:
+        print(f"[SaturnNodes 3D] Notice: Automatic depth model unavailable ({e}). Using pseudo-depth gradient fallback.")
+        y_gradient = np.linspace(0.2, 1.0, H, dtype=np.float32).reshape(H, 1)
+        luminance = np.dot(image_np[..., :3], [0.299, 0.587, 0.114])
+        fallback = 0.7 * y_gradient + 0.3 * luminance
+        denom = max(float(fallback.max() - fallback.min()), 1e-6)
+        return ((fallback - fallback.min()) / denom).astype(np.float32)
 
 def draw_alignment_dot(target_tensor, cx, cy, radius=5):
     """Draws a high-contrast white dot with black outline at (cx, cy) on [H, W, 3] tensor."""

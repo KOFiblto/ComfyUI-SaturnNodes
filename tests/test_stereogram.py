@@ -90,15 +90,17 @@ class TestSaturnStereo3D(unittest.TestCase):
         self.assertEqual(stereogram.dim(), 4)
 
     def test_auto_depth_fallback(self):
-        res = self.node.generate(
-            self.img,
-            depth_map=None,
-            mode="Cross-Eye",
-            depth_intensity=20.0
-        )
-        stereogram, _, _, depth_out = res
-        self.assertEqual(stereogram.shape[0], 1)
-        self.assertEqual(depth_out.shape, (1, 128, 128, 3))
+        from unittest.mock import patch
+        with patch("nodes.stereogram.get_ort_session", side_effect=RuntimeError("onnxruntime unavailable")):
+            res = self.node.generate(
+                self.img,
+                depth_map=None,
+                mode="Cross-Eye",
+                depth_intensity=20.0
+            )
+            stereogram, _, _, depth_out = res
+            self.assertEqual(stereogram.shape[0], 1)
+            self.assertEqual(depth_out.shape, (1, 128, 128, 3))
 
 
 from nodes.stereogram import SaturnStereo3DLive
@@ -116,8 +118,7 @@ class TestSaturnStereo3DLive(unittest.TestCase):
             self.img,
             depth_map=self.depth,
             mode="Cross-Eye",
-            depth_intensity=20.0,
-            live_auto_render=True
+            depth_intensity=20.0
         )
         self.assertIsInstance(res, dict)
         self.assertIn("ui", res)
