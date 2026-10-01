@@ -9,8 +9,9 @@ try:
 except ImportError:
     folder_paths = None
 
-# Global ONNX runtime session cache
+# Global ONNX runtime session cache & predicted depth cache
 _DEPTH_ORT_SESSION = None
+_PREDICTED_DEPTH_CACHE = {}
 
 def get_depth_model_path():
     """Returns local path to Depth Anything V2 Small ONNX model."""
@@ -305,10 +306,24 @@ class SaturnStereo3D:
                 depth_norm = torch.clamp((b_depth - min_v) / denom, 0.0, 1.0)
                 depth_tensors.append(depth_norm)
         else:
-            # Automatic Depth Estimation via Depth Anything V2 Small ONNX
+            # Automatic Depth Estimation via Depth Anything V2 Small ONNX (cached for instant slider responsiveness)
             cpu_img = image.detach().cpu().numpy()
             for b in range(B):
-                d_np = predict_depth_map(cpu_img[b])
+                # Fast signature based on shape, sum, and corner samples
+                img_slice = cpu_img[b]
+                cache_key = (
+                    img_slice.shape,
+                    round(float(img_slice.sum()), 2),
+                    round(float(img_slice[0, 0, 0]), 4),
+                    round(float(img_slice[-1, -1, -1]), 4)
+                )
+                if cache_key in _PREDICTED_DEPTH_CACHE:
+                    d_np = _PREDICTED_DEPTH_CACHE[cache_key]
+                else:
+                    d_np = predict_depth_map(img_slice)
+                    if len(_PREDICTED_DEPTH_CACHE) > 16:
+                        _PREDICTED_DEPTH_CACHE.clear()
+                    _PREDICTED_DEPTH_CACHE[cache_key] = d_np
                 depth_tensors.append(torch.from_numpy(d_np).to(device=device, dtype=torch.float32))
 
         depth_batch = torch.stack(depth_tensors, dim=0) # [B, H, W]
@@ -449,22 +464,9 @@ class SaturnStereo3DLive(SaturnStereo3D):
     OUTPUT_NODE = True
     CATEGORY = "🪐 SaturnNodes/3D & Previews"
     DESCRIPTION = (
-        "Live interactive 3D stereogram viewer. Features a 500ms debounced real-time preview, "
-        "native ComfyUI lightbox inspect modal (~80% fullscreen), and standard IMAGE tensor output for saving or further processing."
+        "Live interactive 3D stereogram viewer. Features a 1s debounced real-time preview, "
+        "interruption on mid-render adjustments, and standard IMAGE tensor output for saving or further processing."
     )
-
-    @classmethod
-    def INPUT_TYPES(cls):
-        inputs = super().INPUT_TYPES()
-        req = dict(inputs["required"])
-        req["live_auto_render"] = ("BOOLEAN", {
-            "default": True,
-            "tooltip": "Automatically re-render preview after 0.5s of inactivity when sliding controls."
-        })
-        return {
-            "required": req,
-            "optional": inputs.get("optional", {})
-        }
 
     def generate(self, *args, **kwargs):
         stereogram, left_eye, right_eye, depth_output = super().generate(*args, **kwargs)

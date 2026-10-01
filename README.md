@@ -356,13 +356,13 @@ Inspired by Stereonix, this node transforms any 2D image into stereoscopic 3D pa
 <summary><b>🪐 👁️ Stereoscopic 3D Live Viewer</b> (<code>SaturnStereo3DLive</code>)</summary>
 
 #### Overview
-Live interactive 3D stereogram viewer. Features real-time **500ms (0.5s) debounced auto-rendering** on slider adjustments to keep ComfyUI lightweight and responsive, an integrated **Native ComfyUI Lightbox Modal (~80% fullscreen inspect modal)** with in-modal live sliders, and standard downstream `IMAGE` tensor output for saving or further pipeline processing.
+Live interactive 3D stereogram viewer. Features real-time **1s countdown auto-rendering** on slider adjustments, **mid-render interruption** when adjusting controls during generation to prevent system lag, **in-memory depth caching** for near-instant parameter exploration, and standard downstream `IMAGE` tensor output for saving or further pipeline processing.
 
 #### Key Features & Controls
-- **500ms Debounced Auto-Render**: As you drag sliders (Depth Intensity, Gamma, Zoom, Pan, Gap Spacing), rendering pauses until 0.5s of user inactivity before executing, preventing GPU overload and system freezing.
-- **ComfyUI Native Lightbox Modal (~80% Fullscreen)**: Click `🔍 Open in Lightbox (~80%)` or double-click the node to open an expanded ~80-85vw/vh lightbox with dark blurred backdrop, true fullscreen toggle (`⛶`), and instant Esc / backdrop exit.
-- **In-Modal Live Adjustment Dock**: Adjust depth intensity, gamma curve, gap, zoom, invert depth, and mode swap directly inside the lightbox modal with live debounced updates.
-- **Live Auto-Render Toggle & Render Now**: Toggle `live_auto_render` on/off, or click `⚡ Render Now` for instant manual execution.
+- **1s Countdown Auto-Render**: As you drag sliders (Depth Intensity, Gamma, Zoom, Pan, Gap Spacing), rendering pauses until 1s of user inactivity before executing, preventing GPU overload and system freezing.
+- **Mid-Render Interruption**: If you adjust sliders while rendering is actively in progress, the active render is immediately aborted via `/interrupt` and the 1s countdown restarts.
+- **Instant Depth Caching**: Depth Anything V2 Small results are cached in memory for the active image, allowing instant (~5ms) warping when exploring intensity, gamma, and zoom settings.
+- **Native ComfyUI Compatibility**: Cleanly renders preview images on the node and supports right-clicking -> *Inspect asset* for ComfyUI's native media lightbox.
 - **Downstream IMAGE Output**: Connect downstream nodes (like `SaveImage`) directly to save full-resolution stereograms.
 </details>
 

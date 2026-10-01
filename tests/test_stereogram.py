@@ -132,8 +132,8 @@ class TestSaturnStereo3DLive(unittest.TestCase):
     def test_live_input_types(self):
         inputs = self.node.INPUT_TYPES()
         self.assertIn("required", inputs)
-        self.assertIn("live_auto_render", inputs["required"])
         self.assertIn("depth_intensity", inputs["required"])
+        self.assertIn("mode", inputs["required"])
 
 
 if __name__ == "__main__":

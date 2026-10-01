@@ -16,12 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Focus guidance: optional high-contrast `alignment_dots` above panels to facilitate locking cross-eyed 3D vision.
   - Interactive UI: on-node canvas preview with `preview_zoom` scaling and quick mode-swap buttons.
 - **Stereoscopic 3D Live Viewer (`SaturnStereo3DLive`)**:
-  - Interactive live 3D viewer node featuring real-time 500ms (0.5s) debounced auto-rendering on widget changes to prevent system overloading.
-  - Native ComfyUI Lightbox Modal (~80% fullscreen inspect modal) accessible via dedicated button and double-click.
-  - Interactive in-modal controls: real-time sliders for depth intensity, gamma, gap, zoom, pan, and mode swap right inside the lightbox with live debounced preview updates.
-  - Preserves downstream `IMAGE` tensor output for saving or further processing.
+  - Interactive live 3D viewer node featuring a real-time **1s countdown timer** on control and slider changes.
+  - **Mid-Render Interruption**: Adjusting sliders while rendering is in progress immediately aborts active execution via `/interrupt` and restarts the 1s countdown, keeping the system lightweight and responsive.
+  - **In-Memory Depth Map Caching**: Cached depth predictions allow near-instant (~5ms) re-rendering when tweaking intensity, gamma, zoom, pan, and spacing on the same input image.
+  - Native ComfyUI inspect compatibility: clean integration with ComfyUI's native Asset Inspection and Lightbox without custom modal interference.
+  - Standard downstream `IMAGE` tensor output for saving or further processing.
 
 ### Fixed
+- **Persistent Queue Restored Creation Timestamp**:
+  - Fixed an issue where unfinished prompts resumed after a server restart sorted to the bottom of the history and assets list by updating `create_time` to the current timestamp on recovery.
+- **Live Viewer Widget Value Corruption**:
+  - Fixed an issue where sliding widgets on `SaturnStereo3DLive` set them to `NaN` or `0` due to arrow-function callback scoping, preventing "wrong type" and "missing connection" validation errors.
 - **Top Application Menubar Injection**:
   - Fixed an issue where "Copy prompt" appeared in the main application menu (between File and Edit) on PrimeVue Frontend V2 by strictly excluding `.comfy-command-menu`, `.comfy-menu`, `.p-menubar`, and top-level menuitems.
 

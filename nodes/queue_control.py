@@ -404,8 +404,11 @@ class PersistentQueueManager:
                             self.remove_item(pid)
                         continue
 
-                    if active_client_id and len(item_list) > 3 and isinstance(item_list[3], dict):
-                        item_list[3]["client_id"] = active_client_id
+                    if len(item_list) > 3 and isinstance(item_list[3], dict):
+                        if active_client_id:
+                            item_list[3]["client_id"] = active_client_id
+                        # Update create_time to current timestamp so resumed jobs sort as newest in history & assets
+                        item_list[3]["create_time"] = int(time.time() * 1000)
 
                     if isinstance(item_list[0], (int, float)):
                         max_number = max(max_number, int(item_list[0]))
