@@ -31,7 +31,6 @@ export const SATURN_NODE_TYPES = new Set([
     // Queue & Previews
     "PreviewLatentLive",
     "SaturnStereo3D",
-    "SaturnStereo3DLive",
     "PauseQueueNode",
     "PersistentQueueNode"
 ]);

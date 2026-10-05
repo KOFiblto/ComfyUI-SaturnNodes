@@ -61,6 +61,68 @@ async function updateNodeDisabledState(nodeKey, isEnabled) {
     }
 }
 
+const ALL_SATURN_KEYS_SET = new Set([
+    "FolderLoraLoader",
+    "FolderLoraLoaderPretty",
+    "VisualLoraLoader",
+    "VisualImageLoader",
+    "LoadImageFromFolder",
+    "LoadRecentOutputs",
+    "PreviewLatentLive",
+    "SaturnDecision",
+    "TextAspectRatioFinder",
+    "PreviewImageSizeAspectRatio",
+    "TextLoraFinder",
+    "PromptQueueIterator",
+    "PromptCounter",
+    "MultiTextReplacer",
+    "SaturnTextSplit",
+    "RunLocalFileNode",
+    "SaturnStereo3D"
+]);
+
+function checkLoadedWorkflowForDisabledNodes(graphData) {
+    if (!graphData || !Array.isArray(graphData.nodes)) return;
+    fetchDisabledNodes().then(disabledSet => {
+        if (!disabledSet || disabledSet.size === 0) return;
+
+        const found = [];
+        for (const node of graphData.nodes) {
+            const nodeType = node?.type;
+            if (nodeType && disabledSet.has(nodeType) && ALL_SATURN_KEYS_SET.has(nodeType)) {
+                if (!found.includes(nodeType)) {
+                    found.push(nodeType);
+                }
+            }
+        }
+
+        if (found.length > 0) {
+            const namesList = found.join(", ");
+            if (app.extensionManager?.toast?.add) {
+                app.extensionManager.toast.add({
+                    severity: "warn",
+                    summary: "🪐 SaturnNodes: Disabled Nodes in Workflow",
+                    detail: `This workflow uses disabled SaturnNodes: ${namesList}. Re-enable them in Settings -> SaturnNodes -> Node Management to run.`,
+                    life: 10000
+                });
+            } else {
+                console.warn(`[SaturnNodes] Loaded workflow contains disabled nodes: ${namesList}`);
+            }
+        }
+    });
+}
+
+// Hook ComfyUI workflow loading to alert if disabled nodes are present in the workflow
+try {
+    const origLoadGraphData = app.loadGraphData;
+    if (typeof origLoadGraphData === "function") {
+        app.loadGraphData = function (graphData, ...args) {
+            checkLoadedWorkflowForDisabledNodes(graphData);
+            return origLoadGraphData.apply(this, [graphData, ...args]);
+        };
+    }
+} catch (_) {}
+
 // Inject CSS to ensure settings buttons look distinct and dropdown menus retain proper styling
 if (typeof document !== "undefined") {
     const styleId = "saturnnodes-settings-button-styles";
@@ -917,18 +979,35 @@ app.registerExtension({
             }
         });
 
-        // 10.2 Floating Dock Max Size (default: "260px")
+        // 10.2a Floating Dock Max Width (default: "280px")
         app.ui.settings.addSetting({
-            id: "SaturnNodes.👁️ Live Preview.02_FloatingDockSize",
-            name: "Floating Dock Max Size",
+            id: "SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth",
+            name: "Floating Dock Max Width",
             type: "combo",
-            options: ["180px", "220px", "260px", "320px", "380px"],
-            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.02_FloatingDockSize", "260px"),
-            tooltip: "Maximum width/height dimension for the bottom-right floating live preview dock (dock automatically matches the exact latent aspect ratio).",
+            options: ["120px", "160px", "200px", "240px", "280px", "320px", "360px", "420px", "480px", "600px"],
+            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", getInitialSetting("SaturnNodes.👁️ Live Preview.02_FloatingDockSize", "280px")),
+            tooltip: "Maximum width limit for the floating live preview dock. The dock automatically matches the exact latent aspect ratio without distortion.",
             onChange(value) {
                 if (typeof localStorage !== "undefined") {
                     try {
-                        localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02_FloatingDockSize", JSON.stringify(value));
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", JSON.stringify(value));
+                    } catch (_) {}
+                }
+            }
+        });
+
+        // 10.2b Floating Dock Max Height (default: "280px")
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight",
+            name: "Floating Dock Max Height",
+            type: "combo",
+            options: ["120px", "160px", "200px", "240px", "280px", "320px", "360px", "420px", "480px", "600px"],
+            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", getInitialSetting("SaturnNodes.👁️ Live Preview.02_FloatingDockSize", "280px")),
+            tooltip: "Maximum height limit for the floating live preview dock. The dock automatically matches the exact latent aspect ratio without distortion.",
+            onChange(value) {
+                if (typeof localStorage !== "undefined") {
+                    try {
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", JSON.stringify(value));
                     } catch (_) {}
                 }
             }
@@ -1302,8 +1381,7 @@ app.registerExtension({
             { key: "MultiTextReplacer", name: "Multi Text Replacer", desc: "🪐 🔤 Multi Text Replacer" },
             { key: "SaturnTextSplit", name: "Text Split", desc: "🪐 ✂️ Text Split" },
             { key: "RunLocalFileNode", name: "Run Local File", desc: "🪐 ⚡ Run Local File" },
-            { key: "SaturnStereo3D", name: "Stereoscopic 3D Generator", desc: "🪐 👓 Stereoscopic 3D Generator" },
-            { key: "SaturnStereo3DLive", name: "Stereoscopic 3D Live Viewer", desc: "🪐 👁️ Stereoscopic 3D Live Viewer" }
+            { key: "SaturnStereo3D", name: "Stereoscopic 3D Generator", desc: "🪐 👓 Stereoscopic 3D Generator" }
         ];
 
         saturnNodeDefinitions.forEach((node, index) => {

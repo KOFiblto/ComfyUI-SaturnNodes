@@ -61,10 +61,18 @@ class FloatingLatentDock {
         return defaultVal;
     }
 
-    getMaxSize() {
-        const settingVal = this.getSetting("SaturnNodes.👁️ Live Preview.02_FloatingDockSize", "260px");
-        const parsed = parseInt(String(settingVal), 10);
-        return isNaN(parsed) || parsed < 120 ? 260 : parsed;
+    getMaxWidth() {
+        const val = this.getSetting("SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", null) ||
+                    this.getSetting("SaturnNodes.👁️ Live Preview.02_FloatingDockSize", "280px");
+        const parsed = parseInt(String(val), 10);
+        return isNaN(parsed) || parsed < 50 ? 280 : parsed;
+    }
+
+    getMaxHeight() {
+        const val = this.getSetting("SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", null) ||
+                    this.getSetting("SaturnNodes.👁️ Live Preview.02_FloatingDockSize", "280px");
+        const parsed = parseInt(String(val), 10);
+        return isNaN(parsed) || parsed < 50 ? 280 : parsed;
     }
 
     init() {
@@ -88,19 +96,15 @@ class FloatingLatentDock {
                 z-index: 1050;
                 display: flex;
                 flex-direction: column;
-                align-items: flex-end;
-                width: fit-content;
-                max-width: 90vw;
-                background: rgba(18, 18, 22, 0.92);
-                border: 1px solid rgba(255, 255, 255, 0.14);
+                box-sizing: border-box;
+                background: #09090b;
+                border: 1px solid rgba(255, 255, 255, 0.16);
                 border-radius: 8px;
-                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 1px rgba(255, 255, 255, 0.2);
-                backdrop-filter: blur(16px);
-                -webkit-backdrop-filter: blur(16px);
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65), 0 0 1px rgba(255, 255, 255, 0.2);
                 overflow: hidden;
                 pointer-events: auto;
                 user-select: none;
-                transition: bottom 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, transform 0.2s ease;
+                transition: bottom 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, transform 0.2s ease;
                 transform-origin: bottom right;
             }
 
@@ -112,28 +116,39 @@ class FloatingLatentDock {
             }
 
             .saturn-dock-header {
-                width: 100%;
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
                 box-sizing: border-box;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding: 4px 8px;
-                background: rgba(255, 255, 255, 0.04);
-                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-                gap: 6px;
+                padding: 4px 6px;
+                background: linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0) 100%);
+                gap: 4px;
                 font-family: Inter, system-ui, -apple-system, sans-serif;
-                font-size: 11px;
+                font-size: 10px;
                 color: #decbb2;
                 font-weight: 500;
                 line-height: 1;
                 overflow: hidden;
+                z-index: 10;
+                pointer-events: none;
+                opacity: 0.85;
+                transition: opacity 0.15s ease;
+            }
+
+            #saturn-latent-floating-dock:hover .saturn-dock-header {
+                opacity: 1;
             }
 
             .saturn-dock-title-group {
                 display: flex;
                 align-items: center;
-                gap: 5px;
+                gap: 4px;
                 overflow: hidden;
+                min-width: 0;
             }
 
             .saturn-dock-icon {
@@ -144,26 +159,28 @@ class FloatingLatentDock {
             }
 
             .saturn-dock-badge {
-                font-size: 10px;
-                padding: 1px 5px;
-                border-radius: 4px;
-                background: rgba(255, 255, 255, 0.08);
-                color: #a1a1aa;
+                font-size: 9px;
+                padding: 1px 4px;
+                border-radius: 3px;
+                background: rgba(0, 0, 0, 0.55);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                color: #e4e4e7;
                 font-variant-numeric: tabular-nums;
                 white-space: nowrap;
                 flex-shrink: 0;
             }
 
             .saturn-dock-badge.generating {
-                background: rgba(245, 158, 11, 0.18);
+                background: rgba(245, 158, 11, 0.3);
                 color: #fcd34d;
-                border: 1px solid rgba(245, 158, 11, 0.3);
+                border: 1px solid rgba(245, 158, 11, 0.45);
             }
 
             .saturn-dock-close-btn {
-                background: transparent;
-                border: none;
-                color: #71717a;
+                pointer-events: auto;
+                background: rgba(0, 0, 0, 0.5);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                color: #a1a1aa;
                 cursor: pointer;
                 padding: 2px;
                 border-radius: 4px;
@@ -176,24 +193,26 @@ class FloatingLatentDock {
 
             .saturn-dock-close-btn:hover {
                 color: #f43f5e;
-                background: rgba(244, 63, 94, 0.12);
+                background: rgba(244, 63, 94, 0.25);
             }
 
             .saturn-dock-body {
                 position: relative;
                 width: 100%;
+                height: 100%;
                 box-sizing: border-box;
                 display: flex;
-                align-items: flex-end;
-                justify-content: flex-end;
+                align-items: center;
+                justify-content: center;
                 background: #09090b;
                 overflow: hidden;
             }
 
             .saturn-dock-canvas {
                 display: block;
-                max-width: 100%;
-                max-height: 100%;
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
                 image-rendering: -webkit-optimize-contrast;
                 image-rendering: crisp-edges;
             }
@@ -204,13 +223,13 @@ class FloatingLatentDock {
                 align-items: center;
                 justify-content: center;
                 gap: 6px;
-                padding: 24px 16px;
+                padding: 16px;
                 color: #52525b;
                 font-family: Inter, system-ui, sans-serif;
                 font-size: 11px;
                 text-align: center;
-                width: 220px;
-                height: 160px;
+                width: 160px;
+                height: 110px;
             }
 
             /* Toolbar button active highlight */
@@ -361,19 +380,11 @@ class FloatingLatentDock {
         const nh = img.naturalHeight || img.height;
         if (!nw || !nh) return;
 
-        const maxDim = this.getMaxSize();
-        const aspect = nw / nh;
-
-        let tw, th;
-        if (aspect >= 1) {
-            // Landscape or square
-            tw = maxDim;
-            th = Math.max(80, Math.round(maxDim / aspect));
-        } else {
-            // Portrait
-            th = maxDim;
-            tw = Math.max(80, Math.round(maxDim * aspect));
-        }
+        const maxW = this.getMaxWidth();
+        const maxH = this.getMaxHeight();
+        const scale = Math.min(maxW / nw, maxH / nh);
+        const tw = Math.max(1, Math.round(nw * scale));
+        const th = Math.max(1, Math.round(nh * scale));
 
         // Full pixel quality rendering on native resolution
         this.canvasEl.width = nw;
@@ -384,14 +395,21 @@ class FloatingLatentDock {
 
         if (this.dockEl) {
             this.dockEl.style.width = `${tw}px`;
+            this.dockEl.style.height = `${th}px`;
             this.dockEl.style.minWidth = `${tw}px`;
             this.dockEl.style.maxWidth = `${tw}px`;
+            this.dockEl.style.minHeight = `${th}px`;
+            this.dockEl.style.maxHeight = `${th}px`;
         }
         if (this.titleTextEl) {
-            this.titleTextEl.style.display = tw < 170 ? "none" : "inline";
+            this.titleTextEl.style.display = tw < 140 ? "none" : "inline";
         }
         if (this.statusBadge) {
-            this.statusBadge.style.display = tw < 190 ? "none" : "inline";
+            this.statusBadge.style.display = tw < 170 ? "none" : "inline";
+        }
+        if (this.aspectBadge) {
+            this.aspectBadge.textContent = `${nw}×${nh}`;
+            this.aspectBadge.style.display = tw < 100 ? "none" : "inline";
         }
 
         if (this.placeholderEl) {
@@ -405,9 +423,6 @@ class FloatingLatentDock {
             ctx.drawImage(img, 0, 0, nw, nh);
         }
 
-        if (this.aspectBadge) {
-            this.aspectBadge.textContent = `${nw}×${nh}`;
-        }
         if (this.statusBadge && this.isGenerating) {
             this.statusBadge.textContent = "Sampling";
             this.statusBadge.classList.add("generating");
@@ -453,33 +468,32 @@ class FloatingLatentDock {
             minimap &&
             minimap.offsetParent !== null &&
             window.getComputedStyle(minimap).display !== "none" &&
-            window.getComputedStyle(minimap).visibility !== "hidden"
+            window.getComputedStyle(minimap).visibility !== "hidden" &&
+            minimap.getBoundingClientRect().height > 20
         );
 
         // 2. Detect Toolbar (Bottom-Right Island)
         const toolbar = document.querySelector(
-            '[role="toolbar"][aria-label*="canvasToolbar" i], [role="toolbar"][aria-label*="Canvas Toolbar" i], .graph-canvas-menu, .canvas-toolbar'
+            '[role="toolbar"][aria-label*="canvasToolbar" i], [role="toolbar"], .graph-canvas-menu, .canvas-toolbar'
         );
 
-        let toolbarBottomGap = 54;
-        if (toolbar) {
+        let bottomGap = 54; // clean fallback above bottom edge
+
+        if (isMinimapVisible) {
+            const mRect = minimap.getBoundingClientRect();
+            if (mRect.top > 0 && mRect.top < window.innerHeight) {
+                // Place dock flush 8px above the top of the minimap
+                bottomGap = Math.round(window.innerHeight - mRect.top + 8);
+            }
+        } else if (toolbar) {
             const tRect = toolbar.getBoundingClientRect();
-            if (tRect.height > 0) {
-                toolbarBottomGap = Math.max(50, Math.round(window.innerHeight - tRect.top + 8));
+            if (tRect.top > 0 && tRect.top < window.innerHeight) {
+                // Place dock flush 8px above the top of the toolbar
+                bottomGap = Math.round(window.innerHeight - tRect.top + 8);
             }
         }
 
-        // 3. Dynamic Height Calculation:
-        // When minimap is enabled, place dock right above minimap top.
-        // When minimap is disabled, place dock at lowest possible point right above toolbar.
-        if (isMinimapVisible) {
-            const mRect = minimap.getBoundingClientRect();
-            const minimapTopFromBottom = Math.max(toolbarBottomGap + 20, Math.round(window.innerHeight - mRect.top + 8));
-            this.dockEl.style.bottom = `${minimapTopFromBottom}px`;
-        } else {
-            this.dockEl.style.bottom = `${toolbarBottomGap}px`;
-        }
-
+        this.dockEl.style.bottom = `${bottomGap}px`;
         this.dockEl.style.right = "8px";
     }
 

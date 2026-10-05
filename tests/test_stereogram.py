@@ -103,39 +103,6 @@ class TestSaturnStereo3D(unittest.TestCase):
             self.assertEqual(depth_out.shape, (1, 128, 128, 3))
 
 
-from nodes.stereogram import SaturnStereo3DLive
-
-class TestSaturnStereo3DLive(unittest.TestCase):
-    def setUp(self):
-        self.node = SaturnStereo3DLive()
-        self.img = torch.rand((1, 64, 64, 3), dtype=torch.float32)
-        self.depth = torch.rand((1, 64, 64, 3), dtype=torch.float32)
-
-    def test_live_viewer_output_structure(self):
-        # SaturnStereo3DLive is an OUTPUT_NODE that returns a dict with 'ui' and 'result'
-        self.assertTrue(self.node.OUTPUT_NODE)
-        res = self.node.generate(
-            self.img,
-            depth_map=self.depth,
-            mode="Cross-Eye",
-            depth_intensity=20.0
-        )
-        self.assertIsInstance(res, dict)
-        self.assertIn("ui", res)
-        self.assertIn("result", res)
-        self.assertIn("images", res["ui"])
-        stereogram, left_eye, right_eye, depth_out = res["result"]
-        self.assertEqual(stereogram.shape[0], 1)
-        self.assertEqual(left_eye.shape, (1, 64, 64, 3))
-        self.assertEqual(right_eye.shape, (1, 64, 64, 3))
-        self.assertEqual(depth_out.shape, (1, 64, 64, 3))
-
-    def test_live_input_types(self):
-        inputs = self.node.INPUT_TYPES()
-        self.assertIn("required", inputs)
-        self.assertIn("depth_intensity", inputs["required"])
-        self.assertIn("mode", inputs["required"])
-
-
 if __name__ == "__main__":
     unittest.main()
+
