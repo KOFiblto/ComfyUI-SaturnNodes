@@ -650,7 +650,8 @@ function getInitialSetting(saturnId, defaultVal) {
         "🖼️ Assets Restore": "6 - 🖼️ Assets Restore",
         "🩺 Diagnostics": "7 - 🩺 Diagnostics",
         "🎨 Batch Queue": "8 - 🎨 Batch Queue",
-        "🛡️ Security": "9 - 🛡️ Security"
+        "🛡️ Security": "9 - 🛡️ Security",
+        "👁️ Live Preview": "10 - 👁️ Live Preview"
     };
 
     for (const [plain, num] of Object.entries(categoryMap)) {
@@ -835,6 +836,69 @@ app.registerExtension({
                     } catch (err) {
                         alert("SaturnNodes: Error resetting cache: " + err);
                     }
+                }
+            }
+        });
+
+        // =========================================================================
+        // GROUP: 👁️ Live Preview
+        // =========================================================================
+
+        // 10.1 Enable Floating Latent Dock (default: true)
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.👁️ Live Preview.01_EnableFloatingDock",
+            name: "Enable Floating Latent Dock",
+            type: "boolean",
+            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.01_EnableFloatingDock", true),
+            tooltip: "Adds a floating picture-in-picture Live Latent preview dock to the bottom-right corner and a toggle button to the canvas toolbar.",
+            onChange(value) {
+                if (typeof localStorage !== "undefined") {
+                    try {
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.01_EnableFloatingDock", JSON.stringify(Boolean(value)));
+                    } catch (_) {}
+                }
+                const btn = document.getElementById("saturn-floating-dock-btn");
+                const dock = document.getElementById("saturn-latent-floating-dock");
+                if (btn) btn.style.display = value ? "inline-flex" : "none";
+                if (dock) {
+                    if (value) {
+                        dock.classList.remove("saturn-dock-hidden");
+                    } else {
+                        dock.classList.add("saturn-dock-hidden");
+                    }
+                }
+            }
+        });
+
+        // 10.2 Floating Dock Max Size (default: "260px")
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.👁️ Live Preview.02_FloatingDockSize",
+            name: "Floating Dock Max Size",
+            type: "combo",
+            options: ["180px", "220px", "260px", "320px", "380px"],
+            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.02_FloatingDockSize", "260px"),
+            tooltip: "Maximum width/height dimension for the bottom-right floating live preview dock (dock automatically matches the exact latent aspect ratio).",
+            onChange(value) {
+                if (typeof localStorage !== "undefined") {
+                    try {
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02_FloatingDockSize", JSON.stringify(value));
+                    } catch (_) {}
+                }
+            }
+        });
+
+        // 10.3 Auto-Hide Dock When Idle (default: false)
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle",
+            name: "Auto-Hide Dock When Idle",
+            type: "boolean",
+            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", false),
+            tooltip: "When enabled, the floating dock automatically hides when generation is idle and appears when sampling begins.",
+            onChange(value) {
+                if (typeof localStorage !== "undefined") {
+                    try {
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", JSON.stringify(Boolean(value)));
+                    } catch (_) {}
                 }
             }
         });

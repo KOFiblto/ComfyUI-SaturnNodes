@@ -17,9 +17,9 @@ For Git workflow, branch protection, and Pull Request guidelines, see **[`CONTRI
 | **`WALKTHROUGH.md`** | Step-by-step user tutorials, example workflows, visual load guides, and batch prompting patterns. | [WALKTHROUGH.md](./WALKTHROUGH.md) |
 | **`CHANGELOG.md`** | Strict Keep-A-Changelog semantic version release history across all updates. | [CHANGELOG.md](./CHANGELOG.md) |
 | **`SECURITY.md`** | Security policies, supported versions, and private vulnerability disclosure instructions. | [SECURITY.md](./SECURITY.md) |
+| **`SECURITY_AUDIT_PLAYBOOK.md`** | Authoritative ComfyUI custom node security rulebook, PR #3200 review precedents, threat model, and coding standards. | [SECURITY_AUDIT_PLAYBOOK.md](./SECURITY_AUDIT_PLAYBOOK.md) |
 | **`CLAUDE.md`** | AI agent instruction pointer. | [CLAUDE.md](./CLAUDE.md) |
 | **`GEMINI.md`** | AI agent instruction pointer. | [GEMINI.md](./GEMINI.md) |
-| **`AGENTS.md`** | AI agent instruction pointer. | [AGENTS.md](./AGENTS.md) |
 | **`bug_report.md`** | GitHub issue template for reporting reproducible defects. | [bug_report.md](./.github/ISSUE_TEMPLATE/bug_report.md) |
 | **`feature_request.md`** | GitHub issue template for proposing new nodes or UI features. | [feature_request.md](./.github/ISSUE_TEMPLATE/feature_request.md) |
 

@@ -456,6 +456,8 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 
 ## 🔒 Security & Privacy
 
+For the comprehensive engineering standard, threat model, and review precedents enforced by the ComfyUI-Manager maintainers, see the full **[ComfyUI Custom Node Security & Compliance Rulebook](SECURITY_AUDIT_PLAYBOOK.md)**.
+
 - **Local Runner Sandbox & Operator Authorization Gate:** The `Run Local File` node enforces single-use interactive operator authorization (`⚡ Authorize Run (5 min)`), strictly confines execution to `ComfyUI/scripts/`, never uses `shell=True`, terminates whole process trees on timeout or cancellation, and **never persists authorization inside workflow JSON or image metadata**.
 - **CSRF Defense & Fetch Metadata Validation:** All administrative endpoints (`/saturnnodes/settings`, `/saturnnodes/power/*`, `/saturnnodes/local_runner/*`, `/saturnnodes/scrapes/clear` and backward-compatible `/leafflow/*` aliases) enforce loopback checks, `Sec-Fetch-Site` header checks (blocking cross-site requests from visited web pages), and cryptographic per-session `X-SaturnNodes-CSRF-Token` headers.
 - **Two-Step Ephemeral Ticket Handshake for Power Actions:** Process restart and shutdown controls are disabled by default (`ALLOW_PROCESS_MANAGEMENT=false`), require CSRF authentication, and execute only after a single-use 30-second ephemeral ticket confirmation handshake.
