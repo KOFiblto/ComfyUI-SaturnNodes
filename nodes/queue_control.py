@@ -605,6 +605,7 @@ def _consume_power_ticket(ticket, expected_action=None):
 
 pause_manager = PauseQueueManager()
 persistent_manager = PersistentQueueManager()
+persistent_queue_manager = persistent_manager
 tray_manager = TrayIconManager(pause_manager)
 power_manager = PowerControlManager(pause_manager)
 
