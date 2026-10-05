@@ -689,7 +689,8 @@ app.registerExtension({
                         }
 
                         const img = document.createElement("img");
-                        img.src = `/folder_lora_loader/get_preview?lora=${encodeURIComponent(loraName)}&folder=${encodeURIComponent(folder)}&pretty=true`;
+                        img.loading = "lazy";
+                        img.src = `/folder_lora_loader/get_preview?lora=${encodeURIComponent(loraName)}&folder=${encodeURIComponent(folder)}&pretty=true&size=200`;
                         
                         img.onerror = () => {
                             img.remove();
@@ -1496,7 +1497,7 @@ app.registerExtension({
 
                             const img = document.createElement("img");
                             img.loading = "lazy";
-                            img.dataset.src = `/folder_lora_loader/get_preview?system_path=${encodeURIComponent(item.systemPath)}`;
+                            img.dataset.src = `/folder_lora_loader/get_preview?system_path=${encodeURIComponent(item.systemPath)}&size=200`;
                             imageObserver.observe(img);
                             
                             img.onerror = () => {

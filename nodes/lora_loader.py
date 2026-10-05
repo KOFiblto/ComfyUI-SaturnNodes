@@ -390,6 +390,42 @@ async def get_loras_endpoint(request):
         "mtime": mtime_by_path
     })
 
+THUMBNAILS_DIR = os.path.join(USER_DIR, "thumbnails")
+
+def get_or_create_thumbnail(img_path, max_size=256):
+    """
+    Returns path to a high-speed cached WebP thumbnail of img_path with max dimension max_size.
+    Cached on disk and invalidated if source file mtime changes.
+    """
+    try:
+        from PIL import Image
+        mtime = os.path.getmtime(img_path)
+        hash_src = f"{img_path}_{mtime}_{max_size}".encode("utf-8")
+        cache_key = hashlib.md5(hash_src).hexdigest()
+        os.makedirs(THUMBNAILS_DIR, exist_ok=True)
+        thumb_path = os.path.join(THUMBNAILS_DIR, f"thumb_{cache_key}.webp")
+
+        if os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 0:
+            return thumb_path
+
+        with Image.open(img_path) as img:
+            w, h = img.size
+            if w <= max_size and h <= max_size:
+                return img_path
+
+            if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                img = img.convert("RGBA")
+            else:
+                img = img.convert("RGB")
+
+            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+            temp_path = thumb_path + ".tmp"
+            img.save(temp_path, format="WEBP", quality=82, method=4)
+            os.replace(temp_path, thumb_path)
+            return thumb_path
+    except Exception:
+        return img_path
+
 @routes.get("/folder_lora_loader/get_preview")
 async def get_preview_endpoint(request):
     if not is_local_request(request):
@@ -398,16 +434,25 @@ async def get_preview_endpoint(request):
     lora_name = request.query.get("lora", "")
     folder = request.query.get("folder", "")
     pretty = request.query.get("pretty", "true").lower() == "true"
-    
+    full = request.query.get("full", "false").lower() == "true"
+
     if not system_path and lora_name:
         mapping = get_filtered_loras_mapping(folder, pretty=pretty)
         system_path = mapping.get(lora_name, lora_name)
-    
+
     if system_path and system_path != "[ NONE ]":
         img_path = find_preview_image(system_path)
         if img_path and os.path.exists(img_path) and os.path.isfile(img_path):
-            return web.FileResponse(img_path)
-            
+            if full:
+                return web.FileResponse(img_path)
+            try:
+                thumb_size = int(request.query.get("size", 256))
+                thumb_size = max(64, min(1024, thumb_size))
+            except Exception:
+                thumb_size = 256
+            serve_path = get_or_create_thumbnail(img_path, max_size=thumb_size)
+            return web.FileResponse(serve_path)
+
     return web.Response(status=404)
 
 class FolderLoraLoader:
