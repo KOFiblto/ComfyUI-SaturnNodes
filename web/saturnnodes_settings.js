@@ -983,35 +983,43 @@ app.registerExtension({
             }
         });
 
-        // 10.2a Floating Dock Max Width (default: "280px")
+        // 10.2a Floating Dock Max Width (default: 280)
+        const rawMaxWidth = getInitialSetting("SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", 280);
+        const initialMaxWidth = parseInt(String(rawMaxWidth).match(/\d+/)?.[0] || rawMaxWidth, 10) || 280;
+
         app.ui.settings.addSetting({
             id: "SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth",
             name: "Floating Dock Max Width",
-            type: "combo",
-            options: ["120px", "160px", "200px", "240px", "280px", "320px", "360px", "420px", "480px", "600px"],
-            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", "280px"),
-            tooltip: "Maximum width limit for the floating live preview dock. The dock automatically matches the exact latent aspect ratio without distortion.",
+            type: "slider",
+            attrs: { min: 80, max: 1200, step: 10 },
+            defaultValue: initialMaxWidth,
+            tooltip: "Maximum width limit (in pixels) for the floating live preview dock (80px to 1200px). The dock automatically matches the exact latent aspect ratio without distortion.",
             onChange(value) {
+                const num = parseInt(value, 10) || 280;
                 if (typeof localStorage !== "undefined") {
                     try {
-                        localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", JSON.stringify(value));
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", JSON.stringify(num));
                     } catch (_) {}
                 }
             }
         });
 
-        // 10.2b Floating Dock Max Height (default: "280px")
+        // 10.2b Floating Dock Max Height (default: 280)
+        const rawMaxHeight = getInitialSetting("SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", 280);
+        const initialMaxHeight = parseInt(String(rawMaxHeight).match(/\d+/)?.[0] || rawMaxHeight, 10) || 280;
+
         app.ui.settings.addSetting({
             id: "SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight",
             name: "Floating Dock Max Height",
-            type: "combo",
-            options: ["120px", "160px", "200px", "240px", "280px", "320px", "360px", "420px", "480px", "600px"],
-            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", "280px"),
-            tooltip: "Maximum height limit for the floating live preview dock. The dock automatically matches the exact latent aspect ratio without distortion.",
+            type: "slider",
+            attrs: { min: 80, max: 1200, step: 10 },
+            defaultValue: initialMaxHeight,
+            tooltip: "Maximum height limit (in pixels) for the floating live preview dock (80px to 1200px). The dock automatically matches the exact latent aspect ratio without distortion.",
             onChange(value) {
+                const num = parseInt(value, 10) || 280;
                 if (typeof localStorage !== "undefined") {
                     try {
-                        localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", JSON.stringify(value));
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", JSON.stringify(num));
                     } catch (_) {}
                 }
             }
@@ -1214,15 +1222,17 @@ app.registerExtension({
         // 4.8 Visible Queue Items (Height Limit)
         const applyQueueOverlayHeight = (val) => {
             let style = document.getElementById("saturn-queue-overlay-height");
-            if (!val || val === "Native") {
-                if (style) style.remove();
-                return;
+            let px = 0;
+            if (typeof val === "number") {
+                px = val;
+            } else if (val && val !== "Native") {
+                const match = String(val).match(/\d+/);
+                if (match) px = parseInt(match[0], 10);
             }
 
-            let px = 360;
-            const match = String(val).match(/(\d+)px/);
-            if (match) {
-                px = parseInt(match[1], 10);
+            if (!px || px <= 0) {
+                if (style) style.remove();
+                return;
             }
 
             if (!style) {
@@ -1242,23 +1252,31 @@ app.registerExtension({
             `;
         };
 
-        const initialQueueHeight = getInitialSetting("SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", "Native");
+        const rawQueueHeight = getInitialSetting("SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", 0);
+        let initialQueueHeight = 0;
+        if (typeof rawQueueHeight === "number") {
+            initialQueueHeight = rawQueueHeight;
+        } else if (rawQueueHeight && rawQueueHeight !== "Native") {
+            const match = String(rawQueueHeight).match(/\d+/);
+            if (match) initialQueueHeight = parseInt(match[0], 10);
+        }
         applyQueueOverlayHeight(initialQueueHeight);
 
         app.ui.settings.addSetting({
             id: "SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight",
             name: "Visible Queue Items (Height)",
-            type: "combo",
-            options: ["Native", "5 Items (~220px)", "8 Items (~300px)", "10 Items (~360px)", "12 Items (~430px)", "15 Items (~520px)", "250px", "350px", "450px", "550px"],
+            type: "slider",
+            attrs: { min: 0, max: 1200, step: 10 },
             defaultValue: initialQueueHeight,
-            tooltip: "Limits the visible height of the queue overlay panel so it only displays a compact number of items (e.g. 10 items) at once with a scrollbar, preventing it from extending down the screen. 'Native' leaves ComfyUI default height.",
+            tooltip: "Limits the visible height of the queue overlay panel in pixels (e.g. 360 ≈ 10 items, 500 ≈ 15 items) with a scrollbar. Set to 0 for Native (unconstrained ComfyUI default height).",
             onChange(value) {
+                const num = parseInt(value, 10) || 0;
                 if (typeof localStorage !== "undefined") {
                     try {
-                        localStorage.setItem("Comfy.Settings.SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", JSON.stringify(value));
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", JSON.stringify(num));
                     } catch (_) {}
                 }
-                applyQueueOverlayHeight(value);
+                applyQueueOverlayHeight(num);
             }
         });
 

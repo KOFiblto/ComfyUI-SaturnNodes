@@ -418,12 +418,7 @@ class FloatingLatentDock {
             ctx.drawImage(img, 0, 0, nw, nh);
         }
 
-        if (this.statusBadge && this.isGenerating) {
-            this.statusBadge.textContent = "Sampling";
-            this.statusBadge.classList.add("generating");
-        }
-
-        this.updatePosition();
+        this.requestPositionUpdate();
     }
 
     updateVisibility() {
@@ -510,25 +505,29 @@ class FloatingLatentDock {
         this.dockEl.style.right = "8px";
     }
 
-    setupPositionObserver() {
-        // Track window resize and DOM changes (like minimap toggling)
-        window.addEventListener("resize", () => this.updatePosition(), { passive: true });
-
-        const observer = new MutationObserver(() => {
+    requestPositionUpdate() {
+        if (!this.dockEl || this.dockEl.classList.contains("saturn-dock-hidden") || !this.isVisible) return;
+        if (this._posUpdatePending) return;
+        this._posUpdatePending = true;
+        requestAnimationFrame(() => {
+            this._posUpdatePending = false;
             this.updatePosition();
+        });
+    }
+
+    setupPositionObserver() {
+        // Track window resize (debounced via rAF)
+        window.addEventListener("resize", () => this.requestPositionUpdate(), { passive: true });
+
+        // Observe DOM structural changes only (minimap toggle / toolbar mount) without watching every subtree attribute
+        const observer = new MutationObserver(() => {
+            this.requestPositionUpdate();
         });
 
         observer.observe(document.body, {
             childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ["class", "style", "aria-label"]
+            subtree: false
         });
-
-        // Periodic gentle sync (every 600ms) to ensure perfect alignment across layout changes
-        setInterval(() => {
-            this.updatePosition();
-        }, 600);
     }
 
     injectToolbarButtonLoop() {
