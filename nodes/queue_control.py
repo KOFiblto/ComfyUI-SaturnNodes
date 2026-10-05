@@ -116,7 +116,6 @@ class PauseQueueManager:
             print("[SaturnNodes] Queue control: Skipped patching send_sync (not found on server).")
 
         self._patched = True
-        print("[SaturnNodes] Queue control: Pause manager initialized successfully.")
 
     def is_currently_executing(self):
         try:
@@ -206,7 +205,6 @@ class PersistentQueueManager:
                             for x in self.persistent_items:
                                 if "batch_info" in x and "prompt_id" in x:
                                     self.batch_meta[str(x["prompt_id"])] = x["batch_info"]
-                            print(f"[PersistentQueue] Loaded {len(self.persistent_items)} saved queue item(s).")
                         else:
                             self.persistent_items = []
                 except Exception as e:
@@ -369,7 +367,6 @@ class PersistentQueueManager:
         server.send_sync = patched_send_sync
 
         self._patched = True
-        print("[SaturnNodes] Queue control: Persistent queue manager initialized successfully.")
 
     def restore_queue(self, active_client_id=None):
         if self.has_claimed_once:

@@ -229,9 +229,9 @@ class AssetsRestoreManager:
             "total_scanned_images": len(images),
             "restored_count": restored_count
         }
+        self.restored_count = restored_count
 
         if restored_count > 0:
-            print(f"[SaturnNodes] Restored {restored_count} recent image(s) into Assets / History pane.")
             if server:
                 try:
                     server.queue_updated()

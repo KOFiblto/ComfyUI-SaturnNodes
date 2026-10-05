@@ -124,16 +124,43 @@ ENV_FILE = os.path.join(USER_DIR, ".env")
 
 routes = server.routes
 
+def print_startup_banner():
+    # Enable ANSI escape sequences on Windows console if available
+    if os.name == "nt":
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), 7)
+        except Exception:
+            pass
+
+    # Saturn Brand Colors (Amber, Gold, Warm Sand, White)
+    AMBER = "\033[1;38;2;245;158;11m"
+    GOLD = "\033[38;2;251;191;36m"
+    SAND = "\033[38;2;222;203;178m"
+    WHITE = "\033[97m"
+    RESET = "\033[0m"
+
+    active_count = len(NODE_CLASS_MAPPINGS)
+    disabled_count = len(_active_disabled_nodes) if _active_disabled_nodes else 0
+    total_str = f"{active_count} nodes loaded"
+    if disabled_count > 0:
+        total_str += f" ({disabled_count} disabled in settings)"
+
+    print()
+    print(f"{AMBER}[ComfyUI-SaturnNodes]{RESET} {SAND}Version:{RESET} {WHITE}{__version__}{RESET}")
+    print(f"  {GOLD}*{RESET} {SAND}Loaded:{RESET} {WHITE}Visual LoRA & Image Loaders, LoRA Folder Loader{RESET}")
+    print(f"  {GOLD}*{RESET} {SAND}Loaded:{RESET} {WHITE}Live Latent Preview & Floating Dock{RESET}")
+    print(f"  {GOLD}*{RESET} {SAND}Loaded:{RESET} {WHITE}Stereoscopic 3D Generator{RESET}")
+    print(f"  {GOLD}*{RESET} {SAND}Loaded:{RESET} {WHITE}Prompt Queue Iterator, Prompt Counter, Text Tools{RESET}")
+    print(f"  {GOLD}*{RESET} {SAND}Loaded:{RESET} {WHITE}Queue Pause, Persistent Queue, Local Runner{RESET}")
+    print(f"{AMBER}Total: {total_str}{RESET}")
+    print()
+
 try:
-    can_encode_saturn = True
-    try:
-        "🪐".encode(sys.stdout.encoding or "ascii")
-    except Exception:
-        can_encode_saturn = False
-    saturn_symbol = "🪐 " if can_encode_saturn else ""
-    print(f"[ComfyUI-SaturnNodes] {saturn_symbol}Loaded {len(NODE_CLASS_MAPPINGS)} nodes & visual endpoints successfully (v{__version__}).")
+    print_startup_banner()
 except Exception:
-    print(f"[ComfyUI-SaturnNodes] Loaded {len(NODE_CLASS_MAPPINGS)} nodes & visual endpoints successfully (v{__version__}).")
+    print(f"\n[ComfyUI-SaturnNodes] Version: {__version__} - Total: {len(NODE_CLASS_MAPPINGS)} nodes loaded\n")
 
 @routes.get("/saturnnodes/auth/token")
 async def get_csrf_token_endpoint(request):

@@ -195,7 +195,6 @@ class TrayIconManager:
             def _run():
                 try:
                     self._is_running = True
-                    print("[SaturnNodes] System tray icon started.")
                     self._icon.run()
                 except Exception as e:
                     print(f"[SaturnNodes] System tray icon error: {e}")
