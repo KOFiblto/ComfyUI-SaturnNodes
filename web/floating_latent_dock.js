@@ -269,9 +269,7 @@ class FloatingLatentDock {
         titleText.textContent = "Live Latent";
         this.titleTextEl = titleText;
 
-        this.statusBadge = document.createElement("span");
-        this.statusBadge.className = "saturn-dock-badge";
-        this.statusBadge.textContent = "Idle";
+        this.statusBadge = null;
 
         this.aspectBadge = document.createElement("span");
         this.aspectBadge.className = "saturn-dock-badge";
@@ -279,7 +277,6 @@ class FloatingLatentDock {
 
         titleGroup.appendChild(iconSpan);
         titleGroup.appendChild(titleText);
-        titleGroup.appendChild(this.statusBadge);
         titleGroup.appendChild(this.aspectBadge);
 
         const closeBtn = document.createElement("button");
@@ -315,7 +312,7 @@ class FloatingLatentDock {
                 <circle cx="9" cy="9" r="2"/>
                 <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
             </svg>
-            <span>Awaiting Sampling...</span>
+            <span>Live Latent Preview</span>
         `;
 
         body.appendChild(this.canvasEl);
