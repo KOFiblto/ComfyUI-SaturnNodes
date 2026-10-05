@@ -15,6 +15,52 @@ async function postSaturnNodesSettings(bodyObj) {
     }
 }
 
+let _disabledNodesCache = null;
+async function fetchDisabledNodes() {
+    try {
+        const res = await authenticatedFetch("/saturnnodes/disabled_nodes");
+        if (res && res.ok) {
+            const data = await res.json();
+            _disabledNodesCache = new Set(data.disabled_nodes || []);
+            return _disabledNodesCache;
+        }
+    } catch (e) {
+        console.warn("[SaturnNodes Settings] Failed to fetch disabled nodes:", e);
+    }
+    return new Set();
+}
+
+async function updateNodeDisabledState(nodeKey, isEnabled) {
+    try {
+        if (!_disabledNodesCache) {
+            await fetchDisabledNodes();
+        }
+        if (!_disabledNodesCache) {
+            _disabledNodesCache = new Set();
+        }
+        if (isEnabled) {
+            _disabledNodesCache.delete(nodeKey);
+        } else {
+            _disabledNodesCache.add(nodeKey);
+        }
+        await authenticatedFetch("/saturnnodes/disabled_nodes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ disabled_nodes: Array.from(_disabledNodesCache) })
+        });
+        if (app.extensionManager?.toast?.add) {
+            app.extensionManager.toast.add({
+                severity: "info",
+                summary: "🪐 SaturnNodes",
+                detail: `Node availability updated. Reload server or refresh to apply.`,
+                life: 4000
+            });
+        }
+    } catch (e) {
+        console.warn(`[SaturnNodes Settings] Failed to update disabled state for ${nodeKey}:`, e);
+    }
+}
+
 // Inject CSS to ensure settings buttons look distinct and dropdown menus retain proper styling
 if (typeof document !== "undefined") {
     const styleId = "saturnnodes-settings-button-styles";
@@ -651,7 +697,8 @@ function getInitialSetting(saturnId, defaultVal) {
         "🩺 Diagnostics": "7 - 🩺 Diagnostics",
         "🎨 Batch Queue": "8 - 🎨 Batch Queue",
         "🛡️ Security": "9 - 🛡️ Security",
-        "👁️ Live Preview": "10 - 👁️ Live Preview"
+        "👁️ Live Preview": "10 - 👁️ Live Preview",
+        "🧩 Node Management": "11 - 🧩 Node Management"
     };
 
     for (const [plain, num] of Object.entries(categoryMap)) {
@@ -1234,6 +1281,52 @@ app.registerExtension({
         });
 
         // =========================================================================
+        // GROUP: 🧩 Node Management
+        // =========================================================================
+        fetchDisabledNodes();
+
+        const saturnNodeDefinitions = [
+            { key: "FolderLoraLoader", name: "LoRA Loader (Folder)", desc: "🪐 📁 LoRA Loader (Folder)" },
+            { key: "FolderLoraLoaderPretty", name: "LoRA Loader (Pretty)", desc: "🪐 ✨ LoRA Loader (Pretty)" },
+            { key: "VisualLoraLoader", name: "Visual LoRA Loader", desc: "🪐 🖼️ Visual LoRA Loader" },
+            { key: "VisualImageLoader", name: "Visual Image Loader", desc: "🪐 📷 Visual Image Loader" },
+            { key: "LoadImageFromFolder", name: "Load Image From Folder", desc: "🪐 📂 Load Image From Folder" },
+            { key: "LoadRecentOutputs", name: "Recent Outputs", desc: "🪐 ⏱️ Recent Outputs" },
+            { key: "PreviewLatentLive", name: "Live Latent Preview", desc: "🪐 👁️ Live Latent Preview" },
+            { key: "SaturnDecision", name: "Saturn Decision", desc: "🪐 ⏸️ Saturn Decision" },
+            { key: "TextAspectRatioFinder", name: "Text Aspect Ratio Finder", desc: "🪐 📐 Text Aspect Ratio Finder" },
+            { key: "PreviewImageSizeAspectRatio", name: "Preview Image Size & Aspect Ratio", desc: "🪐 📐 Preview Image Size & Aspect Ratio" },
+            { key: "TextLoraFinder", name: "Text LoRA Finder & Loader", desc: "🪐 🔎 Text LoRA Finder & Loader" },
+            { key: "PromptQueueIterator", name: "Prompt Queue Iterator", desc: "🪐 🔄 Prompt Queue Iterator" },
+            { key: "PromptCounter", name: "Prompt Counter", desc: "🪐 📝 Prompt Counter" },
+            { key: "MultiTextReplacer", name: "Multi Text Replacer", desc: "🪐 🔤 Multi Text Replacer" },
+            { key: "SaturnTextSplit", name: "Text Split", desc: "🪐 ✂️ Text Split" },
+            { key: "RunLocalFileNode", name: "Run Local File", desc: "🪐 ⚡ Run Local File" },
+            { key: "SaturnStereo3D", name: "Stereoscopic 3D Generator", desc: "🪐 👓 Stereoscopic 3D Generator" },
+            { key: "SaturnStereo3DLive", name: "Stereoscopic 3D Live Viewer", desc: "🪐 👁️ Stereoscopic 3D Live Viewer" }
+        ];
+
+        saturnNodeDefinitions.forEach((node, index) => {
+            const numStr = String(index + 1).padStart(2, "0");
+            const settingId = `SaturnNodes.🧩 Node Management.${numStr}_Enable_${node.key}`;
+            app.ui.settings.addSetting({
+                id: settingId,
+                name: `Enable ${node.name}`,
+                type: "boolean",
+                defaultValue: getInitialSetting(settingId, true),
+                tooltip: `Enables or disables ${node.desc}. When disabled, the node is hidden from the node search menu (requires server restart to take effect).`,
+                onChange(value) {
+                    if (typeof localStorage !== "undefined") {
+                        try {
+                            localStorage.setItem(`Comfy.Settings.${settingId}`, JSON.stringify(Boolean(value)));
+                        } catch (_) {}
+                    }
+                    updateNodeDisabledState(node.key, Boolean(value));
+                }
+            });
+        });
+
+        // =========================================================================
         // Automatically inject footer linking to GitHub, author profile, and README guide
         setupSettingsFooterObserver();
     }
@@ -1245,7 +1338,9 @@ app.registerExtension({
  */
 function setupSettingsFooterObserver() {
     function injectFooterIfMissing() {
-        const saturnItem = document.querySelector('[data-setting-id^="SaturnNodes.🛡️ Security"]') ||
+        const saturnItem = document.querySelector('[data-setting-id^="SaturnNodes.🧩 Node Management"]') ||
+                           document.querySelector('[data-setting-id^="SaturnNodes.11 - 🧩 Node Management"]') ||
+                           document.querySelector('[data-setting-id^="SaturnNodes.🛡️ Security"]') ||
                            document.querySelector('[data-setting-id^="SaturnNodes.9 - 🛡️ Security"]') ||
                            document.querySelector('[data-setting-id^="SaturnNodes."]');
         if (!saturnItem || !saturnItem.parentElement) return;

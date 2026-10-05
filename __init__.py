@@ -78,6 +78,41 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SaturnStereo3DLive": "🪐 👁️ Stereoscopic 3D Live Viewer"
 }
 
+ALL_SATURN_NODE_KEYS = list(NODE_CLASS_MAPPINGS.keys())
+
+def load_disabled_nodes():
+    """Loads set of user-disabled SaturnNodes from user settings directory."""
+    try:
+        import json
+        user_dir = get_saturnnodes_user_dir()
+        path = os.path.join(user_dir, "disabled_nodes.json")
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return set(data)
+    except Exception as e:
+        print(f"[SaturnNodes] Notice: Unable to load disabled_nodes.json: {e}")
+    return set()
+
+def save_disabled_nodes(disabled_set):
+    """Saves set of user-disabled SaturnNodes atomically."""
+    import json
+    user_dir = get_saturnnodes_user_dir()
+    os.makedirs(user_dir, exist_ok=True)
+    path = os.path.join(user_dir, "disabled_nodes.json")
+    temp_path = path + ".tmp"
+    with open(temp_path, "w", encoding="utf-8") as f:
+        json.dump(sorted(list(disabled_set)), f, indent=2)
+    os.replace(temp_path, path)
+
+# Filter disabled nodes (all enabled by default when disabled_nodes.json is empty)
+_active_disabled_nodes = load_disabled_nodes()
+if _active_disabled_nodes:
+    for _node_name in _active_disabled_nodes:
+        NODE_CLASS_MAPPINGS.pop(_node_name, None)
+        NODE_DISPLAY_NAME_MAPPINGS.pop(_node_name, None)
+
 WEB_DIRECTORY = "./web"
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 
@@ -359,6 +394,31 @@ async def save_settings(request):
         print(f"[SaturnNodes] 🪐 Error saving settings to .env: {e}")
 
     return web.json_response({"status": "ok"})
+
+@routes.get("/saturnnodes/disabled_nodes")
+async def get_disabled_nodes_endpoint(request):
+    if not is_local_request(request):
+        return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+    return web.json_response({
+        "disabled_nodes": sorted(list(load_disabled_nodes())),
+        "all_nodes": ALL_SATURN_NODE_KEYS
+    })
+
+@routes.post("/saturnnodes/disabled_nodes")
+async def save_disabled_nodes_endpoint(request):
+    if not is_authenticated_local_request(request):
+        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    try:
+        data = await request.json()
+        disabled_list = data.get("disabled_nodes", [])
+        if isinstance(disabled_list, list):
+            valid_keys = set(ALL_SATURN_NODE_KEYS)
+            cleaned = {str(k) for k in disabled_list if str(k) in valid_keys}
+            save_disabled_nodes(cleaned)
+            return web.json_response({"status": "ok", "disabled_nodes": sorted(list(cleaned))})
+        return web.json_response({"error": "Invalid format"}, status=400)
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=500)
 
 @routes.post("/saturnnodes/scrapes/clear")
 async def clear_scrapes_endpoint(request):

@@ -69,29 +69,29 @@ class PauseQueueManager:
 
         def patched_get(*args, **kwargs):
             while True:
+                # 1. If queue is paused, wait BEFORE popping any item from the queue!
+                # This guarantees that ComfyUI never sets currently_running, never sends
+                # execution_start, and never starts the elapsed timer while waiting.
                 if self.paused:
                     if not self.is_waiting:
                         self.is_waiting = True
-                        print("[PauseQueue] Workflow paused after this run: Current workflow finished, queue paused.")
+                        print("[PauseQueue] Workflow paused: Queue is paused, waiting before next workflow.")
                         self.notify_clients()
                     while self.paused:
                         self.event.wait(0.2)
                     self.is_waiting = False
                     self.notify_clients()
 
-                item = original_get(*args, **kwargs)
+                # 2. Use a short timeout (0.5s) when polling for items so that if the user
+                # enables pause while the queue is idle, we don't remain stuck inside
+                # a blocking original_get() that would prematurely pop an incoming workflow.
+                kwargs_copy = dict(kwargs)
+                if "timeout" not in kwargs_copy and len(args) == 0:
+                    kwargs_copy["timeout"] = 0.5
 
-                if self.paused:
-                    if not self.is_waiting:
-                        self.is_waiting = True
-                        print("[PauseQueue] Workflow paused after this run: Current workflow finished, queue paused.")
-                        self.notify_clients()
-                    while self.paused:
-                        self.event.wait(0.2)
-                    self.is_waiting = False
-                    self.notify_clients()
-
-                return item
+                item = original_get(*args, **kwargs_copy)
+                if item is not None:
+                    return item
 
         queue.get = patched_get
 
@@ -152,6 +152,14 @@ class PauseQueueManager:
             print("[PauseQueue] Continue pressed: Resuming execution.")
 
         self.notify_clients()
+
+        try:
+            server = getattr(PromptServer, "instance", None)
+            if server and hasattr(server, "prompt_queue") and hasattr(server.prompt_queue, "not_empty"):
+                with server.prompt_queue.mutex:
+                    server.prompt_queue.not_empty.notify_all()
+        except Exception:
+            pass
 
     def set_mode(self, mode):
         self.mode = mode

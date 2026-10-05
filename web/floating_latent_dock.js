@@ -88,6 +88,9 @@ class FloatingLatentDock {
                 z-index: 1050;
                 display: flex;
                 flex-direction: column;
+                align-items: flex-end;
+                width: fit-content;
+                max-width: 90vw;
                 background: rgba(18, 18, 22, 0.92);
                 border: 1px solid rgba(255, 255, 255, 0.14);
                 border-radius: 8px;
@@ -109,6 +112,8 @@ class FloatingLatentDock {
             }
 
             .saturn-dock-header {
+                width: 100%;
+                box-sizing: border-box;
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
@@ -121,18 +126,21 @@ class FloatingLatentDock {
                 color: #decbb2;
                 font-weight: 500;
                 line-height: 1;
+                overflow: hidden;
             }
 
             .saturn-dock-title-group {
                 display: flex;
                 align-items: center;
                 gap: 5px;
+                overflow: hidden;
             }
 
             .saturn-dock-icon {
                 color: #f59e0b;
                 display: flex;
                 align-items: center;
+                flex-shrink: 0;
             }
 
             .saturn-dock-badge {
@@ -142,6 +150,8 @@ class FloatingLatentDock {
                 background: rgba(255, 255, 255, 0.08);
                 color: #a1a1aa;
                 font-variant-numeric: tabular-nums;
+                white-space: nowrap;
+                flex-shrink: 0;
             }
 
             .saturn-dock-badge.generating {
@@ -160,6 +170,7 @@ class FloatingLatentDock {
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                flex-shrink: 0;
                 transition: color 0.15s, background 0.15s;
             }
 
@@ -170,9 +181,11 @@ class FloatingLatentDock {
 
             .saturn-dock-body {
                 position: relative;
+                width: 100%;
+                box-sizing: border-box;
                 display: flex;
-                align-items: center;
-                justify-content: center;
+                align-items: flex-end;
+                justify-content: flex-end;
                 background: #09090b;
                 overflow: hidden;
             }
@@ -235,6 +248,7 @@ class FloatingLatentDock {
 
         const titleText = document.createElement("span");
         titleText.textContent = "Live Latent";
+        this.titleTextEl = titleText;
 
         this.statusBadge = document.createElement("span");
         this.statusBadge.className = "saturn-dock-badge";
@@ -367,6 +381,18 @@ class FloatingLatentDock {
         this.canvasEl.style.width = `${tw}px`;
         this.canvasEl.style.height = `${th}px`;
         this.canvasEl.style.display = "block";
+
+        if (this.dockEl) {
+            this.dockEl.style.width = `${tw}px`;
+            this.dockEl.style.minWidth = `${tw}px`;
+            this.dockEl.style.maxWidth = `${tw}px`;
+        }
+        if (this.titleTextEl) {
+            this.titleTextEl.style.display = tw < 170 ? "none" : "inline";
+        }
+        if (this.statusBadge) {
+            this.statusBadge.style.display = tw < 190 ? "none" : "inline";
+        }
 
         if (this.placeholderEl) {
             this.placeholderEl.style.display = "none";
