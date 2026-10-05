@@ -6,7 +6,17 @@ from server import PromptServer
 
 __version__ = "2.5.0"
 
-from .nodes.queue_control import setup_queue_control_routes, tray_manager
+from .nodes.queue_control import (
+    setup_queue_control_routes,
+    tray_manager,
+    persistent_queue_manager,
+    is_persistent_queue_enabled
+)
+from .nodes.tray_icon import is_tray_icon_enabled
+from .nodes.assets_restore import (
+    assets_restore_manager,
+    is_assets_restore_enabled
+)
 from .nodes.lora_loader import (
     FolderLoraLoader,
     FolderLoraLoaderPretty,
@@ -154,6 +164,42 @@ def print_startup_banner():
     print(f"  {GOLD}*{RESET} {SAND}Loaded:{RESET} {WHITE}Stereoscopic 3D Generator{RESET}")
     print(f"  {GOLD}*{RESET} {SAND}Loaded:{RESET} {WHITE}Prompt Queue Iterator, Prompt Counter, Text Tools{RESET}")
     print(f"  {GOLD}*{RESET} {SAND}Loaded:{RESET} {WHITE}Queue Pause, Persistent Queue, Local Runner{RESET}")
+    print()
+
+    # System status lines
+    try:
+        if is_tray_icon_enabled() and getattr(tray_manager, "_is_running", False):
+            tray_str = "System tray icon started."
+        elif not is_tray_icon_enabled():
+            tray_str = "System tray icon disabled in settings."
+        else:
+            tray_str = "System tray icon not started."
+    except Exception:
+        tray_str = "System tray icon disabled in settings."
+
+    try:
+        if is_assets_restore_enabled():
+            r_count = getattr(assets_restore_manager, "restored_count", 0)
+            assets_str = f"Restored {r_count} recent image(s) into Assets pane."
+        else:
+            assets_str = "No images restored into Assets pane (disabled in settings)."
+    except Exception:
+        assets_str = "Assets pane restore ready."
+
+    try:
+        if is_persistent_queue_enabled():
+            p_items = getattr(persistent_queue_manager, "persistent_items", [])
+            q_count = len(p_items) if p_items else 0
+            queue_str = f"Loaded {q_count} saved queue item(s)."
+        else:
+            queue_str = "No saved queue items loaded (disabled in settings)."
+    except Exception:
+        queue_str = "Persistent queue manager ready."
+
+    print(f"  {GOLD}*{RESET} {WHITE}{tray_str}{RESET}")
+    print(f"  {GOLD}*{RESET} {WHITE}{assets_str}{RESET}")
+    print(f"  {GOLD}*{RESET} {WHITE}{queue_str}{RESET}")
+    print()
     print(f"{AMBER}Total: {total_str}{RESET}")
     print()
 
