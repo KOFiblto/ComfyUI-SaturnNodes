@@ -86,7 +86,40 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SaturnStereo3D": "🪐 👓 Stereoscopic 3D Generator",
 }
 
-ALL_SATURN_NODE_KEYS = list(NODE_CLASS_MAPPINGS.keys())
+ALL_SATURN_NODE_CLASSES = dict(NODE_CLASS_MAPPINGS)
+ALL_SATURN_NODE_DISPLAY_NAMES = dict(NODE_DISPLAY_NAME_MAPPINGS)
+ALL_SATURN_NODE_KEYS = list(NODE_DISPLAY_NAME_MAPPINGS.keys())
+
+def get_saturn_nodes_info():
+    """Returns sorted node metadata auto-generated from NODE_CLASS_MAPPINGS and NODE_DISPLAY_NAME_MAPPINGS."""
+    import re
+    info_list = []
+    category_order = ["Loaders", "Automation", "Previews", "3D & Previews", "Utils"]
+
+    for key in ALL_SATURN_NODE_KEYS:
+        cls = ALL_SATURN_NODE_CLASSES.get(key)
+        cat = getattr(cls, "CATEGORY", "🪐 SaturnNodes/Utils") if cls else "🪐 SaturnNodes/Utils"
+        subcat = cat.split("/")[-1].strip() if "/" in cat else "Utils"
+        disp = ALL_SATURN_NODE_DISPLAY_NAMES.get(key, key)
+        clean_name = re.sub(r'^[^a-zA-Z0-9\(]+', '', disp).strip()
+        if not clean_name:
+            clean_name = key
+
+        info_list.append({
+            "key": key,
+            "category": subcat,
+            "clean_name": clean_name,
+            "name": f"{subcat} / {clean_name}",
+            "desc": disp
+        })
+
+    def sort_key(item):
+        cat = item["category"]
+        cat_idx = category_order.index(cat) if cat in category_order else 999
+        return (cat_idx, item["name"])
+
+    info_list.sort(key=sort_key)
+    return info_list
 
 def load_disabled_nodes():
     """Loads set of user-disabled SaturnNodes from user settings directory."""
@@ -117,9 +150,18 @@ def save_disabled_nodes(disabled_set):
 # Filter disabled nodes (all enabled by default when disabled_nodes.json is empty)
 _active_disabled_nodes = load_disabled_nodes()
 if _active_disabled_nodes:
+    _alias_map = {
+        "FolderLoraLoaderPretty": "FolderLoraLoaderVisualPrettyV2",
+        "VisualImageLoader": "ImageLoaderVisualPrettyV2",
+        "TextAspectRatioFinder": "AspectRatioFinder",
+        "TextLoraFinder": "LoraTextFinder"
+    }
     for _node_name in _active_disabled_nodes:
         NODE_CLASS_MAPPINGS.pop(_node_name, None)
         NODE_DISPLAY_NAME_MAPPINGS.pop(_node_name, None)
+        _alias = _alias_map.get(_node_name)
+        if _alias:
+            NODE_CLASS_MAPPINGS.pop(_alias, None)
 
 WEB_DIRECTORY = "./web"
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
@@ -151,9 +193,10 @@ def print_startup_banner():
     WHITE = "\033[97m"
     RESET = "\033[0m"
 
-    active_count = len(NODE_CLASS_MAPPINGS)
+    active_count = len(NODE_DISPLAY_NAME_MAPPINGS)
+    total_count = len(ALL_SATURN_NODE_KEYS)
     disabled_count = len(_active_disabled_nodes) if _active_disabled_nodes else 0
-    total_str = f"{active_count} nodes loaded"
+    total_str = f"{active_count}/{total_count} nodes loaded"
     if disabled_count > 0:
         total_str += f" ({disabled_count} disabled in settings)"
 
@@ -206,7 +249,7 @@ def print_startup_banner():
 try:
     print_startup_banner()
 except Exception:
-    print(f"\n[ComfyUI-SaturnNodes] Version: {__version__} - Total: {len(NODE_CLASS_MAPPINGS)} nodes loaded\n")
+    print(f"\n[ComfyUI-SaturnNodes] Version: {__version__} - Total: {len(NODE_DISPLAY_NAME_MAPPINGS)}/{len(ALL_SATURN_NODE_KEYS)} nodes loaded\n")
 
 @routes.get("/saturnnodes/auth/token")
 async def get_csrf_token_endpoint(request):
@@ -472,7 +515,8 @@ async def get_disabled_nodes_endpoint(request):
         return web.json_response({"error": "Forbidden: Local access only"}, status=403)
     return web.json_response({
         "disabled_nodes": sorted(list(load_disabled_nodes())),
-        "all_nodes": ALL_SATURN_NODE_KEYS
+        "all_nodes": ALL_SATURN_NODE_KEYS,
+        "nodes_info": get_saturn_nodes_info()
     })
 
 @routes.post("/saturnnodes/disabled_nodes")

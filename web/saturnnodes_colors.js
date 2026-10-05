@@ -127,20 +127,22 @@ export function updateAllSaturnNodeColors() {
 app.registerExtension({
     name: "ComfyUI.SaturnNodes.Colors",
     beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData && nodeData.name && SATURN_NODE_TYPES.has(nodeData.name)) {
-            if (isSaturnColorsEnabled()) {
-                const theme = getSaturnTheme();
-                nodeType.color = theme.color;
-                nodeType.bgcolor = theme.bgcolor;
-                nodeType.prototype.color = theme.color;
-                nodeType.prototype.bgcolor = theme.bgcolor;
-            } else {
-                nodeType.color = undefined;
-                nodeType.bgcolor = undefined;
-                nodeType.prototype.color = undefined;
-                nodeType.prototype.bgcolor = undefined;
+        try {
+            if (nodeData && nodeData.name && SATURN_NODE_TYPES.has(nodeData.name)) {
+                if (isSaturnColorsEnabled()) {
+                    const theme = getSaturnTheme();
+                    if (nodeType) {
+                        nodeType.color = theme.color;
+                        nodeType.bgcolor = theme.bgcolor;
+                    }
+                } else {
+                    if (nodeType) {
+                        nodeType.color = undefined;
+                        nodeType.bgcolor = undefined;
+                    }
+                }
             }
-        }
+        } catch (_) {}
     },
     async nodeCreated(node) {
         applySaturnColorToNode(node);

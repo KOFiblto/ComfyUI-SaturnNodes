@@ -16,12 +16,16 @@ async function postSaturnNodesSettings(bodyObj) {
 }
 
 let _disabledNodesCache = null;
+let _nodesInfoCache = null;
 async function fetchDisabledNodes() {
     try {
         const res = await authenticatedFetch("/saturnnodes/disabled_nodes");
         if (res && res.ok) {
             const data = await res.json();
             _disabledNodesCache = new Set(data.disabled_nodes || []);
+            if (Array.isArray(data.nodes_info) && data.nodes_info.length > 0) {
+                _nodesInfoCache = data.nodes_info;
+            }
             return _disabledNodesCache;
         }
     } catch (e) {
@@ -1362,41 +1366,60 @@ app.registerExtension({
         // =========================================================================
         // GROUP: 🧩 Node Management
         // =========================================================================
-        fetchDisabledNodes();
+        await fetchDisabledNodes();
 
-        const saturnNodeDefinitions = [
-            { key: "FolderLoraLoader", name: "LoRA Loader (Folder)", desc: "🪐 📁 LoRA Loader (Folder)" },
-            { key: "FolderLoraLoaderPretty", name: "LoRA Loader (Pretty)", desc: "🪐 ✨ LoRA Loader (Pretty)" },
-            { key: "VisualLoraLoader", name: "Visual LoRA Loader", desc: "🪐 🖼️ Visual LoRA Loader" },
-            { key: "VisualImageLoader", name: "Visual Image Loader", desc: "🪐 📷 Visual Image Loader" },
-            { key: "LoadImageFromFolder", name: "Load Image From Folder", desc: "🪐 📂 Load Image From Folder" },
-            { key: "LoadRecentOutputs", name: "Recent Outputs", desc: "🪐 ⏱️ Recent Outputs" },
-            { key: "PreviewLatentLive", name: "Live Latent Preview", desc: "🪐 👁️ Live Latent Preview" },
-            { key: "SaturnDecision", name: "Saturn Decision", desc: "🪐 ⏸️ Saturn Decision" },
-            { key: "TextAspectRatioFinder", name: "Text Aspect Ratio Finder", desc: "🪐 📐 Text Aspect Ratio Finder" },
-            { key: "PreviewImageSizeAspectRatio", name: "Preview Image Size & Aspect Ratio", desc: "🪐 📐 Preview Image Size & Aspect Ratio" },
-            { key: "TextLoraFinder", name: "Text LoRA Finder & Loader", desc: "🪐 🔎 Text LoRA Finder & Loader" },
-            { key: "PromptQueueIterator", name: "Prompt Queue Iterator", desc: "🪐 🔄 Prompt Queue Iterator" },
-            { key: "PromptCounter", name: "Prompt Counter", desc: "🪐 📝 Prompt Counter" },
-            { key: "MultiTextReplacer", name: "Multi Text Replacer", desc: "🪐 🔤 Multi Text Replacer" },
-            { key: "SaturnTextSplit", name: "Text Split", desc: "🪐 ✂️ Text Split" },
-            { key: "RunLocalFileNode", name: "Run Local File", desc: "🪐 ⚡ Run Local File" },
-            { key: "SaturnStereo3D", name: "Stereoscopic 3D Generator", desc: "🪐 👓 Stereoscopic 3D Generator" }
+        const defaultSaturnNodeDefinitions = [
+            // Loaders
+            { key: "FolderLoraLoader", name: "Loaders / LoRA Loader (Folder)", desc: "🪐 📁 LoRA Loader (Folder)" },
+            { key: "FolderLoraLoaderPretty", name: "Loaders / LoRA Loader (Pretty)", desc: "🪐 ✨ LoRA Loader (Pretty)" },
+            { key: "LoadRecentOutputs", name: "Loaders / Recent Outputs", desc: "🪐 ⏱️ Recent Outputs" },
+            { key: "TextLoraFinder", name: "Loaders / Text LoRA Finder & Loader", desc: "🪐 🔎 Text LoRA Finder & Loader" },
+            { key: "VisualImageLoader", name: "Loaders / Visual Image Loader", desc: "🪐 📷 Visual Image Loader" },
+            { key: "VisualLoraLoader", name: "Loaders / Visual LoRA Loader", desc: "🪐 🖼️ Visual LoRA Loader" },
+
+            // Automation
+            { key: "LoadImageFromFolder", name: "Automation / Load Image From Folder", desc: "🪐 📂 Load Image From Folder" },
+            { key: "RunLocalFileNode", name: "Automation / Run Local File", desc: "🪐 ⚡ Run Local File" },
+
+            // Previews
+            { key: "PreviewLatentLive", name: "Previews / Live Latent Preview", desc: "🪐 👁️ Live Latent Preview" },
+
+            // 3D & Previews
+            { key: "SaturnStereo3D", name: "3D & Previews / Stereoscopic 3D Generator", desc: "🪐 👓 Stereoscopic 3D Generator" },
+
+            // Utils
+            { key: "MultiTextReplacer", name: "Utils / Multi Text Replacer", desc: "🪐 🔤 Multi Text Replacer" },
+            { key: "PreviewImageSizeAspectRatio", name: "Utils / Preview Image Size & Aspect Ratio", desc: "🪐 📐 Preview Image Size & Aspect Ratio" },
+            { key: "PromptCounter", name: "Utils / Prompt Counter", desc: "🪐 📝 Prompt Counter" },
+            { key: "PromptQueueIterator", name: "Utils / Prompt Queue Iterator", desc: "🪐 🔄 Prompt Queue Iterator" },
+            { key: "SaturnDecision", name: "Utils / Saturn Decision", desc: "🪐 ⏸️ Saturn Decision" },
+            { key: "TextAspectRatioFinder", name: "Utils / Text Aspect Ratio Finder", desc: "🪐 📐 Text Aspect Ratio Finder" },
+            { key: "SaturnTextSplit", name: "Utils / Text Split", desc: "🪐 ✂️ Text Split" }
         ];
+
+        const saturnNodeDefinitions = (_nodesInfoCache && Array.isArray(_nodesInfoCache) && _nodesInfoCache.length > 0)
+            ? _nodesInfoCache
+            : defaultSaturnNodeDefinitions;
 
         saturnNodeDefinitions.forEach((node, index) => {
             const numStr = String(index + 1).padStart(2, "0");
-            const settingId = `SaturnNodes.🧩 Node Management.${numStr}_Enable_${node.key}`;
+            const settingId = `SaturnNodes.🧩 Node Management.${numStr}_${node.key}`;
+            const legacySettingId = `SaturnNodes.🧩 Node Management.${numStr}_Enable_${node.key}`;
+
+            const isInitialDisabled = _disabledNodesCache ? _disabledNodesCache.has(node.key) : false;
+            const defaultValue = isInitialDisabled ? false : getInitialSetting(settingId, getInitialSetting(legacySettingId, true));
+
             app.ui.settings.addSetting({
                 id: settingId,
-                name: `Enable ${node.name}`,
+                name: node.name,
                 type: "boolean",
-                defaultValue: getInitialSetting(settingId, true),
+                defaultValue: defaultValue,
                 tooltip: `Enables or disables ${node.desc}. When disabled, the node is hidden from the node search menu (requires server restart to take effect).`,
                 onChange(value) {
                     if (typeof localStorage !== "undefined") {
                         try {
                             localStorage.setItem(`Comfy.Settings.${settingId}`, JSON.stringify(Boolean(value)));
+                            localStorage.setItem(`Comfy.Settings.${legacySettingId}`, JSON.stringify(Boolean(value)));
                         } catch (_) {}
                     }
                     updateNodeDisabledState(node.key, Boolean(value));
@@ -1412,25 +1435,44 @@ app.registerExtension({
 
 /**
  * Injects a clean footer linking to GitHub, author profile, and settings reference
- * at the bottom of the SaturnNodes settings panel.
+ * strictly at the bottom of the SaturnNodes settings panel, excluding it from search.
  */
 function setupSettingsFooterObserver() {
-    function injectFooterIfMissing() {
-        const saturnItem = document.querySelector('[data-setting-id^="SaturnNodes.🧩 Node Management"]') ||
-                           document.querySelector('[data-setting-id^="SaturnNodes.11 - 🧩 Node Management"]') ||
-                           document.querySelector('[data-setting-id^="SaturnNodes.🛡️ Security"]') ||
-                           document.querySelector('[data-setting-id^="SaturnNodes.9 - 🛡️ Security"]') ||
-                           document.querySelector('[data-setting-id^="SaturnNodes."]');
-        if (!saturnItem || !saturnItem.parentElement) return;
+    function getSearchTerm() {
+        const dialog = document.querySelector('.p-dialog[role="dialog"]') ||
+                       document.querySelector('.comfy-settings-dialog') ||
+                       document.querySelector('[data-testid="settings-dialog"]');
+        if (!dialog) return "";
+        const searchInput = dialog.querySelector('input[type="search"]') ||
+                            dialog.querySelector('input[placeholder*="Search" i]') ||
+                            dialog.querySelector('input.p-inputtext');
+        return searchInput ? searchInput.value.trim() : "";
+    }
 
-        const container = saturnItem.parentElement;
-        if (container.querySelector(".saturnnodes-settings-footer")) return;
+    function isSaturnCategoryActive() {
+        const dialog = document.querySelector('.p-dialog[role="dialog"]') ||
+                       document.querySelector('.comfy-settings-dialog');
+        if (!dialog) return false;
+
+        const activeNav = dialog.querySelector('.p-tabmenu-item.p-highlight') ||
+                          dialog.querySelector('.nav-item.active') ||
+                          dialog.querySelector('[aria-selected="true"]');
+        if (activeNav && !activeNav.textContent.includes("SaturnNodes")) {
+            return false;
+        }
+
+        const saturnItems = dialog.querySelectorAll('[data-setting-id^="SaturnNodes."]');
+        return saturnItems.length > 0;
+    }
+
+    function createSettingsFooter() {
+        const githubSvg = `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="display:inline-block; vertical-align:text-bottom; margin-right:4px;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>`;
 
         const footer = document.createElement("div");
         footer.className = "saturnnodes-settings-footer";
         footer.style.cssText = `
-            margin-top: 48px !important;
-            padding: 20px 10px 10px;
+            margin-top: 40px !important;
+            padding: 20px 10px 12px;
             border-top: 1px solid rgba(255, 255, 255, 0.12);
             display: flex;
             align-items: center;
@@ -1442,8 +1484,6 @@ function setupSettingsFooterObserver() {
             width: 100%;
             box-sizing: border-box;
         `;
-
-        const githubSvg = `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="display:inline-block; vertical-align:text-bottom; margin-right:4px;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>`;
 
         footer.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px;">
@@ -1463,15 +1503,51 @@ function setupSettingsFooterObserver() {
                 </a>
             </div>
         `;
-        container.appendChild(footer);
+        return footer;
+    }
+
+    function updateFooter() {
+        const dialog = document.querySelector('.p-dialog[role="dialog"]') ||
+                       document.querySelector('.comfy-settings-dialog');
+        const existingFooter = document.querySelector(".saturnnodes-settings-footer");
+
+        if (!dialog) {
+            if (existingFooter) existingFooter.remove();
+            return;
+        }
+
+        const searchTerm = getSearchTerm();
+        if (searchTerm.length > 0 || !isSaturnCategoryActive()) {
+            if (existingFooter) existingFooter.remove();
+            return;
+        }
+
+        const saturnItems = dialog.querySelectorAll('[data-setting-id^="SaturnNodes."]');
+        if (!saturnItems || saturnItems.length === 0) {
+            if (existingFooter) existingFooter.remove();
+            return;
+        }
+
+        const lastItem = saturnItems[saturnItems.length - 1];
+        const lastGroup = lastItem.closest('.setting-group') || lastItem.parentElement;
+        if (!lastGroup) return;
+
+        let footer = existingFooter;
+        if (!footer) {
+            footer = createSettingsFooter();
+        }
+
+        if (lastGroup.lastElementChild !== footer) {
+            lastGroup.appendChild(footer);
+        }
     }
 
     try {
         const observer = new MutationObserver(() => {
-            injectFooterIfMissing();
+            updateFooter();
         });
         observer.observe(document.body, { childList: true, subtree: true });
     } catch (_) {}
 
-    setInterval(injectFooterIfMissing, 1000);
+    setInterval(updateFooter, 500);
 }
