@@ -989,7 +989,7 @@ app.registerExtension({
             name: "Floating Dock Max Width",
             type: "combo",
             options: ["120px", "160px", "200px", "240px", "280px", "320px", "360px", "420px", "480px", "600px"],
-            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", getInitialSetting("SaturnNodes.👁️ Live Preview.02_FloatingDockSize", "280px")),
+            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", "280px"),
             tooltip: "Maximum width limit for the floating live preview dock. The dock automatically matches the exact latent aspect ratio without distortion.",
             onChange(value) {
                 if (typeof localStorage !== "undefined") {
@@ -1006,7 +1006,7 @@ app.registerExtension({
             name: "Floating Dock Max Height",
             type: "combo",
             options: ["120px", "160px", "200px", "240px", "280px", "320px", "360px", "420px", "480px", "600px"],
-            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", getInitialSetting("SaturnNodes.👁️ Live Preview.02_FloatingDockSize", "280px")),
+            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", "280px"),
             tooltip: "Maximum height limit for the floating live preview dock. The dock automatically matches the exact latent aspect ratio without distortion.",
             onChange(value) {
                 if (typeof localStorage !== "undefined") {
@@ -1208,6 +1208,57 @@ app.registerExtension({
             tooltip: "Enables server restart and shutdown actions from the SaturnNodes power controls. Disabled by default for security.",
             onChange(value) {
                 postSaturnNodesSettings({ enable_process_management: value ? "true" : "false" });
+            }
+        });
+
+        // 4.8 Visible Queue Items (Height Limit)
+        const applyQueueOverlayHeight = (val) => {
+            let style = document.getElementById("saturn-queue-overlay-height");
+            if (!val || val === "Native") {
+                if (style) style.remove();
+                return;
+            }
+
+            let px = 360;
+            const match = String(val).match(/(\d+)px/);
+            if (match) {
+                px = parseInt(match[1], 10);
+            }
+
+            if (!style) {
+                style = document.createElement("style");
+                style.id = "saturn-queue-overlay-height";
+                document.head.appendChild(style);
+            }
+
+            style.textContent = `
+                [data-testid="queue-progress-overlay"] {
+                    max-height: ${px}px !important;
+                }
+                .comfy-list {
+                    max-height: ${px}px !important;
+                    overflow-y: auto !important;
+                }
+            `;
+        };
+
+        const initialQueueHeight = getInitialSetting("SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", "Native");
+        applyQueueOverlayHeight(initialQueueHeight);
+
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight",
+            name: "Visible Queue Items (Height)",
+            type: "combo",
+            options: ["Native", "5 Items (~220px)", "8 Items (~300px)", "10 Items (~360px)", "12 Items (~430px)", "15 Items (~520px)", "250px", "350px", "450px", "550px"],
+            defaultValue: initialQueueHeight,
+            tooltip: "Limits the visible height of the queue overlay panel so it only displays a compact number of items (e.g. 10 items) at once with a scrollbar, preventing it from extending down the screen. 'Native' leaves ComfyUI default height.",
+            onChange(value) {
+                if (typeof localStorage !== "undefined") {
+                    try {
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", JSON.stringify(value));
+                    } catch (_) {}
+                }
+                applyQueueOverlayHeight(value);
             }
         });
 
@@ -1449,22 +1500,6 @@ function setupSettingsFooterObserver() {
         return searchInput ? searchInput.value.trim() : "";
     }
 
-    function isSaturnCategoryActive() {
-        const dialog = document.querySelector('.p-dialog[role="dialog"]') ||
-                       document.querySelector('.comfy-settings-dialog');
-        if (!dialog) return false;
-
-        const activeNav = dialog.querySelector('.p-tabmenu-item.p-highlight') ||
-                          dialog.querySelector('.nav-item.active') ||
-                          dialog.querySelector('[aria-selected="true"]');
-        if (activeNav && !activeNav.textContent.includes("SaturnNodes")) {
-            return false;
-        }
-
-        const saturnItems = dialog.querySelectorAll('[data-setting-id^="SaturnNodes."]');
-        return saturnItems.length > 0;
-    }
-
     function createSettingsFooter() {
         const githubSvg = `<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="display:inline-block; vertical-align:text-bottom; margin-right:4px;"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>`;
 
@@ -1489,7 +1524,7 @@ function setupSettingsFooterObserver() {
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 16px;">🪐</span>
                 <span style="font-weight: 600; color: #e4e4e7;">ComfyUI-SaturnNodes</span>
-                <span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(180, 140, 95, 0.18); color: #decbb2; border: 1px solid rgba(180, 140, 95, 0.35);">v2.5.0 (dev)</span>
+                <span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(180, 140, 95, 0.18); color: #decbb2; border: 1px solid rgba(180, 140, 95, 0.35);">v2.5.0</span>
             </div>
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <a href="https://github.com/KOFiblto/ComfyUI-SaturnNodes" target="_blank" rel="noopener noreferrer" style="color: #decbb2; text-decoration: underline; text-decoration-color: rgba(222, 203, 178, 0.4); text-underline-offset: 3px; font-weight: 500; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); transition: all 0.2s ease;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(255,255,255,0.12)'; this.style.borderColor='rgba(255,255,255,0.25)';" onmouseout="this.style.color='#decbb2'; this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='rgba(255,255,255,0.12)';">
@@ -1517,19 +1552,32 @@ function setupSettingsFooterObserver() {
         }
 
         const searchTerm = getSearchTerm();
-        if (searchTerm.length > 0 || !isSaturnCategoryActive()) {
+        // Hide footer immediately when searching so it doesn't pollute search results
+        if (searchTerm.length > 0) {
             if (existingFooter) existingFooter.remove();
             return;
         }
 
-        const saturnItems = dialog.querySelectorAll('[data-setting-id^="SaturnNodes."]');
-        if (!saturnItems || saturnItems.length === 0) {
+        // Find all setting groups in the dialog
+        const allGroups = Array.from(dialog.querySelectorAll('.setting-group'));
+        const saturnGroups = allGroups.filter(g => g.querySelector('[data-setting-id^="SaturnNodes."]'));
+
+        // If no SaturnNodes groups are rendered in the DOM, remove footer
+        if (saturnGroups.length === 0) {
             if (existingFooter) existingFooter.remove();
             return;
         }
 
-        const lastItem = saturnItems[saturnItems.length - 1];
-        const lastGroup = lastItem.closest('.setting-group') || lastItem.parentElement;
+        // Check if other category groups exist (e.g. Comfy core settings)
+        const otherGroups = allGroups.filter(g => g.querySelector('[data-setting-id]:not([data-setting-id^="SaturnNodes."])'));
+        // If other non-Saturn groups outnumber Saturn groups, user navigated to another category
+        if (otherGroups.length > 0 && otherGroups.length > saturnGroups.length) {
+            if (existingFooter) existingFooter.remove();
+            return;
+        }
+
+        // We are on SaturnNodes page! Locate the last SaturnNodes setting group
+        const lastGroup = saturnGroups[saturnGroups.length - 1];
         if (!lastGroup) return;
 
         let footer = existingFooter;
@@ -1537,8 +1585,9 @@ function setupSettingsFooterObserver() {
             footer = createSettingsFooter();
         }
 
-        if (lastGroup.lastElementChild !== footer) {
-            lastGroup.appendChild(footer);
+        // Append footer directly after the last SaturnNodes group
+        if (lastGroup.parentElement && lastGroup.nextElementSibling !== footer) {
+            lastGroup.after(footer);
         }
     }
 

@@ -62,15 +62,13 @@ class FloatingLatentDock {
     }
 
     getMaxWidth() {
-        const val = this.getSetting("SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", null) ||
-                    this.getSetting("SaturnNodes.👁️ Live Preview.02_FloatingDockSize", "280px");
+        const val = this.getSetting("SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", "280px");
         const parsed = parseInt(String(val), 10);
         return isNaN(parsed) || parsed < 50 ? 280 : parsed;
     }
 
     getMaxHeight() {
-        const val = this.getSetting("SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", null) ||
-                    this.getSetting("SaturnNodes.👁️ Live Preview.02_FloatingDockSize", "280px");
+        const val = this.getSetting("SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", "280px");
         const parsed = parseInt(String(val), 10);
         return isNaN(parsed) || parsed < 50 ? 280 : parsed;
     }
@@ -469,10 +467,24 @@ class FloatingLatentDock {
             minimap.getBoundingClientRect().height > 20
         );
 
-        // 2. Detect Toolbar (Bottom-Right Island)
-        const toolbar = document.querySelector(
-            '[role="toolbar"][aria-label*="canvasToolbar" i], [role="toolbar"], .graph-canvas-menu, .canvas-toolbar'
-        );
+        // 2. Detect Bottom-Right Canvas Toolbar specifically
+        let toolbar = null;
+        if (this.btnEl && this.btnEl.isConnected && this.btnEl.parentElement) {
+            toolbar = this.btnEl.parentElement;
+        } else {
+            // Find toolbar located in the bottom portion of viewport
+            const candidates = document.querySelectorAll(
+                '[role="toolbar"][aria-label*="canvasToolbar" i], [role="toolbar"][aria-label*="Canvas Toolbar" i], [role="toolbar"], .graph-canvas-menu, .canvas-toolbar'
+            );
+            for (const cand of candidates) {
+                const r = cand.getBoundingClientRect();
+                // Strictly bottom half of viewport (never top menu)
+                if (r.top > window.innerHeight / 2 && r.height > 10) {
+                    toolbar = cand;
+                    break;
+                }
+            }
+        }
 
         let bottomGap = 54; // clean fallback above bottom edge
 
@@ -484,11 +496,15 @@ class FloatingLatentDock {
             }
         } else if (toolbar) {
             const tRect = toolbar.getBoundingClientRect();
-            if (tRect.top > 0 && tRect.top < window.innerHeight) {
-                // Place dock flush 8px above the top of the toolbar
+            // Ensure toolbar is actually in the bottom half of viewport
+            if (tRect.top > window.innerHeight / 2 && tRect.top < window.innerHeight) {
+                // Place dock flush 8px above the top of the bottom toolbar
                 bottomGap = Math.round(window.innerHeight - tRect.top + 8);
             }
         }
+
+        // Safety clamp: bottomGap must never push dock beyond upper half of screen
+        bottomGap = Math.max(54, Math.min(bottomGap, Math.round(window.innerHeight * 0.75)));
 
         this.dockEl.style.bottom = `${bottomGap}px`;
         this.dockEl.style.right = "8px";

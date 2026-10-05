@@ -242,7 +242,6 @@ def print_startup_banner():
     print(f"  {GOLD}*{RESET} {WHITE}{tray_str}{RESET}")
     print(f"  {GOLD}*{RESET} {WHITE}{assets_str}{RESET}")
     print(f"  {GOLD}*{RESET} {WHITE}{queue_str}{RESET}")
-    print()
     print(f"{AMBER}Total: {total_str}{RESET}")
     print()
 
