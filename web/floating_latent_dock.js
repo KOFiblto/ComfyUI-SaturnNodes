@@ -30,6 +30,13 @@ class FloatingLatentDock {
         this.isGenerating = false;
         this.latestSamplerId = null;
 
+        // Inspecting Lightbox state (matching ComfyUI core MediaLightbox)
+        this.lightboxEl = null;
+        this.lightboxImg = null;
+        this.lightboxBadge = null;
+        this.lightboxPrevActive = null;
+        this._lightboxKeyDown = null;
+
         this.init();
     }
 
@@ -174,7 +181,7 @@ class FloatingLatentDock {
                 border: 1px solid rgba(245, 158, 11, 0.45);
             }
 
-            .saturn-dock-close-btn {
+            .saturn-dock-btn {
                 pointer-events: auto;
                 background: rgba(0, 0, 0, 0.5);
                 border: 1px solid rgba(255, 255, 255, 0.15);
@@ -187,6 +194,11 @@ class FloatingLatentDock {
                 justify-content: center;
                 flex-shrink: 0;
                 transition: color 0.15s, background 0.15s;
+            }
+
+            .saturn-dock-inspect-btn:hover {
+                color: #38bdf8;
+                background: rgba(56, 189, 248, 0.25);
             }
 
             .saturn-dock-close-btn:hover {
@@ -213,6 +225,12 @@ class FloatingLatentDock {
                 object-fit: contain;
                 image-rendering: -webkit-optimize-contrast;
                 image-rendering: crisp-edges;
+                cursor: pointer;
+                transition: filter 0.15s ease;
+            }
+
+            .saturn-dock-canvas:hover {
+                filter: brightness(1.08);
             }
 
             .saturn-dock-placeholder {
@@ -228,6 +246,16 @@ class FloatingLatentDock {
                 text-align: center;
                 width: 160px;
                 height: 110px;
+                cursor: pointer;
+            }
+
+            @keyframes saturn-lightbox-fade-in {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+
+            #saturn-latent-lightbox {
+                animation: saturn-lightbox-fade-in 0.15s ease-out;
             }
 
             /* Toolbar button active highlight */
@@ -277,8 +305,29 @@ class FloatingLatentDock {
         titleGroup.appendChild(titleText);
         titleGroup.appendChild(this.aspectBadge);
 
+        const actionsGroup = document.createElement("div");
+        actionsGroup.className = "saturn-dock-actions-group";
+        actionsGroup.style.cssText = "display: flex; align-items: center; gap: 4px; pointer-events: auto;";
+
+        const inspectBtn = document.createElement("button");
+        inspectBtn.className = "saturn-dock-inspect-btn saturn-dock-btn";
+        inspectBtn.title = "Inspect Latent in Lightbox";
+        inspectBtn.type = "button";
+        inspectBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <line x1="11" y1="8" x2="11" y2="14"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+            </svg>
+        `;
+        inspectBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.openLightbox();
+        };
+
         const closeBtn = document.createElement("button");
-        closeBtn.className = "saturn-dock-close-btn";
+        closeBtn.className = "saturn-dock-close-btn saturn-dock-btn";
         closeBtn.title = "Hide Floating Latent Dock";
         closeBtn.type = "button";
         closeBtn.innerHTML = `
@@ -291,8 +340,11 @@ class FloatingLatentDock {
             this.saveVisibility(false);
         };
 
+        actionsGroup.appendChild(inspectBtn);
+        actionsGroup.appendChild(closeBtn);
+
         header.appendChild(titleGroup);
-        header.appendChild(closeBtn);
+        header.appendChild(actionsGroup);
 
         // Body with canvas
         const body = document.createElement("div");
@@ -301,9 +353,19 @@ class FloatingLatentDock {
         this.canvasEl = document.createElement("canvas");
         this.canvasEl.className = "saturn-dock-canvas";
         this.canvasEl.style.display = "none";
+        this.canvasEl.title = "Click to inspect in Lightbox";
+        this.canvasEl.onclick = (e) => {
+            e.stopPropagation();
+            this.openLightbox();
+        };
 
         this.placeholderEl = document.createElement("div");
         this.placeholderEl.className = "saturn-dock-placeholder";
+        this.placeholderEl.title = "Click to inspect in Lightbox";
+        this.placeholderEl.onclick = (e) => {
+            e.stopPropagation();
+            this.openLightbox();
+        };
         this.placeholderEl.innerHTML = `
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;">
                 <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
@@ -322,6 +384,221 @@ class FloatingLatentDock {
         document.body.appendChild(this.dockEl);
         this.updateVisibility();
         this.updatePosition();
+    }
+
+    openLightbox() {
+        if (this.lightboxEl) {
+            this.updateLightbox();
+            return;
+        }
+
+        const prevActive = document.activeElement;
+
+        // Container matching ComfyUI core MediaLightbox dialog:
+        // role="dialog" aria-modal="true" aria-label="Gallery" data-mask tabindex="-1"
+        const overlay = document.createElement("div");
+        overlay.id = "saturn-latent-lightbox";
+        overlay.setAttribute("role", "dialog");
+        overlay.setAttribute("aria-modal", "true");
+        overlay.setAttribute("aria-label", "Gallery");
+        overlay.setAttribute("data-mask", "");
+        overlay.setAttribute("tabindex", "-1");
+        overlay.className = "comfy-media-lightbox fixed inset-0 z-9999 flex items-center justify-center bg-black/90 outline-none select-none";
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.9);
+            outline: none;
+            user-select: none;
+        `;
+
+        // Close button: ComfyUI round icon button
+        const closeBtn = document.createElement("button");
+        closeBtn.type = "button";
+        closeBtn.setAttribute("aria-label", "Close");
+        closeBtn.title = "Close Lightbox (Esc)";
+        closeBtn.className = "absolute top-4 right-4 z-10 rounded-full cursor-pointer";
+        closeBtn.style.cssText = `
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 10;
+            width: 36px;
+            height: 36px;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.12);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s ease, transform 0.15s ease;
+        `;
+        closeBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+        `;
+        closeBtn.onmouseenter = () => {
+            closeBtn.style.background = "rgba(255, 255, 255, 0.25)";
+            closeBtn.style.transform = "scale(1.05)";
+        };
+        closeBtn.onmouseleave = () => {
+            closeBtn.style.background = "rgba(255, 255, 255, 0.12)";
+            closeBtn.style.transform = "scale(1)";
+        };
+        closeBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.closeLightbox();
+        };
+
+        // Center Image Wrapper
+        const imgWrap = document.createElement("div");
+        imgWrap.className = "relative flex max-h-[90vh] max-w-[90vw] items-center justify-center";
+        imgWrap.style.cssText = `
+            position: relative;
+            display: flex;
+            max-height: 90vh;
+            max-width: 90vw;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        `;
+
+        const lightboxImg = document.createElement("img");
+        lightboxImg.className = "size-auto max-h-[90vh] max-w-[90vw] object-contain shadow-2xl rounded-sm pointer-events-auto";
+        lightboxImg.alt = "Live Latent Preview";
+        lightboxImg.style.cssText = `
+            max-height: 90vh;
+            max-width: 90vw;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border-radius: 4px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8);
+            pointer-events: auto;
+        `;
+
+        // Dimensions / Status badge at bottom center matching ComfyUI pill style
+        const badge = document.createElement("div");
+        badge.className = "absolute bottom-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full text-xs font-mono text-zinc-300 bg-black/60 border border-white/10 backdrop-blur-sm pointer-events-none";
+        badge.style.cssText = `
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            color: #d4d4d8;
+            background: rgba(0, 0, 0, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(8px);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        `;
+
+        imgWrap.appendChild(lightboxImg);
+        overlay.appendChild(closeBtn);
+        overlay.appendChild(imgWrap);
+        overlay.appendChild(badge);
+
+        this.lightboxEl = overlay;
+        this.lightboxImg = lightboxImg;
+        this.lightboxBadge = badge;
+        this.lightboxPrevActive = prevActive;
+
+        // Mask mousedown/mouseup logic (exact ComfyUI core MediaLightbox behavior)
+        let maskTarget = null;
+        overlay.onmousedown = (e) => {
+            maskTarget = e.target;
+        };
+        overlay.onmouseup = (e) => {
+            if (maskTarget === e.target && e.target.hasAttribute("data-mask")) {
+                this.closeLightbox();
+            }
+        };
+
+        // Keydown listener for Escape
+        this._lightboxKeyDown = (e) => {
+            if (e.key === "Escape") {
+                e.preventDefault();
+                e.stopPropagation();
+                this.closeLightbox();
+            }
+        };
+        window.addEventListener("keydown", this._lightboxKeyDown, true);
+
+        document.body.appendChild(overlay);
+        overlay.focus();
+
+        this.updateLightbox();
+    }
+
+    updateLightbox() {
+        if (!this.lightboxEl || !this.lightboxImg) return;
+
+        const img = this.currentImg || PreviewManager.latestImage;
+        let nw = 0;
+        let nh = 0;
+
+        if (img && (img.src || img.naturalWidth)) {
+            if (this.lightboxImg.src !== img.src) {
+                this.lightboxImg.src = img.src;
+            }
+            nw = img.naturalWidth || img.width || 0;
+            nh = img.naturalHeight || img.height || 0;
+            this.lightboxImg.style.display = "block";
+        } else if (this.canvasEl && this.canvasEl.width > 0) {
+            try {
+                const dataUrl = this.canvasEl.toDataURL("image/png");
+                if (this.lightboxImg.src !== dataUrl) {
+                    this.lightboxImg.src = dataUrl;
+                }
+                nw = this.canvasEl.width;
+                nh = this.canvasEl.height;
+                this.lightboxImg.style.display = "block";
+            } catch (_) {}
+        } else {
+            this.lightboxImg.style.display = "none";
+        }
+
+        if (this.lightboxBadge) {
+            const statusText = this.isGenerating ? "● Sampling" : "● Live Latent";
+            const dimsText = (nw && nh) ? `${nw}×${nh}` : "";
+            this.lightboxBadge.innerHTML = `
+                <span style="color: ${this.isGenerating ? '#f59e0b' : '#10b981'}; font-weight: 600;">${statusText}</span>
+                ${dimsText ? `<span style="opacity: 0.5;">|</span><span>${dimsText}</span>` : ""}
+            `;
+        }
+    }
+
+    closeLightbox() {
+        if (this._lightboxKeyDown) {
+            window.removeEventListener("keydown", this._lightboxKeyDown, true);
+            this._lightboxKeyDown = null;
+        }
+        if (this.lightboxEl) {
+            this.lightboxEl.remove();
+            this.lightboxEl = null;
+            this.lightboxImg = null;
+            this.lightboxBadge = null;
+        }
+        if (this.lightboxPrevActive && typeof this.lightboxPrevActive.focus === "function") {
+            try {
+                this.lightboxPrevActive.focus();
+            } catch (_) {}
+            this.lightboxPrevActive = null;
+        }
     }
 
     registerWithPreviewManager() {
@@ -349,21 +626,34 @@ class FloatingLatentDock {
             if (this.getSetting("SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", false) && this.isVisible) {
                 this.dockEl?.classList.remove("saturn-dock-hidden");
             }
+            if (this.lightboxEl) {
+                this.updateLightbox();
+            }
         });
+
+        const handleExecutionEnd = () => {
+            this.isGenerating = false;
+            if (this.statusBadge) {
+                this.statusBadge.textContent = "Done";
+                this.statusBadge.classList.remove("generating");
+            }
+            if (this.getSetting("SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", false)) {
+                this.dockEl?.classList.add("saturn-dock-hidden");
+            }
+            if (this.lightboxEl) {
+                this.updateLightbox();
+            }
+        };
 
         api.addEventListener("status", (e) => {
             const queueRemaining = e.detail?.exec_info?.queue_remaining ?? 0;
             if (queueRemaining === 0) {
-                this.isGenerating = false;
-                if (this.statusBadge) {
-                    this.statusBadge.textContent = "Done";
-                    this.statusBadge.classList.remove("generating");
-                }
-                if (this.getSetting("SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", false)) {
-                    this.dockEl?.classList.add("saturn-dock-hidden");
-                }
+                handleExecutionEnd();
             }
         });
+
+        api.addEventListener("execution_interrupted", handleExecutionEnd);
+        api.addEventListener("execution_error", handleExecutionEnd);
     }
 
     onNewPreview(img, samplerId) {
@@ -416,6 +706,10 @@ class FloatingLatentDock {
             ctx.imageSmoothingEnabled = true;
             ctx.imageSmoothingQuality = "high";
             ctx.drawImage(img, 0, 0, nw, nh);
+        }
+
+        if (this.lightboxEl) {
+            this.updateLightbox();
         }
 
         this.requestPositionUpdate();
