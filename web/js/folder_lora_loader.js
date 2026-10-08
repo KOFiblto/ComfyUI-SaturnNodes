@@ -584,6 +584,22 @@ app.registerExtension({
                     const data = await response.json();
 
                     viewContainer.innerHTML = "";
+                    if (viewContainer._tileObserver) {
+                        try { viewContainer._tileObserver.disconnect(); } catch (_) {}
+                    }
+                    const tileObserver = new IntersectionObserver((entries, observer) => {
+                        entries.forEach(entry => {
+                            if (entry.isIntersecting) {
+                                const img = entry.target;
+                                if (img.dataset.src) {
+                                    img.src = img.dataset.src;
+                                    img.removeAttribute("data-src");
+                                }
+                                observer.unobserve(img);
+                            }
+                        });
+                    }, { root: viewContainer, rootMargin: "150px" });
+                    viewContainer._tileObserver = tileObserver;
 
                     // Calculate Top 3 Ranks by versionless pretty name
                     const getTop3Ranks = () => {
@@ -690,7 +706,9 @@ app.registerExtension({
 
                         const img = document.createElement("img");
                         img.loading = "lazy";
-                        img.src = `/folder_lora_loader/get_preview?lora=${encodeURIComponent(loraName)}&folder=${encodeURIComponent(folder)}&pretty=true&size=200`;
+                        const bypassThumbs = app.ui.settings?.getSettingValue?.("SaturnNodes.🖼️ Visual Loaders.07_BypassThumbnailDownscaling", false);
+                        img.dataset.src = `/folder_lora_loader/get_preview?lora=${encodeURIComponent(loraName)}&folder=${encodeURIComponent(folder)}&pretty=true` + (bypassThumbs ? "&full=true" : "&size=200");
+                        tileObserver.observe(img);
                         
                         img.onerror = () => {
                             img.remove();
@@ -1497,7 +1515,8 @@ app.registerExtension({
 
                             const img = document.createElement("img");
                             img.loading = "lazy";
-                            img.dataset.src = `/folder_lora_loader/get_preview?system_path=${encodeURIComponent(item.systemPath)}&size=200`;
+                            const bypassThumbs = app.ui.settings?.getSettingValue?.("SaturnNodes.🖼️ Visual Loaders.07_BypassThumbnailDownscaling", false);
+                            img.dataset.src = `/folder_lora_loader/get_preview?system_path=${encodeURIComponent(item.systemPath)}` + (bypassThumbs ? "&full=true" : "&size=200");
                             imageObserver.observe(img);
                             
                             img.onerror = () => {

@@ -953,6 +953,22 @@ app.registerExtension({
             }
         });
 
+        // 1.7 Bypass Thumbnail Downscaling (default: false)
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.🖼️ Visual Loaders.07_BypassThumbnailDownscaling",
+            name: "Disable Thumbnail Downscaling (Serve Raw)",
+            type: "boolean",
+            defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.07_BypassThumbnailDownscaling", false),
+            tooltip: "When enabled, serves full-resolution original preview images directly without generating downscaled WebP thumbnails. Default is disabled (downscaled WebP thumbnails enabled for faster UI rendering).",
+            onChange(value) {
+                if (typeof localStorage !== "undefined") {
+                    try {
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.🖼️ Visual Loaders.07_BypassThumbnailDownscaling", JSON.stringify(Boolean(value)));
+                    } catch (_) {}
+                }
+            }
+        });
+
         // =========================================================================
         // GROUP: 👁️ Live Preview
         // =========================================================================

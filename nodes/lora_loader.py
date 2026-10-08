@@ -4,6 +4,7 @@ import fnmatch
 import json
 import time
 import hashlib
+import asyncio
 import folder_paths
 import urllib.request
 import urllib.parse
@@ -418,9 +419,12 @@ def get_or_create_thumbnail(img_path, max_size=256):
             else:
                 img = img.convert("RGB")
 
-            img.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+            # BICUBIC produces crisp, smooth, high-quality thumbnails from 4K/6MP sources
+            # while executing significantly faster than LANCZOS to avoid CPU contention.
+            img.thumbnail((max_size, max_size), Image.Resampling.BICUBIC)
             temp_path = thumb_path + ".tmp"
-            img.save(temp_path, format="WEBP", quality=82, method=4)
+            # method=1 gives high quality WebP at ~10x the speed of method=4, eliminating CPU spikes
+            img.save(temp_path, format="WEBP", quality=85, method=1)
             os.replace(temp_path, thumb_path)
             return thumb_path
     except Exception:
@@ -450,7 +454,7 @@ async def get_preview_endpoint(request):
                 thumb_size = max(64, min(1024, thumb_size))
             except Exception:
                 thumb_size = 256
-            serve_path = get_or_create_thumbnail(img_path, max_size=thumb_size)
+            serve_path = await asyncio.to_thread(get_or_create_thumbnail, img_path, max_size=thumb_size)
             return web.FileResponse(serve_path)
 
     return web.Response(status=404)
