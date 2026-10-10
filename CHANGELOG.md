@@ -5,22 +5,37 @@ All notable changes to `ComfyUI-SaturnNodes` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.5.0] - In Development
+## [2.5.0] - 2026-10-10 [Stable]
 
 ### Added
+- **Floating Latent Live Preview Dock & Core Lightbox Live Inspection**:
+  - Floating live latent preview dock with dynamic aspect ratio preservation and contain-scaling, eliminating letterbox bars and layout jitter.
+  - Minimap tracking and alignment alongside canvas navigation controls.
+  - **Native Core Lightbox Live Inspecting View**: Clicking the floating latent dock opens the live generation directly in ComfyUI's native inspecting lightbox view, updating live in real time as each diffusion sampling step arrives.
+  - Minimalist design: removed redundant "Sampling..." badge overlays for distraction-free monitoring.
+- **High-Performance LoRA Loader Engine & Viewport WebP Lazy-Loading**:
+  - **Disk-Cached WebP Generation**: High-resolution preview images are downscaled via bicubic fast-WebP encoding and cached in `ComfyUI/user/default/SaturnNodes/cache/lora_thumbs/` (~35KB per card).
+  - **Non-Blocking Background Worker**: Thumbnail processing runs asynchronously on worker threads with `threading.Event`, eliminating canvas UI thread lockups during heavy directory indexing.
+  - **Viewport IntersectionObserver**: Implemented native `IntersectionObserver` on visual LoRA cards so thumbnails only load as they scroll into view.
+  - Added an explicit settings toggle to bypass thumbnail generation if desired.
 - **Stereoscopic 3D / Cross-Eye Generator (`SaturnStereo3D`)**:
-  - Convert any 2D image into stereoscopic 3D pairs for cross-eye viewing, parallel viewers, VR/3D displays, and red-cyan anaglyphs.
-  - Hybrid depth execution: accepts any input `depth_map` (zero downloads, 1ms execution) or automatically falls back to built-in Depth Anything V2 Small ONNX model cached locally.
-  - Complete Stereonix-inspired controls: `depth_intensity`, `depth_gamma`, `invert_depth`, `convergence_plane`, `image_zoom`, `pan_horizontal`, `pan_vertical`.
-  - Spacing and framing controls: adjustable `gap_spacing` and `outer_border` padding for comfortable viewing on monitors of any aspect ratio.
-  - Focus guidance: optional high-contrast `alignment_dots` above panels to facilitate locking cross-eyed 3D vision.
-  - Interactive UI: on-node canvas preview with `preview_zoom` scaling and quick mode-swap buttons.
+  - Transform 2D images into stereoscopic 3D pairs for cross-eye viewing, parallel 3D viewers, VR displays, and red-cyan anaglyphs.
+  - Hybrid depth execution: accepts any input `depth_map` (zero downloads, 1ms execution) or automatically falls back to built-in Depth Anything V2 Small ONNX model cached locally, with mathematical gradient fallback when ONNX is absent.
+  - Stereonix-inspired controls: `depth_intensity`, `depth_gamma`, `invert_depth`, `convergence_plane`, `image_zoom`, `pan_horizontal`, `pan_vertical`.
+  - Framing and focus controls: adjustable `gap_spacing`, `outer_border` padding, and high-contrast `alignment_dots`.
 - **Stereoscopic 3D Live Viewer (`SaturnStereo3DLive`)**:
-  - Interactive live 3D viewer node featuring a real-time **1s countdown timer** on control and slider changes.
-  - **Mid-Render Interruption**: Adjusting sliders while rendering is in progress immediately aborts active execution via `/interrupt` and restarts the 1s countdown, keeping the system lightweight and responsive.
+  - Interactive live viewer node featuring a real-time **1s countdown timer** on parameter adjustment.
+  - **Mid-Render Interruption**: Modifying sliders during generation immediately sends `/interrupt` to abort obsolete rendering and restarts the 1s countdown.
   - **In-Memory Depth Map Caching**: Cached depth predictions allow near-instant (~5ms) re-rendering when tweaking intensity, gamma, zoom, pan, and spacing on the same input image.
-  - Native ComfyUI inspect compatibility: clean integration with ComfyUI's native Asset Inspection and Lightbox without custom modal interference.
-  - Standard downstream `IMAGE` tensor output for saving or further processing.
+- **Queue Execution Controls & Mid-Generation Pause**:
+  - Added execution interception hook allowing the queue to pause before popping the next item from the queue.
+  - Restored queue prompt `create_time` timestamps are refreshed upon restart to prevent deprioritization in history.
+- **Modernized Continuous Sliders Settings UI**:
+  - Converted `Visible Queue Items (Height)` and `Live Latent Dock Size` from rigid dropdowns into smooth continuous sliders.
+  - Cleaned settings categories and isolated context menus to prevent bleeding into top PrimeVue application menubars.
+- **CLI Terminal Branding & Clean Telemetry**:
+  - Clean unified startup banner styled in Saturn amber theme.
+  - Cleaned noisy internal debug logging, displaying concise status lines for node count, persistence status, and storage paths.
 
 ### Fixed
 - **Persistent Queue Restored Creation Timestamp**:
@@ -29,6 +44,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed an issue where sliding widgets on `SaturnStereo3DLive` set them to `NaN` or `0` due to arrow-function callback scoping, preventing "wrong type" and "missing connection" validation errors.
 - **Top Application Menubar Injection**:
   - Fixed an issue where "Copy prompt" appeared in the main application menu (between File and Edit) on PrimeVue Frontend V2 by strictly excluding `.comfy-command-menu`, `.comfy-menu`, `.p-menubar`, and top-level menuitems.
+- **CI & Environment Resilience**:
+  - Replaced OpenCV dependency with PIL and ensured graceful fallback when `onnxruntime` is not installed.
+- **Security & Path Confinement**:
+  - Hardened directory traversal guards against UNC paths and relative escapes, passing 119 unit tests.
 
 ---
 
