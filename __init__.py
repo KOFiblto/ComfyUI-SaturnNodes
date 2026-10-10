@@ -4,7 +4,7 @@ import subprocess
 from aiohttp import web
 from server import PromptServer
 
-__version__ = "2.5.0"
+__version__ = "2.6.0"
 
 from .nodes.queue_control import (
     setup_queue_control_routes,
