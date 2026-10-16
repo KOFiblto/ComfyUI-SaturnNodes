@@ -837,7 +837,6 @@ def setup_queue_control_routes(server):
         return web.json_response({"success": False}, status=400)
 
     @routes.get("/saturnnodes/pause_queue/status")
-    @routes.get("/pause_queue/status")  # Legacy alias
     async def get_status(request):
         if not is_local_request(request):
             return web.json_response({"error": "Forbidden: Local access only"}, status=403)
@@ -849,7 +848,6 @@ def setup_queue_control_routes(server):
         })
 
     @routes.post("/saturnnodes/pause_queue/toggle")
-    @routes.post("/pause_queue/toggle")  # Legacy alias
     async def toggle_pause(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -867,7 +865,6 @@ def setup_queue_control_routes(server):
         })
 
     @routes.post("/saturnnodes/pause_queue/mode")
-    @routes.post("/pause_queue/mode")  # Legacy alias
     async def set_mode_route(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -884,7 +881,6 @@ def setup_queue_control_routes(server):
         })
 
     @routes.post("/saturnnodes/pause_queue/continue")
-    @routes.post("/pause_queue/continue")  # Legacy alias
     async def continue_queue(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -896,7 +892,6 @@ def setup_queue_control_routes(server):
         })
 
     @routes.post("/saturnnodes/persistent_queue/claim")
-    @routes.post("/persistent_queue/claim")  # Legacy alias
     async def claim_queue(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)

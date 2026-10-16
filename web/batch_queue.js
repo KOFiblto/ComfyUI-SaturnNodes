@@ -43,17 +43,9 @@ const BATCH_COLORS = [
 ];
 
 const STORAGE_KEY = "saturnnodes_batch_queue_meta";
-const LEGACY_STORAGE_KEY = "leafflow_batch_queue_meta";
 const BATCH_COUNTER_KEY = "saturnnodes_batch_counter";
-const LEGACY_BATCH_COUNTER_KEY = "leafflow_batch_counter";
 const SETTING_ID = "SaturnNodes.🎨 Batch Queue.01_ShowBatchLines";
-const LEGACY_SETTING_ID_0 = "SaturnNodes.8 - 🎨 Batch Queue.01_ShowBatchLines";
-const LEGACY_SETTING_ID_1 = "SaturnNodes.BatchQueue.Enabled";
-const LEGACY_SETTING_ID_2 = "LeafFlow.BatchQueue.Enabled";
 const SETTING_SNAPSHOT_GUARD = "SaturnNodes.🎨 Batch Queue.02_SnapshotGuard";
-const LEGACY_SETTING_SNAPSHOT_GUARD_0 = "SaturnNodes.8 - 🎨 Batch Queue.02_SnapshotGuard";
-const LEGACY_SETTING_SNAPSHOT_GUARD_1 = "SaturnNodes.BatchQueue.SnapshotGuard";
-const LEGACY_SETTING_SNAPSHOT_GUARD_2 = "LeafFlow.BatchQueue.SnapshotGuard";
 
 // In-memory registry mapping prompt_id -> batch metadata
 let batchRegistry = new Map();
@@ -62,7 +54,7 @@ let batchCounter = 0;
 
 function loadStorage() {
     try {
-        const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+        const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
@@ -73,7 +65,7 @@ function loadStorage() {
                 }
             }
         }
-        const savedCounter = localStorage.getItem(BATCH_COUNTER_KEY) || localStorage.getItem(LEGACY_BATCH_COUNTER_KEY);
+        const savedCounter = localStorage.getItem(BATCH_COUNTER_KEY);
         if (savedCounter) {
             batchCounter = parseInt(savedCounter, 10) || 0;
         }
@@ -209,18 +201,13 @@ function removeBatchLineFromElement(element) {
 // Check if SaturnNodes Batch Queue is enabled in settings
 function isBatchQueueEnabled() {
     try {
-        const keys = [SETTING_ID, LEGACY_SETTING_ID_0, LEGACY_SETTING_ID_1, LEGACY_SETTING_ID_2];
         if (app.extensionManager?.setting?.get) {
-            for (const k of keys) {
-                const val = app.extensionManager.setting.get(k);
-                if (val !== undefined) return val !== false;
-            }
+            const val = app.extensionManager.setting.get(SETTING_ID);
+            if (val !== undefined) return val !== false;
         }
         if (app.ui?.settings?.get) {
-            for (const k of keys) {
-                const val = app.ui.settings.get(k);
-                if (val !== undefined) return val !== false;
-            }
+            const val = app.ui.settings.get(SETTING_ID);
+            if (val !== undefined) return val !== false;
         }
     } catch (e) {}
     return true;
@@ -228,18 +215,13 @@ function isBatchQueueEnabled() {
 
 function isSnapshotGuardEnabled() {
     try {
-        const keys = [SETTING_SNAPSHOT_GUARD, LEGACY_SETTING_SNAPSHOT_GUARD_0, LEGACY_SETTING_SNAPSHOT_GUARD_1, LEGACY_SETTING_SNAPSHOT_GUARD_2];
         if (app.extensionManager?.setting?.get) {
-            for (const k of keys) {
-                const val = app.extensionManager.setting.get(k);
-                if (val !== undefined) return val !== false;
-            }
+            const val = app.extensionManager.setting.get(SETTING_SNAPSHOT_GUARD);
+            if (val !== undefined) return val !== false;
         }
         if (app.ui?.settings?.get) {
-            for (const k of keys) {
-                const val = app.ui.settings.get(k);
-                if (val !== undefined) return val !== false;
-            }
+            const val = app.ui.settings.get(SETTING_SNAPSHOT_GUARD);
+            if (val !== undefined) return val !== false;
         }
     } catch (e) {}
     return true;

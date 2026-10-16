@@ -365,7 +365,6 @@ server = PromptServer.instance
 routes = server.routes
 
 @routes.get("/saturnnodes/folder_lora_loader/get_loras")
-@routes.get("/folder_lora_loader/get_loras")  # Legacy alias
 async def get_loras_endpoint(request):
     if not is_local_request(request):
         return web.json_response({"error": "Forbidden: Local access only"}, status=403)
@@ -443,7 +442,6 @@ def get_or_create_thumbnail(img_path, max_size=256):
         return img_path
 
 @routes.get("/saturnnodes/folder_lora_loader/get_preview")
-@routes.get("/folder_lora_loader/get_preview")  # Legacy alias
 async def get_preview_endpoint(request):
     if not is_local_request(request):
         return web.Response(status=403)

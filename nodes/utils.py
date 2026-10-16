@@ -7,7 +7,6 @@ import folder_paths
 def get_saturnnodes_user_dir():
     """
     Returns the centralized user data directory: ComfyUI/user/default/SaturnNodes/
-    Automatically migrates any legacy LeafFlow directory contents if present.
     """
     base_user = None
     try:
@@ -28,27 +27,7 @@ def get_saturnnodes_user_dir():
 
     saturn_dir = os.path.join(base_user, "SaturnNodes")
     os.makedirs(saturn_dir, exist_ok=True)
-
-    # Seamless automatic migration from legacy LeafFlow folder if needed
-    legacy_dir = os.path.join(base_user, "LeafFlow")
-    if os.path.isdir(legacy_dir):
-        try:
-            for item in os.listdir(legacy_dir):
-                src = os.path.join(legacy_dir, item)
-                dst = os.path.join(saturn_dir, item)
-                if os.path.isfile(src) and not os.path.exists(dst):
-                    try:
-                        import shutil
-                        shutil.copy2(src, dst)
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-
     return saturn_dir
-
-# Backward-compatible alias for legacy integrations referencing the pre-rename helper name.
-get_leafflow_user_dir = get_saturnnodes_user_dir
 
 _SESSION_CSRF_TOKEN = secrets.token_hex(32)
 
@@ -97,7 +76,7 @@ def is_authenticated_local_request(request):
     Guarantees user-initiated actions and protects against CSRF / drive-by requests from open browser tabs:
     1. Originates strictly from loopback IP (is_local_request)
     2. Not a cross-site drive-by request (is_same_origin_or_direct)
-    3. Contains a valid X-SaturnNodes-CSRF-Token header (legacy X-LeafFlow-CSRF-Token also accepted) matching the session secret.
+    3. Contains a valid X-SaturnNodes-CSRF-Token header matching the session secret.
     """
     if not is_local_request(request):
         return False
@@ -105,7 +84,7 @@ def is_authenticated_local_request(request):
         return False
 
     headers = getattr(request, "headers", {})
-    token = headers.get("X-SaturnNodes-CSRF-Token") or headers.get("X-LeafFlow-CSRF-Token")
+    token = headers.get("X-SaturnNodes-CSRF-Token")
     if not token or not secrets.compare_digest(token, _SESSION_CSRF_TOKEN):
         return False
 

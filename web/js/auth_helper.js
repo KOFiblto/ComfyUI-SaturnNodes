@@ -38,13 +38,12 @@ export async function authenticatedFetch(endpoint, options = {}) {
     return api.fetchApi(endpoint, opts);
 }
 
-// Expose on window for all SaturnNodes extensions (with LeafFlow alias for backward compatibility)
+// Expose on window for all SaturnNodes extensions
 if (typeof window !== "undefined") {
     const authObj = {
         getToken: getCsrfToken,
         fetch: authenticatedFetch
     };
     window._SaturnNodesAuth = authObj;
-    window._LeafFlowAuth = authObj;
 }
 

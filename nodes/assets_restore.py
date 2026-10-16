@@ -137,7 +137,7 @@ class AssetsRestoreManager:
                     subfolder = item["subfolder"]
 
                     rel_key = f"{subfolder}/{filename}" if subfolder else filename
-                    prompt_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"leafflow:{rel_key}"))
+                    prompt_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"saturnnodes:{rel_key}"))
 
                     prompt_dict, workflow_dict, positive_prompt = self.extract_image_metadata(filepath)
                     output_node_id = None

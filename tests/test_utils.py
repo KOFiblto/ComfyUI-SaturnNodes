@@ -67,7 +67,7 @@ class TestUtils(unittest.TestCase):
         # Valid local request with matching token
         valid_req = DummyReq("127.0.0.1", {
             "Origin": "http://127.0.0.1:8188",
-            "X-LeafFlow-CSRF-Token": valid_token
+            "X-SaturnNodes-CSRF-Token": valid_token
         })
         self.assertTrue(is_authenticated_local_request(valid_req))
 
@@ -78,21 +78,21 @@ class TestUtils(unittest.TestCase):
         # Wrong token
         wrong_token_req = DummyReq("127.0.0.1", {
             "Origin": "http://127.0.0.1:8188",
-            "X-LeafFlow-CSRF-Token": "invalid_forged_token"
+            "X-SaturnNodes-CSRF-Token": "invalid_forged_token"
         })
         self.assertFalse(is_authenticated_local_request(wrong_token_req))
 
         # Remote IP attempting to forge or replay token
         remote_req = DummyReq("192.168.1.100", {
             "Origin": "http://127.0.0.1:8188",
-            "X-LeafFlow-CSRF-Token": valid_token
+            "X-SaturnNodes-CSRF-Token": valid_token
         })
         self.assertFalse(is_authenticated_local_request(remote_req))
 
         # Cross-site drive-by request (Sec-Fetch-Site: cross-site)
         drive_by_req = DummyReq("127.0.0.1", {
             "Sec-Fetch-Site": "cross-site",
-            "X-LeafFlow-CSRF-Token": valid_token
+            "X-SaturnNodes-CSRF-Token": valid_token
         })
         self.assertFalse(is_authenticated_local_request(drive_by_req))
 

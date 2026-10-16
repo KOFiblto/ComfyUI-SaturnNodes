@@ -91,12 +91,12 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "RunLocalFileNode": "🪐 ⚡ Run Local File",
     "SaturnStereo3D": "🪐 👓 Stereoscopic 3D Generator",
     # Legacy aliases (labeled clearly to avoid confusing duplicates in search)
-    "LeafFlowDecision": "🪐 ⏸️ Decision [Legacy LeafFlow]",
-    "LeafFlowTextSplit": "🪐 ✂️ Text Split [Legacy LeafFlow]",
-    "FolderLoraLoaderVisualPrettyV2": "🪐 🖼️ Visual LoRA Loader [Legacy LeafFlow]",
-    "ImageLoaderVisualPrettyV2": "🪐 📷 Visual Image Loader [Legacy LeafFlow]",
-    "AspectRatioFinder": "🪐 📐 Aspect Ratio Finder [Legacy LeafFlow]",
-    "LoraTextFinder": "🪐 🔎 Text LoRA Finder [Legacy LeafFlow]",
+    "LeafFlowDecision": "🪐 ⏸️ Decision [Legacy]",
+    "LeafFlowTextSplit": "🪐 ✂️ Text Split [Legacy]",
+    "FolderLoraLoaderVisualPrettyV2": "🪐 🖼️ Visual LoRA Loader [Legacy]",
+    "ImageLoaderVisualPrettyV2": "🪐 📷 Visual Image Loader [Legacy]",
+    "AspectRatioFinder": "🪐 📐 Aspect Ratio Finder [Legacy]",
+    "LoraTextFinder": "🪐 🔎 Text LoRA Finder [Legacy]",
 }
 
 LEGACY_ALIAS_MAP = {

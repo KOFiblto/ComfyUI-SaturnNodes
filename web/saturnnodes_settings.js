@@ -137,12 +137,8 @@ if (typeof document !== "undefined") {
             /* ComfyUI V2 Vue Toggle Switches Protection: NEVER apply button background or borders to switches */
             [data-setting-id*="SaturnNodes"] button[role="switch"],
             [data-setting-id*="saturnnodes"] button[role="switch"],
-            [data-setting-id*="LeafFlow"] button[role="switch"],
-            [data-setting-id*="leafflow"] button[role="switch"],
             [data-setting-id*="SaturnNodes"] [role="switch"],
             [data-setting-id*="saturnnodes"] [role="switch"],
-            [data-setting-id*="LeafFlow"] [role="switch"],
-            [data-setting-id*="leafflow"] [role="switch"],
             button[role="switch"].saturnnodes-settings-btn {
                 background: transparent !important;
                 border: 0 !important;
@@ -183,11 +179,8 @@ if (typeof document !== "undefined") {
 
             /* ComfyUI Settings Action Buttons (Buttons only: 1.5x height, font-size 13px) */
             button.saturnnodes-settings-btn,
-            button.leafflow-settings-btn,
             [data-setting-id*="SaturnNodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]),
-            [data-setting-id*="saturnnodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]),
-            [data-setting-id*="LeafFlow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]),
-            [data-setting-id*="leafflow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]) {
+            [data-setting-id*="saturnnodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]) {
                 background: #8b7355 !important;
                 border: 1px solid #a68a67 !important;
                 color: #ffffff !important;
@@ -215,11 +208,8 @@ if (typeof document !== "undefined") {
             }
 
             button.saturnnodes-settings-btn:hover,
-            button.leafflow-settings-btn:hover,
             [data-setting-id*="SaturnNodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover,
-            [data-setting-id*="saturnnodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover,
-            [data-setting-id*="LeafFlow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover,
-            [data-setting-id*="leafflow"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover {
+            [data-setting-id*="saturnnodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):hover {
                 background: #9e8565 !important;
                 border-color: #c4a780 !important;
                 color: #ffffff !important;
@@ -228,7 +218,6 @@ if (typeof document !== "undefined") {
             }
 
             button.saturnnodes-settings-btn:active,
-            button.leafflow-settings-btn:active,
             [data-setting-id*="SaturnNodes"] button:not([role="switch"]):not([data-pc-name="toggleswitch"]):active {
                 background: #7d6549 !important;
                 transform: translateY(0) !important;
@@ -726,86 +715,26 @@ function renderSettingButton(label, workingText, successText, onClickHandler) {
     };
 }
 
-/**
- * Migration helper ensuring user preferences from legacy LeafFlow.* are seamlessly inherited.
- */
-function migrateSavedSettings() {
-    try {
-        if (typeof localStorage === "undefined") return;
-        const keysToMigrate = [];
-        for (let i = 0; i < localStorage.length; i++) {
-            const k = localStorage.key(i);
-            if (k && (k.includes("LeafFlow.") || k.includes("leafflow."))) {
-                keysToMigrate.push(k);
-            }
-        }
-        for (const oldKey of keysToMigrate) {
-            const val = localStorage.getItem(oldKey);
-            if (val === null) continue;
-            const newKey = oldKey.replace(/LeafFlow/g, "SaturnNodes").replace(/leafflow/g, "saturnnodes");
-            if (newKey !== oldKey && localStorage.getItem(newKey) === null) {
-                localStorage.setItem(newKey, val);
-            }
-        }
-    } catch (e) {
-        console.warn("[SaturnNodes] Settings migration skipped:", e);
-    }
-}
-migrateSavedSettings();
-
 function getInitialSetting(saturnId, defaultVal) {
-    const categoryMap = {
-        "🖼️ Visual Loaders": "1 - 🖼️ Visual Loaders",
-        "🔄 Prompt Iterator": "2 - 🔄 Prompt Iterator",
-        "📋 Prompt Actions": "3 - 📋 Prompt Actions",
-        "⏸️ Pause Controls": "4 - ⏸️ Pause Controls",
-        "💾 Persistent Queue": "5 - 💾 Persistent Queue",
-        "🖼️ Assets Restore": "6 - 🖼️ Assets Restore",
-        "🩺 Diagnostics": "7 - 🩺 Diagnostics",
-        "🎨 Batch Queue": "8 - 🎨 Batch Queue",
-        "🛡️ Security": "9 - 🛡️ Security",
-        "👁️ Live Preview": "10 - 👁️ Live Preview",
-        "🧩 Node Management": "11 - 🧩 Node Management"
-    };
-
-    // Build lookup keys: unnumbered, numbered, and legacy variants
-    const variations = [saturnId];
-    for (const [plain, num] of Object.entries(categoryMap)) {
-        if (saturnId.includes(plain)) {
-            variations.push(saturnId.replace(plain, num));
-            break;
-        }
+    // 1. Check ComfyUI settings API (getSettingValue / get)
+    if (typeof app.ui?.settings?.getSettingValue === "function") {
+        try {
+            const val = app.ui.settings.getSettingValue(saturnId);
+            if (val !== undefined && val !== null) return val;
+        } catch (_) {}
     }
-    const len = variations.length;
-    for (let i = 0; i < len; i++) {
-        variations.push(variations[i].replace(/^SaturnNodes\./, "LeafFlow."));
+    if (typeof app.ui?.settings?.get === "function") {
+        try {
+            const val = app.ui.settings.get(saturnId);
+            if (val !== undefined && val !== null) return val;
+        } catch (_) {}
     }
 
-    // 1. Check ComfyUI settings API (getSettingValue / get) across all variations
-    for (const vId of variations) {
-        if (typeof app.ui?.settings?.getSettingValue === "function") {
-            try {
-                const val = app.ui.settings.getSettingValue(vId);
-                if (val !== undefined && val !== null) return val;
-            } catch (_) {}
-        }
-        if (typeof app.ui?.settings?.get === "function") {
-            try {
-                const val = app.ui.settings.get(vId);
-                if (val !== undefined && val !== null) return val;
-            } catch (_) {}
-        }
-    }
-
-    // 2. Check localStorage across prefixes and variations
+    // 2. Check localStorage
     if (typeof localStorage !== "undefined") {
-        for (const prefix of ["Comfy.Settings.", ""]) {
-            for (const vId of variations) {
-                const val = localStorage.getItem(`${prefix}${vId}`);
-                if (val !== null && val !== undefined) {
-                    try { return JSON.parse(val); } catch (_) { return val; }
-                }
-            }
+        const val = localStorage.getItem(`Comfy.Settings.${saturnId}`);
+        if (val !== null && val !== undefined) {
+            try { return JSON.parse(val); } catch (_) { return val; }
         }
     }
     return defaultVal;
@@ -814,7 +743,6 @@ function getInitialSetting(saturnId, defaultVal) {
 app.registerExtension({
     name: "ComfyUI.SaturnNodes.Settings",
     async setup() {
-        migrateSavedSettings();
 
         // =========================================================================
         // GROUP: 🖼️ Visual Loaders

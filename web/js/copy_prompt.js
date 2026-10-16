@@ -36,27 +36,14 @@ async function copyToClipboard(text) {
 function isCopyEnabled(settingKey, defaultVal = true) {
     try {
         let val;
-        const saturnNumberedKey = settingKey.replace(/^LeafFlow\./, "SaturnNodes.");
-        const saturnPlainKey = saturnNumberedKey.replace(/\d+\s*-\s*/, "");
-        const keysToCheck = [saturnPlainKey, saturnNumberedKey, settingKey];
-
         if (app.extensionManager?.setting?.get) {
-            for (const k of keysToCheck) {
-                val = app.extensionManager.setting.get(k);
-                if (val !== undefined && val !== null && val !== "") break;
-            }
+            val = app.extensionManager.setting.get(settingKey);
         }
         if ((val === undefined || val === null || val === "") && app.ui?.settings?.getSettingValue) {
-            for (const k of keysToCheck) {
-                val = app.ui.settings.getSettingValue(k);
-                if (val !== undefined && val !== null && val !== "") break;
-            }
+            val = app.ui.settings.getSettingValue(settingKey);
         }
         if ((val === undefined || val === null || val === "") && app.ui?.settings?.get) {
-            for (const k of keysToCheck) {
-                val = app.ui.settings.get(k);
-                if (val !== undefined && val !== null && val !== "") break;
-            }
+            val = app.ui.settings.get(settingKey);
         }
         if (val === undefined || val === null || val === "") {
             return defaultVal;
@@ -339,7 +326,7 @@ app.registerExtension({
         nodeType.prototype.getExtraMenuOptions = function (_, options) {
             if (origGetExtraMenuOptions) origGetExtraMenuOptions.apply(this, arguments);
 
-            if (!isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.02_EnableContextMenuCopyPrompt")) return;
+            if (!isCopyEnabled("SaturnNodes.📋 Prompt Actions.02_EnableContextMenuCopyPrompt")) return;
 
             const imgs = this.imgs || this.images || (this.widgets && this.widgets.filter(w => w.type === "image" || w.name === "image"));
             if (imgs && imgs.length > 0) {
@@ -435,8 +422,8 @@ function injectCopyPromptNextToDownload(downloadBtn) {
     if (img.classList.contains("size-8") || img.closest(".size-8, .size-10, .h-12")) return;
 
     const parent = downloadBtn.parentElement;
-    const enableCopy = isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.01_EnableAssetsCopyPromptButton");
-    const enableInspect = isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.04_EnableInspectAssetButton", false);
+    const enableCopy = isCopyEnabled("SaturnNodes.📋 Prompt Actions.01_EnableAssetsCopyPromptButton");
+    const enableInspect = isCopyEnabled("SaturnNodes.📋 Prompt Actions.04_EnableInspectAssetButton", false);
 
     if (!enableCopy && !enableInspect) return;
 
@@ -535,7 +522,7 @@ function injectCopyPromptNextToDownload(downloadBtn) {
 function injectContextMenuCopy(contextMenu) {
     if (!contextMenu) return;
     if (contextMenu.querySelector(".saturnnodes-contextmenu-copy")) return;
-    if (!isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.02_EnableContextMenuCopyPrompt")) return;
+    if (!isCopyEnabled("SaturnNodes.📋 Prompt Actions.02_EnableContextMenuCopyPrompt")) return;
 
     // Guard: strictly ignore top menu, menubar, command menus, and main application menus!
     if (
@@ -623,7 +610,7 @@ function injectContextMenuCopy(contextMenu) {
 // 5. Fallback Hook for Older Frontend Action Bars
 function injectHoverCopyAction(overlayBar) {
     if (!overlayBar || overlayBar.querySelector(".saturnnodes-hover-copy")) return;
-    if (!isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.01_EnableAssetsCopyPromptButton")) return;
+    if (!isCopyEnabled("SaturnNodes.📋 Prompt Actions.01_EnableAssetsCopyPromptButton")) return;
 
     if (isQueueItemElement(overlayBar)) return;
 
