@@ -32,15 +32,18 @@ def get_saturnnodes_user_dir():
     # Seamless automatic migration from legacy LeafFlow folder if needed
     legacy_dir = os.path.join(base_user, "LeafFlow")
     if os.path.isdir(legacy_dir):
-        for f in [".env", "prompt_iterator_state.json"]:
-            src = os.path.join(legacy_dir, f)
-            dst = os.path.join(saturn_dir, f)
-            if os.path.isfile(src) and not os.path.exists(dst):
-                try:
-                    import shutil
-                    shutil.copy2(src, dst)
-                except Exception:
-                    pass
+        try:
+            for item in os.listdir(legacy_dir):
+                src = os.path.join(legacy_dir, item)
+                dst = os.path.join(saturn_dir, item)
+                if os.path.isfile(src) and not os.path.exists(dst):
+                    try:
+                        import shutil
+                        shutil.copy2(src, dst)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
     return saturn_dir
 
@@ -81,7 +84,7 @@ def is_same_origin_or_direct(request):
         try:
             parsed_ref = urlparse(referer)
             ref_host = parsed_ref.hostname
-            if ref_host not in ["127.0.0.1", "localhost", "::1", "0.0.0.0", "testclient"]:
+            if ref_host not in ["127.0.0.1", "localhost", "::1", "0.0.0.0", "testclient", "::ffff:127.0.0.1"]:
                 return False
         except Exception:
             return False
@@ -109,7 +112,7 @@ def is_authenticated_local_request(request):
 
 def is_local_request(request):
     """
-    Returns True if the HTTP request originates strictly from loopback (localhost / 127.0.0.1 / ::1).
+    Returns True if the HTTP request originates strictly from loopback (localhost / 127.0.0.1 / ::1 / ::ffff:127.0.0.1).
     Used to protect sensitive endpoints (power control, system settings, file browsing).
     """
     if request is None:
@@ -123,12 +126,15 @@ def is_local_request(request):
                 remote = peername[0]
     if not remote:
         return False
-    local_hosts = {"127.0.0.1", "::1", "localhost", "0.0.0.0", "testclient"}
-    if remote in local_hosts:
+    clean_remote = str(remote).strip("[]")
+    if ":" in clean_remote and clean_remote.count(":") == 1:
+        clean_remote = clean_remote.split(":")[0]
+    local_hosts = {"127.0.0.1", "::1", "localhost", "0.0.0.0", "testclient", "::ffff:127.0.0.1"}
+    if clean_remote in local_hosts or remote in local_hosts:
         return True
     try:
         import ipaddress
-        ip = ipaddress.ip_address(remote)
+        ip = ipaddress.ip_address(clean_remote)
         return ip.is_loopback
     except Exception:
         return False

@@ -530,8 +530,8 @@ app.registerExtension({
 
             // Embed DOM Widget inside the node container
             const domWidget = node.addDOMWidget("lora_visual_picker", "HTML", viewContainer, {
-                getValue() { return getHiddenWidget().value; },
-                setValue(val) { getHiddenWidget().value = val; },
+                getValue() { return hiddenWidget.value; },
+                setValue(val) { hiddenWidget.value = val; },
                 serialize: false
             });
 
@@ -811,7 +811,7 @@ app.registerExtension({
                     }
                 }
                 
-                const curWidget = getHiddenWidget();
+                const curWidget = hiddenWidget;
                 const widgetIndex = node.widgets.indexOf(curWidget);
                 const savedValue = (config.widgets_values && widgetIndex !== -1) ? config.widgets_values[widgetIndex] : curWidget.value;
                 

@@ -274,6 +274,7 @@ class SaturnStereo3D:
         "custom depth gamma/inversion, zoom & pan cropping, adjustable gap/border spacing, and focus alignment dots."
     )
 
+    @torch.no_grad()
     def generate(
         self,
         image,
@@ -335,8 +336,8 @@ class SaturnStereo3D:
                     d_np = _PREDICTED_DEPTH_CACHE[cache_key]
                 else:
                     d_np = predict_depth_map(img_slice)
-                    if len(_PREDICTED_DEPTH_CACHE) > 16:
-                        _PREDICTED_DEPTH_CACHE.clear()
+                    while len(_PREDICTED_DEPTH_CACHE) >= 16:
+                        _PREDICTED_DEPTH_CACHE.pop(next(iter(_PREDICTED_DEPTH_CACHE)))
                     _PREDICTED_DEPTH_CACHE[cache_key] = d_np
                 depth_tensors.append(torch.from_numpy(d_np).to(device=device, dtype=torch.float32))
 
@@ -464,6 +465,12 @@ class SaturnStereo3D:
 
         # 7. Convert Depth to 3-channel image for output
         depth_output = depth_cropped.unsqueeze(-1).repeat(1, 1, 1, 3)
+
+        try:
+            import comfy.model_management
+            comfy.model_management.soft_empty_cache()
+        except Exception:
+            pass
 
         return (stereogram, left_eye, right_eye, depth_output)
 

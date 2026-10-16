@@ -163,12 +163,18 @@ def load_prompts_cache():
 
 def save_prompts_cache(cache):
     try:
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+        temp_file = CACHE_FILE + ".tmp"
+        with open(temp_file, "w", encoding="utf-8") as f:
             json.dump(cache, f, indent=4, ensure_ascii=False)
+        os.replace(temp_file, CACHE_FILE)
     except Exception as e:
         print(f"[SaturnNodes] Failed to save prompts cache: {e}")
 
-routes = PromptServer.instance.routes if hasattr(PromptServer, "instance") and PromptServer.instance is not None else web.RouteTableDef()
+if hasattr(PromptServer, "instance") and PromptServer.instance is not None:
+    routes = PromptServer.instance.routes
+else:
+    routes = web.RouteTableDef()
+    print("[SaturnNodes] Notice: PromptServer instance not available during image_loader import; using standalone route table.")
 
 @routes.get("/image_loader/get_images")
 async def get_images_endpoint(request):
@@ -223,6 +229,7 @@ async def get_images_endpoint(request):
                 cached_entry = cache.get(full_path)
                 if cached_entry and cached_entry.get("mtime") == mtime:
                     prompt_text = cached_entry.get("prompt", "")
+                    cache[full_path] = cache.pop(full_path)
                 else:
                     prompt_text, _, _ = extract_metadata_from_image(full_path)
                     cache[full_path] = {
@@ -343,16 +350,16 @@ class VisualImageLoader:
             empty_image = torch.zeros((1, 512, 512, 3), dtype=torch.float32)
             return (empty_image, "", 0, 0)
 
-        i = Image.open(full_path)
-        i = ImageOps.exif_transpose(i)
-        
-        positive_prompt, width, height = extract_metadata_from_image(full_path)
-        if width == 0 or height == 0:
-            width, height = i.size
+        with Image.open(full_path) as i:
+            i = ImageOps.exif_transpose(i)
+            
+            positive_prompt, width, height = extract_metadata_from_image(full_path)
+            if width == 0 or height == 0:
+                width, height = i.size
 
-        image = i.convert("RGB")
-        image = np.array(image).astype(np.float32) / 255.0
-        image = torch.from_numpy(image)[None,]
+            image = i.convert("RGB")
+            image = np.array(image).astype(np.float32) / 255.0
+            image = torch.from_numpy(image)[None,]
 
         return (image, positive_prompt, width, height)
 

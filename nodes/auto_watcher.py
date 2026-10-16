@@ -10,11 +10,19 @@ from .utils import sanitize_folder_path, is_safe_path, get_allowed_folder_watch_
 def get_current_prompt_id():
     try:
         from server import PromptServer
-        server = PromptServer.instance
-        if hasattr(server, "prompt_queue") and server.prompt_queue.currently_running:
-            for item in server.prompt_queue.currently_running.values():
-                if isinstance(item, (tuple, list)) and len(item) > 1:
-                    return str(item[1])
+        server = getattr(PromptServer, "instance", None)
+        if server and hasattr(server, "prompt_queue"):
+            queue = server.prompt_queue
+            if hasattr(queue, "currently_running") and queue.currently_running:
+                mutex = getattr(queue, "mutex", None)
+                if mutex:
+                    with mutex:
+                        items = list(queue.currently_running.values())
+                else:
+                    items = list(queue.currently_running.values())
+                for item in items:
+                    if isinstance(item, (tuple, list)) and len(item) > 1:
+                        return str(item[1])
     except Exception:
         pass
     return None

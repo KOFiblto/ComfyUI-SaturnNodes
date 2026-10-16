@@ -140,12 +140,16 @@ class AssetsRestoreManager:
                     prompt_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"leafflow:{rel_key}"))
 
                     prompt_dict, workflow_dict, positive_prompt = self.extract_image_metadata(filepath)
-                    output_node_id = "9"
+                    output_node_id = None
                     if prompt_dict:
                         for nid, nval in prompt_dict.items():
                             if isinstance(nval, dict) and "SaveImage" in nval.get("class_type", ""):
                                 output_node_id = str(nid)
                                 break
+                        if not output_node_id:
+                            output_node_id = str(next(iter(prompt_dict.keys())))
+                    if not output_node_id:
+                        output_node_id = "0"
 
                     extra_pnginfo = {}
                     if workflow_dict:

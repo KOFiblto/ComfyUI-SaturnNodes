@@ -25,7 +25,9 @@ export const SATURN_NODE_TYPES = new Set([
     "PromptCounter",
     "MultiTextReplacer",
     "SaturnTextSplit",
+    "LeafFlowTextSplit",
     "SaturnDecision",
+    "LeafFlowDecision",
     "RunLocalFileNode",
 
     // Queue & Previews

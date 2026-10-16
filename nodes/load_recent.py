@@ -57,7 +57,7 @@ class LoadRecentOutputs:
                         except OSError:
                             continue
         except Exception as e:
-            print(f"[SaturnNodes] 🍃 Error scanning output folder '{output_dir}': {e}")
+            print(f"[SaturnNodes] Error scanning output folder '{output_dir}': {e}")
             dummy = torch.zeros((1, 512, 512, 3), dtype=torch.float32)
             return (dummy,)
 

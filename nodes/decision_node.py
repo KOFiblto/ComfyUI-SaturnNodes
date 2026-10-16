@@ -149,20 +149,35 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
             return (True,)
         elif action == "stop":
             print(f"[SaturnNodes] Node {unique_id} stopped workflow.")
+            stop_dispatched = False
             try:
                 # Attempt to cancel current execution queue
-                PromptServer.instance.prompt_queue.cancel_current_execution()
-            except Exception:
-                pass
+                if hasattr(PromptServer, "instance") and hasattr(PromptServer.instance, "prompt_queue"):
+                    PromptServer.instance.prompt_queue.cancel_current_execution()
+                    stop_dispatched = True
+            except Exception as e:
+                print(f"[SaturnNodes] Notice: cancel_current_execution: {e}")
+            try:
+                import nodes
+                if hasattr(nodes, "interrupt_processing"):
+                    nodes.interrupt_processing()
+                    stop_dispatched = True
+            except Exception as e:
+                print(f"[SaturnNodes] Notice: nodes.interrupt_processing: {e}")
             try:
                 comfy.model_management.interrupt_current_processing()
-            except Exception:
-                pass
+                stop_dispatched = True
+            except Exception as e:
+                print(f"[SaturnNodes] Notice: interrupt_current_processing: {e}")
+
+            if not stop_dispatched:
+                print(f"[SaturnNodes] Notice: Core cancellation hooks bypassed; halting via InterruptProcessingException.")
+
             # Raise exception to halt this thread instantly
             try:
                 raise comfy.model_management.InterruptProcessingException("Workflow stopped by SaturnNodes Decision Node.")
             except AttributeError:
-                raise Exception("Workflow stopped by SaturnNodes Decision Node.")
+                raise RuntimeError("Workflow stopped by SaturnNodes Decision Node.")
 
         print(f"[SaturnNodes] Node {unique_id} continuing.")
         return (False,)

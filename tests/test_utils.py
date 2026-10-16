@@ -26,6 +26,8 @@ class TestUtils(unittest.TestCase):
         self.assertTrue(is_local_request(DummyReq("127.0.0.1")))
         self.assertTrue(is_local_request(DummyReq("::1")))
         self.assertTrue(is_local_request(DummyReq("localhost")))
+        self.assertTrue(is_local_request(DummyReq("::ffff:127.0.0.1")))
+        self.assertTrue(is_local_request(DummyReq("[::ffff:127.0.0.1]")))
         self.assertFalse(is_local_request(DummyReq("192.168.1.50")))
         self.assertFalse(is_local_request(DummyReq("10.0.0.1")))
         self.assertFalse(is_local_request(DummyReq("8.8.8.8")))

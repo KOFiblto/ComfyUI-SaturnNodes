@@ -64,6 +64,13 @@ NODE_CLASS_MAPPINGS = {
     "SaturnTextSplit": SaturnTextSplit,
     "RunLocalFileNode": RunLocalFileNode,
     "SaturnStereo3D": SaturnStereo3D,
+    # Backward compatibility aliases for pre-rename workflows
+    "LeafFlowDecision": SaturnDecision,
+    "LeafFlowTextSplit": SaturnTextSplit,
+    "FolderLoraLoaderVisualPrettyV2": VisualLoraLoader,
+    "ImageLoaderVisualPrettyV2": VisualImageLoader,
+    "AspectRatioFinder": TextAspectRatioFinder,
+    "LoraTextFinder": TextLoraFinder,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -84,11 +91,29 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SaturnTextSplit": "🪐 ✂️ Text Split",
     "RunLocalFileNode": "🪐 ⚡ Run Local File",
     "SaturnStereo3D": "🪐 👓 Stereoscopic 3D Generator",
+    # Legacy aliases (labeled clearly to avoid confusing duplicates in search)
+    "LeafFlowDecision": "🪐 ⏸️ Decision [Legacy LeafFlow]",
+    "LeafFlowTextSplit": "🪐 ✂️ Text Split [Legacy LeafFlow]",
+    "FolderLoraLoaderVisualPrettyV2": "🪐 🖼️ Visual LoRA Loader [Legacy LeafFlow]",
+    "ImageLoaderVisualPrettyV2": "🪐 📷 Visual Image Loader [Legacy LeafFlow]",
+    "AspectRatioFinder": "🪐 📐 Aspect Ratio Finder [Legacy LeafFlow]",
+    "LoraTextFinder": "🪐 🔎 Text LoRA Finder [Legacy LeafFlow]",
 }
+
+LEGACY_ALIAS_MAP = {
+    "VisualLoraLoader": "FolderLoraLoaderVisualPrettyV2",
+    "VisualImageLoader": "ImageLoaderVisualPrettyV2",
+    "TextAspectRatioFinder": "AspectRatioFinder",
+    "TextLoraFinder": "LoraTextFinder",
+    "SaturnDecision": "LeafFlowDecision",
+    "SaturnTextSplit": "LeafFlowTextSplit",
+}
+
+CANONICAL_SATURN_NODE_KEYS = [k for k in NODE_CLASS_MAPPINGS if k not in LEGACY_ALIAS_MAP.values()]
 
 ALL_SATURN_NODE_CLASSES = dict(NODE_CLASS_MAPPINGS)
 ALL_SATURN_NODE_DISPLAY_NAMES = dict(NODE_DISPLAY_NAME_MAPPINGS)
-ALL_SATURN_NODE_KEYS = list(NODE_DISPLAY_NAME_MAPPINGS.keys())
+ALL_SATURN_NODE_KEYS = CANONICAL_SATURN_NODE_KEYS
 
 def get_saturn_nodes_info():
     """Returns sorted node metadata auto-generated from NODE_CLASS_MAPPINGS and NODE_DISPLAY_NAME_MAPPINGS."""
@@ -150,31 +175,28 @@ def save_disabled_nodes(disabled_set):
 # Filter disabled nodes (all enabled by default when disabled_nodes.json is empty)
 _active_disabled_nodes = load_disabled_nodes()
 if _active_disabled_nodes:
-    _alias_map = {
-        "FolderLoraLoaderPretty": "FolderLoraLoaderVisualPrettyV2",
-        "VisualImageLoader": "ImageLoaderVisualPrettyV2",
-        "TextAspectRatioFinder": "AspectRatioFinder",
-        "TextLoraFinder": "LoraTextFinder"
-    }
     for _node_name in _active_disabled_nodes:
         NODE_CLASS_MAPPINGS.pop(_node_name, None)
         NODE_DISPLAY_NAME_MAPPINGS.pop(_node_name, None)
-        _alias = _alias_map.get(_node_name)
+        _alias = LEGACY_ALIAS_MAP.get(_node_name)
         if _alias:
             NODE_CLASS_MAPPINGS.pop(_alias, None)
+            NODE_DISPLAY_NAME_MAPPINGS.pop(_alias, None)
 
 WEB_DIRECTORY = "./web"
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
 
-server = PromptServer.instance
-setup_queue_control_routes(server)
-setup_local_runner_routes(server)
+server = getattr(PromptServer, "instance", None)
+if server is not None and hasattr(server, "routes"):
+    setup_queue_control_routes(server)
+    setup_local_runner_routes(server)
+    routes = server.routes
+else:
+    routes = web.RouteTableDef()
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 USER_DIR = get_saturnnodes_user_dir()
 ENV_FILE = os.path.join(USER_DIR, ".env")
-
-routes = server.routes
 
 def print_startup_banner():
     # Enable ANSI escape sequences on Windows console if available
@@ -479,8 +501,12 @@ async def save_settings(request):
         if not has_local_file_exec and enable_local_file_execution is not None:
             new_lines.append(f"ENABLE_LOCAL_FILE_EXECUTION={enable_local_file_execution}\n")
 
-        with open(ENV_FILE, "w", encoding="utf-8") as f:
+        temp_env = ENV_FILE + ".tmp"
+        with open(temp_env, "w", encoding="utf-8") as f:
             f.writelines(new_lines)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_env, ENV_FILE)
 
         if civitai_key is not None:
             os.environ["CIVITAI_API_KEY"] = civitai_key
@@ -504,7 +530,8 @@ async def save_settings(request):
             os.environ["CLEAR_PROMPT_ITERATOR_ON_LAUNCH"] = str(clear_prompt_iterator_on_launch)
 
     except Exception as e:
-        print(f"[SaturnNodes] 🪐 Error saving settings to .env: {e}")
+        print(f"[SaturnNodes] Error saving settings to .env: {e}")
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
 
     return web.json_response({"status": "ok"})
 
@@ -540,15 +567,19 @@ async def clear_scrapes_endpoint(request):
         return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
     try:
         failed_file = os.path.join(USER_DIR, "failed_scrapes.json")
-        with open(failed_file, "w", encoding="utf-8") as f:
+        temp_failed = failed_file + ".tmp"
+        with open(temp_failed, "w", encoding="utf-8") as f:
             f.write("{}")
+        os.replace(temp_failed, failed_file)
         return web.json_response({"status": "ok"})
     except Exception as e:
-        print(f"[SaturnNodes] 🪐 Error clearing scrapes cache: {e}")
+        print(f"[SaturnNodes] Error clearing scrapes cache: {e}")
         return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 @routes.get("/saturnnodes/debug/export")
 async def export_debug_profile(request):
+    if not is_local_request(request):
+        return web.json_response({"error": "Forbidden: Local access only"}, status=403)
     try:
         import platform
         import json
@@ -568,7 +599,7 @@ async def export_debug_profile(request):
                     for line in f:
                         if line.strip().startswith("CIVITAI_API_KEY=") and not civitai_key:
                             civitai_key = line.split("=", 1)[1].strip()
-                        elif line.startswith("TMDB_API_KEY=") and not tmdb_key:
+                        elif line.strip().startswith("TMDB_API_KEY=") and not tmdb_key:
                             tmdb_key = line.split("=", 1)[1].strip()
             except Exception:
                 pass

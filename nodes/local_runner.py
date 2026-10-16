@@ -390,6 +390,8 @@ class RunLocalFileNode:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 creationflags=creationflags
             )
 
@@ -411,9 +413,11 @@ class RunLocalFileNode:
                     pass
 
             effective_timeout = timeout if timeout > 0 else None
+            stdout_data = ""
+            stderr_data = ""
 
-            # Poll for completion while honoring ComfyUI cancellation
-            while proc.poll() is None:
+            # Continuously drain pipes to prevent OS buffer deadlocks while honoring cancellation
+            while True:
                 try:
                     comfy.model_management.throw_exception_if_processing_interrupted()
                 except Exception:
@@ -427,9 +431,12 @@ class RunLocalFileNode:
                     _safe_print(f"[SaturnNodes LocalRunner] {err}")
                     return ("", err, -1, False, passthrough_out)
 
-                time.sleep(0.1)
+                try:
+                    stdout_data, stderr_data = proc.communicate(timeout=0.1)
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
 
-            stdout_data, stderr_data = proc.communicate()
             exit_code = proc.returncode
             success = (exit_code == 0)
 

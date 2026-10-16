@@ -78,6 +78,12 @@ class PauseQueueManager:
                         print("[PauseQueue] Workflow paused: Queue is paused, waiting before next workflow.")
                         self.notify_clients()
                     while self.paused:
+                        try:
+                            import comfy.model_management as mm
+                            if hasattr(mm, "processing_interrupted") and mm.processing_interrupted():
+                                break
+                        except Exception:
+                            pass
                         self.event.wait(0.2)
                     self.is_waiting = False
                     self.notify_clients()
@@ -99,6 +105,7 @@ class PauseQueueManager:
             original_send_sync = server.send_sync
 
             def patched_send_sync(event, data, sid=None):
+                result = original_send_sync(event, data, sid)
                 if event == "executing" and isinstance(data, dict) and data.get("node") is not None:
                     if self.paused and self.mode == "instantly":
                         if not self.is_waiting:
@@ -106,10 +113,30 @@ class PauseQueueManager:
                             print(f"[PauseQueue] Workflow Paused Instant: Paused before executing node '{data.get('node')}'.")
                             self.notify_clients()
                         while self.paused and self.mode == "instantly":
+                            # Check for user cancellation or interrupt while paused
+                            try:
+                                import comfy.model_management as mm
+                                if hasattr(mm, "processing_interrupted") and mm.processing_interrupted():
+                                    self.paused = False
+                                    self.is_waiting = False
+                                    self.event.set()
+                                    self.notify_clients()
+                                    if hasattr(mm, "throw_exception_if_processing_interrupted"):
+                                        mm.throw_exception_if_processing_interrupted()
+                                    break
+                            except Exception as err:
+                                if "InterruptProcessingException" in type(err).__name__:
+                                    raise
+
+                            if not self.is_currently_executing():
+                                self.is_waiting = False
+                                self.notify_clients()
+                                break
+
                             self.event.wait(0.2)
                         self.is_waiting = False
                         self.notify_clients()
-                return original_send_sync(event, data, sid)
+                return result
 
             server.send_sync = patched_send_sync
         else:
@@ -154,9 +181,24 @@ class PauseQueueManager:
 
         try:
             server = getattr(PromptServer, "instance", None)
-            if server and hasattr(server, "prompt_queue") and hasattr(server.prompt_queue, "not_empty"):
-                with server.prompt_queue.mutex:
-                    server.prompt_queue.not_empty.notify_all()
+            if server and hasattr(server, "prompt_queue"):
+                pq = server.prompt_queue
+                if hasattr(pq, "not_empty") and hasattr(pq, "mutex"):
+                    # Use non-blocking acquire to avoid deadlock if worker thread is locked
+                    acquired = pq.mutex.acquire(blocking=False)
+                    if acquired:
+                        try:
+                            pq.not_empty.notify_all()
+                        finally:
+                            pq.mutex.release()
+                    else:
+                        def _notify_async():
+                            try:
+                                with pq.mutex:
+                                    pq.not_empty.notify_all()
+                            except Exception:
+                                pass
+                        threading.Thread(target=_notify_async, daemon=True).start()
         except Exception:
             pass
 
@@ -551,12 +593,29 @@ class PowerControlManager:
             cmd.extend(sys.argv)
             cwd = os.getcwd()
             env = os.environ.copy()
-            if sys.platform.startswith("win"):
-                creationflags = subprocess.CREATE_NEW_CONSOLE if hasattr(subprocess, "CREATE_NEW_CONSOLE") else 0
-                subprocess.Popen(cmd, cwd=cwd, env=env, creationflags=creationflags)
-            else:
-                subprocess.Popen(cmd, cwd=cwd, env=env, start_new_session=True)
-            time.sleep(0.4)
+            proc = None
+            try:
+                if sys.platform.startswith("win"):
+                    creationflags = subprocess.CREATE_NEW_CONSOLE if hasattr(subprocess, "CREATE_NEW_CONSOLE") else 0
+                    proc = subprocess.Popen(cmd, cwd=cwd, env=env, creationflags=creationflags)
+                else:
+                    proc = subprocess.Popen(cmd, cwd=cwd, env=env, start_new_session=True)
+            except Exception as e:
+                print(f"[SaturnNodes Power] Error spawning restart process: {e}")
+                self._executing = False
+                return
+
+            time.sleep(0.5)
+            if proc is not None and proc.poll() is not None:
+                print(f"[SaturnNodes Power] Child process exited prematurely with code {proc.returncode}. Aborting restart.")
+                self._executing = False
+                return
+
+            try:
+                sys.stdout.flush()
+                sys.stderr.flush()
+            except Exception:
+                pass
             os._exit(0)
         threading.Thread(target=_run, daemon=True).start()
         return True
@@ -567,9 +626,14 @@ class PowerControlManager:
             return False
 
         def _run():
-            import os, time
+            import sys, os, time
             print("[SaturnNodes Power] Shutting down ComfyUI server...")
             time.sleep(0.6)
+            try:
+                sys.stdout.flush()
+                sys.stderr.flush()
+            except Exception:
+                pass
             os._exit(0)
         threading.Thread(target=_run, daemon=True).start()
         return True

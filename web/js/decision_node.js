@@ -38,13 +38,48 @@ styles.textContent = `
 `;
 document.head.appendChild(styles);
 
+function findGraphNode(id) {
+    if (!id && id !== 0) return null;
+    const strId = String(id);
+    const numId = Number(id);
+
+    // 1. Direct root graph lookup
+    let node = app.graph?.getNodeById?.(id) || app.graph?.getNodeById?.(numId) || app.graph?.getNodeById?.(strId);
+    if (node) return node;
+
+    // 2. Search root graph nodes and nested subgraphs
+    if (app.graph && Array.isArray(app.graph._nodes)) {
+        for (const n of app.graph._nodes) {
+            if (String(n.id) === strId) return n;
+            if (n.subgraph && typeof n.subgraph.getNodeById === "function") {
+                const sub = n.subgraph.getNodeById(id) || n.subgraph.getNodeById(numId) || n.subgraph.getNodeById(strId);
+                if (sub) return sub;
+            }
+        }
+    }
+
+    // 3. Search graph._subgraphs registry (v0.37+)
+    if (app.graph && app.graph._subgraphs) {
+        const subgraphs = Array.isArray(app.graph._subgraphs)
+            ? app.graph._subgraphs
+            : Object.values(app.graph._subgraphs);
+        for (const sg of subgraphs) {
+            if (sg && typeof sg.getNodeById === "function") {
+                const sub = sg.getNodeById(id) || sg.getNodeById(numId) || sg.getNodeById(strId);
+                if (sub) return sub;
+            }
+        }
+    }
+    return null;
+}
+
 app.registerExtension({
     name: "Comfy.SaturnNodesDecision",
     async setup() {
         const handleWaiting = (event) => {
             const data = event.detail;
             if (data && data.node_id) {
-                const node = app.graph.getNodeById(data.node_id);
+                const node = findGraphNode(data.node_id);
                 if (node && node.enableDecisionButtons) {
                     node.enableDecisionButtons();
                 }
@@ -54,7 +89,7 @@ app.registerExtension({
         const handleResolved = (event) => {
             const data = event.detail;
             if (data && data.node_id) {
-                const node = app.graph.getNodeById(data.node_id);
+                const node = findGraphNode(data.node_id);
                 if (node && node.disableDecisionButtons) {
                     node.disableDecisionButtons();
                 }

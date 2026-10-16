@@ -61,8 +61,10 @@ def save_lora_cycle_state(state):
             excess_keys = list(state.keys())[:-100]
             for k in excess_keys:
                 del state[k]
-        with open(LORA_STATE_FILE, "w", encoding="utf-8") as f:
+        temp_file = LORA_STATE_FILE + ".tmp"
+        with open(temp_file, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=4, ensure_ascii=False)
+        os.replace(temp_file, LORA_STATE_FILE)
     except Exception as e:
         print(f"[SaturnNodes] Error saving lora loader cycle state: {e}")
 
@@ -113,8 +115,10 @@ def increment_lora_usage(lora_path):
         usage_data = load_usage_data()
         pretty_key = parse_pretty_name(lora_path)
         usage_data[pretty_key] = usage_data.get(pretty_key, 0) + 1
-        with open(usage_file, "w", encoding="utf-8") as f:
+        temp_file = usage_file + ".tmp"
+        with open(temp_file, "w", encoding="utf-8") as f:
             json.dump(usage_data, f, indent=4, ensure_ascii=False)
+        os.replace(temp_file, usage_file)
     except Exception as e:
         print(f"[SaturnNodes] Error updating lora usage: {e}")
 
@@ -238,6 +242,9 @@ def scrape_missing_images_sync():
                                     success = True
                                 except (PermissionError, OSError) as write_err:
                                     print(f"[SaturnNodes] Warning: Could not save preview image to '{dest_path}': {write_err}")
+                except urllib.error.HTTPError as http_err:
+                    if http_err.code in (401, 403):
+                        print(f"[SaturnNodes] Notice: Civitai API authentication failed (HTTP {http_err.code}). Check your CIVITAI_API_KEY in settings.")
                 except Exception:
                     pass
 
@@ -284,7 +291,10 @@ def scrape_missing_images_sync():
                                         break
                                     except (PermissionError, OSError) as write_err:
                                         print(f"[SaturnNodes] Warning: Could not save preview image to '{dest_path}': {write_err}")
-                except Exception as tmdb_err:
+                except urllib.error.HTTPError as http_err:
+                    if http_err.code in (401, 403):
+                        print(f"[SaturnNodes] Notice: TMDB API authentication failed (HTTP {http_err.code}). Check your TMDB_API_KEY in settings.")
+                except Exception:
                     pass
 
             if not success:
@@ -293,8 +303,10 @@ def scrape_missing_images_sync():
 
         if modified:
             try:
-                with open(failed_scrapes_file, "w", encoding="utf-8") as f:
+                temp_file = failed_scrapes_file + ".tmp"
+                with open(temp_file, "w", encoding="utf-8") as f:
                     json.dump(failed_scrapes, f, indent=4, ensure_ascii=False)
+                os.replace(temp_file, failed_scrapes_file)
             except Exception:
                 pass
     except Exception as e:

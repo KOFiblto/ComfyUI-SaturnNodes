@@ -43,7 +43,7 @@ def load_state():
                 if isinstance(data, dict):
                     return data
         except Exception as e:
-            print(f"[SaturnNodes] 🍃 Warning reading prompt iterator state: {e}")
+            print(f"[SaturnNodes] Warning reading prompt iterator state: {e}")
     return {}
 
 def save_state(state):
@@ -57,22 +57,21 @@ def save_state(state):
         tmp_file = STATE_FILE + ".tmp"
         with open(tmp_file, "w", encoding="utf-8") as f:
             json.dump(state, f, indent=4, ensure_ascii=False)
-        if os.path.exists(STATE_FILE):
-            os.replace(tmp_file, STATE_FILE)
-        else:
-            os.rename(tmp_file, STATE_FILE)
+        os.replace(tmp_file, STATE_FILE)
     except Exception as e:
-        print(f"[SaturnNodes] 🍃 Error saving prompt iterator state: {e}")
+        print(f"[SaturnNodes] Error saving prompt iterator state: {e}")
 
 def clear_state():
     ensure_user_dir()
     try:
-        with open(STATE_FILE, "w", encoding="utf-8") as f:
+        tmp_file = STATE_FILE + ".tmp"
+        with open(tmp_file, "w", encoding="utf-8") as f:
             json.dump({}, f, indent=4)
-        print("[SaturnNodes] 🍃 Prompt iterator state cleared.")
+        os.replace(tmp_file, STATE_FILE)
+        print("[SaturnNodes] Prompt iterator state cleared.")
         return True
     except Exception as e:
-        print(f"[SaturnNodes] 🍃 Error clearing prompt iterator state: {e}")
+        print(f"[SaturnNodes] Error clearing prompt iterator state: {e}")
         return False
 
 # Clear state on startup if privacy setting enabled
@@ -149,11 +148,11 @@ try:
                 subprocess.Popen(["xdg-open", canonical_state])
             return web.json_response({"status": "ok", "path": canonical_state})
         except Exception as e:
-            print(f"[SaturnNodes] 🍃 Error opening state file: {e}")
+            print(f"[SaturnNodes] Error opening state file: {e}")
             return web.json_response({"status": "error", "message": str(e)}, status=500)
 
-except Exception:
-    pass
+except Exception as e:
+    print(f"[SaturnNodes] Notice: Skipped registering prompt iterator endpoints: {e}")
 
 def parse_prompt_blocks(text_str, separator, custom_regex=""):
     if not text_str or not text_str.strip():
@@ -188,11 +187,19 @@ def parse_prompt_blocks(text_str, separator, custom_regex=""):
 
 def get_current_prompt_id():
     try:
-        server = PromptServer.instance
-        if hasattr(server, "prompt_queue") and server.prompt_queue.currently_running:
-            for item in server.prompt_queue.currently_running.values():
-                if isinstance(item, (tuple, list)) and len(item) > 1:
-                    return str(item[1])
+        server = getattr(PromptServer, "instance", None)
+        if server and hasattr(server, "prompt_queue"):
+            queue = server.prompt_queue
+            if hasattr(queue, "currently_running") and queue.currently_running:
+                mutex = getattr(queue, "mutex", None)
+                if mutex:
+                    with mutex:
+                        items = list(queue.currently_running.values())
+                else:
+                    items = list(queue.currently_running.values())
+                for item in items:
+                    if isinstance(item, (tuple, list)) and len(item) > 1:
+                        return str(item[1])
     except Exception:
         pass
     return None

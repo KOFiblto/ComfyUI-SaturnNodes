@@ -288,11 +288,27 @@ function mergeDynamicSeeds(snapPrompt, livePrompt) {
                 if (!snapNode || snapNode.id === undefined) continue;
                 const liveWfNode = liveWorkflowMap.get(String(snapNode.id));
                 if (liveWfNode && Array.isArray(liveWfNode.widgets_values) && Array.isArray(snapNode.widgets_values)) {
+                    const graphNode = app.graph?.getNodeById?.(snapNode.id) || app.graph?.getNodeById?.(Number(snapNode.id));
                     for (let i = 0; i < liveWfNode.widgets_values.length; i++) {
                         const liveVal = liveWfNode.widgets_values[i];
                         const snapVal = snapNode.widgets_values[i];
                         if (typeof liveVal === "number" && typeof snapVal === "number" && liveVal !== snapVal) {
-                            snapNode.widgets_values[i] = liveVal;
+                            const widgetName = graphNode?.widgets?.[i]?.name;
+                            if (widgetName) {
+                                if (isSeedInput(widgetName, liveVal)) {
+                                    snapNode.widgets_values[i] = liveVal;
+                                }
+                            } else {
+                                const apiInputs = cloned.output?.[String(snapNode.id)]?.inputs;
+                                if (apiInputs) {
+                                    for (const [k, v] of Object.entries(apiInputs)) {
+                                        if (v === liveVal && isSeedInput(k, v)) {
+                                            snapNode.widgets_values[i] = liveVal;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

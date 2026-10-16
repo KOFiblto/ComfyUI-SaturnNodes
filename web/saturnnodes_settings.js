@@ -612,6 +612,12 @@ function renderSketchColorSetting(settingId, defaultColor) {
             if (typeof setter === "function") {
                 setter(newHex);
             }
+            if (typeof app.ui?.settings?.setSettingValue === "function") {
+                try { app.ui.settings.setSettingValue(settingId, newHex); } catch (_) {}
+            }
+            if (typeof app.ui?.settings?.set === "function") {
+                try { app.ui.settings.set(settingId, newHex); } catch (_) {}
+            }
             if (typeof localStorage !== "undefined") {
                 try {
                     localStorage.setItem(`Comfy.Settings.${settingId}`, JSON.stringify(newHex));
@@ -748,11 +754,6 @@ function migrateSavedSettings() {
 migrateSavedSettings();
 
 function getInitialSetting(saturnId, defaultVal) {
-    if (typeof localStorage === "undefined") return defaultVal;
-
-    // Build lookup keys: unnumbered, numbered, and legacy variants
-    const variations = [saturnId];
-
     const categoryMap = {
         "🖼️ Visual Loaders": "1 - 🖼️ Visual Loaders",
         "🔄 Prompt Iterator": "2 - 🔄 Prompt Iterator",
@@ -767,23 +768,43 @@ function getInitialSetting(saturnId, defaultVal) {
         "🧩 Node Management": "11 - 🧩 Node Management"
     };
 
+    // Build lookup keys: unnumbered, numbered, and legacy variants
+    const variations = [saturnId];
     for (const [plain, num] of Object.entries(categoryMap)) {
         if (saturnId.includes(plain)) {
             variations.push(saturnId.replace(plain, num));
             break;
         }
     }
-
     const len = variations.length;
     for (let i = 0; i < len; i++) {
         variations.push(variations[i].replace(/^SaturnNodes\./, "LeafFlow."));
     }
 
-    for (const prefix of ["Comfy.Settings.", ""]) {
-        for (const vId of variations) {
-            const val = localStorage.getItem(`${prefix}${vId}`);
-            if (val !== null && val !== undefined) {
-                try { return JSON.parse(val); } catch (_) { return val; }
+    // 1. Check ComfyUI settings API (getSettingValue / get) across all variations
+    for (const vId of variations) {
+        if (typeof app.ui?.settings?.getSettingValue === "function") {
+            try {
+                const val = app.ui.settings.getSettingValue(vId);
+                if (val !== undefined && val !== null) return val;
+            } catch (_) {}
+        }
+        if (typeof app.ui?.settings?.get === "function") {
+            try {
+                const val = app.ui.settings.get(vId);
+                if (val !== undefined && val !== null) return val;
+            } catch (_) {}
+        }
+    }
+
+    // 2. Check localStorage across prefixes and variations
+    if (typeof localStorage !== "undefined") {
+        for (const prefix of ["Comfy.Settings.", ""]) {
+            for (const vId of variations) {
+                const val = localStorage.getItem(`${prefix}${vId}`);
+                if (val !== null && val !== undefined) {
+                    try { return JSON.parse(val); } catch (_) { return val; }
+                }
             }
         }
     }

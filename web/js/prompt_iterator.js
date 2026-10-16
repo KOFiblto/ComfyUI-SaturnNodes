@@ -2,6 +2,38 @@ import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { authenticatedFetch } from "./auth_helper.js";
 
+function findGraphNode(id) {
+    if (!id && id !== 0) return null;
+    const strId = String(id);
+    const numId = Number(id);
+
+    let node = app.graph?.getNodeById?.(id) || app.graph?.getNodeById?.(numId) || app.graph?.getNodeById?.(strId);
+    if (node) return node;
+
+    if (app.graph && Array.isArray(app.graph._nodes)) {
+        for (const n of app.graph._nodes) {
+            if (String(n.id) === strId) return n;
+            if (n.subgraph && typeof n.subgraph.getNodeById === "function") {
+                const sub = n.subgraph.getNodeById(id) || n.subgraph.getNodeById(numId) || n.subgraph.getNodeById(strId);
+                if (sub) return sub;
+            }
+        }
+    }
+
+    if (app.graph && app.graph._subgraphs) {
+        const subgraphs = Array.isArray(app.graph._subgraphs)
+            ? app.graph._subgraphs
+            : Object.values(app.graph._subgraphs);
+        for (const sg of subgraphs) {
+            if (sg && typeof sg.getNodeById === "function") {
+                const sub = sg.getNodeById(id) || sg.getNodeById(numId) || sg.getNodeById(strId);
+                if (sub) return sub;
+            }
+        }
+    }
+    return null;
+}
+
 app.registerExtension({
     name: "ComfyUI.SaturnNodes.PromptQueueIterator",
     async setup() {
@@ -9,7 +41,7 @@ app.registerExtension({
             const handleProgress = (event) => {
                 const data = event.detail;
                 if (!data || !data.node_id) return;
-                const node = app.graph?.getNodeById(data.node_id);
+                const node = findGraphNode(data.node_id);
                 if (node && node.widgets) {
                     const statusWidget = node.widgets.find(w => w.name === "Progress");
                     if (statusWidget) {
