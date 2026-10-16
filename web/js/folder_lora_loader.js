@@ -1,6 +1,7 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { isSaturnColorsEnabled } from "../saturnnodes_colors.js";
+import { authenticatedFetch } from "./auth_helper.js";
 
 // Hash folder name to get a consistent color for the border
 function getFolderBorderColor(folderName) {
@@ -96,7 +97,9 @@ visualStyles.textContent = `
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
         gap: 12px;
+        row-gap: 6px;
         padding: 4px 6px;
         background: #181818;
         border: 1px solid #282828;
@@ -1060,6 +1063,113 @@ app.registerExtension({
             scrapeToggleContainer.appendChild(scrapeOnBtn);
             scrapeToggleContainer.appendChild(scrapeOffBtn);
             controlBar.appendChild(scrapeToggleContainer);
+
+            // --- Maintenance Reset Container (cycle counter / usage counters / thumbnail cache) ---
+            const maintContainer = document.createElement("div");
+            maintContainer.className = "lora-toggle-container";
+
+            const maintLabel = document.createElement("span");
+            maintLabel.className = "lora-toggle-label";
+            maintLabel.innerText = "Reset:";
+            maintContainer.appendChild(maintLabel);
+
+            const postMaintenance = async (route, body) => {
+                const resp = await authenticatedFetch(route, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body || {})
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok || (data && data.status === "error")) {
+                    throw new Error((data && data.message) || `Request failed (${resp.status})`);
+                }
+                return data;
+            };
+
+            const makeMaintButton = (label, title, onClick) => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "lora-toggle-btn";
+                btn.innerText = label;
+                btn.title = title;
+                btn.dataset.defaultLabel = label;
+                btn.addEventListener("click", async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (btn.disabled) return;
+                    try {
+                        const result = await onClick();
+                        if (result === false) return;
+                        btn.innerText = "✅ Done";
+                    } catch (err) {
+                        console.error(`[SaturnNodes] '${label}' maintenance action failed:`, err);
+                        btn.innerText = "⚠️ Failed";
+                    }
+                    btn.disabled = true;
+                    app.graph?.setDirtyCanvas(true, true);
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerText = btn.dataset.defaultLabel;
+                        app.graph?.setDirtyCanvas(true, true);
+                    }, 1600);
+                    app.graph?.setDirtyCanvas(true, true);
+                });
+                return btn;
+            };
+
+            // Cycle counter: resets Sequential/Random position + prompt->LoRA assignments for this node
+            const cycleResetBtn = makeMaintButton(
+                "↺ Counter",
+                "Reset this loader's Sequential/Random cycle counter and prompt-to-LoRA assignments",
+                async () => {
+                    const ok = confirm(
+                        "Reset this LoRA loader's cycle counter?\n\n" +
+                        "• The next run starts again from the FIRST selected LoRA.\n" +
+                        "• All prompt→LoRA assignments for this node are cleared.\n\n" +
+                        "⚠️ Running and queued workflows will pick LoRAs from the start again,\n" +
+                        "which can mismatch them against the prompt iterator mid-batch.\n" +
+                        "Only do this between batches (when the queue is empty).\n\nContinue?"
+                    );
+                    if (!ok) return false;
+                    await postMaintenance("/saturnnodes/folder_lora_loader/reset_cycle", { node_id: String(node.id) });
+                }
+            );
+            maintContainer.appendChild(cycleResetBtn);
+
+            // Usage counters: clears badges + 'Usage' sortings (cosmetic)
+            const usageResetBtn = makeMaintButton(
+                "🧹 Usage",
+                "Reset all LoRA usage counters (badges and 'Usage' sortings)",
+                async () => {
+                    const ok = confirm(
+                        "Reset all LoRA usage counters?\n\n" +
+                        "• Every usage badge and 'Usage' sorting starts from 0.\n" +
+                        "• Cosmetic only - LoRA loading itself is not affected.\n\nContinue?"
+                    );
+                    if (!ok) return false;
+                    await postMaintenance("/saturnnodes/folder_lora_loader/reset_usage");
+                    updateVisualGrid();
+                }
+            );
+            maintContainer.appendChild(usageResetBtn);
+
+            // Thumbnail cache: deletes cached WebP previews (regenerated automatically)
+            const cacheResetBtn = makeMaintButton(
+                "🗑 Cache",
+                "Delete cached LoRA thumbnail images (they regenerate automatically)",
+                async () => {
+                    const ok = confirm(
+                        "Clear the cached LoRA thumbnails?\n\n" +
+                        "• Cached preview thumbnails are deleted from disk.\n" +
+                        "• They regenerate automatically when you view the grid.\n\nContinue?"
+                    );
+                    if (!ok) return false;
+                    await postMaintenance("/saturnnodes/folder_lora_loader/clear_cache");
+                }
+            );
+            maintContainer.appendChild(cacheResetBtn);
+
+            controlBar.appendChild(maintContainer);
 
             viewContainer.appendChild(controlBar);
             viewContainer.appendChild(gridContainer);

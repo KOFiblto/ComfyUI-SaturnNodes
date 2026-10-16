@@ -61,6 +61,13 @@ app.registerExtension({
 
             // 2. Reset Counter (0) Button
             const resetBtn = node.addWidget("button", "Reset Counter (0)", null, async () => {
+                const proceed = confirm(
+                    "Reset this node's prompt counter to 0?\n\n" +
+                    "• New queued runs start again from the FIRST prompt.\n" +
+                    "• Already-assigned running/queued items keep their prompt (crash recovery).\n" +
+                    "• The state file is NOT emptied - use Settings → \"Reset All Queues\" for a full wipe.\n\nContinue?"
+                );
+                if (!proceed) return;
                 try {
                     resetBtn.name = "⏳ Resetting...";
                     app.graph?.setDirtyCanvas(true, true);

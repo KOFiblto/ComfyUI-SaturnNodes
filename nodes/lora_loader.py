@@ -21,6 +21,7 @@ from .utils import (
     sanitize_folder_path,
     get_saturnnodes_user_dir,
     is_local_request,
+    is_authenticated_local_request,
     is_safe_path
 )
 
@@ -469,6 +470,76 @@ async def get_preview_endpoint(request):
             return web.FileResponse(serve_path)
 
     return web.Response(status=404)
+
+@routes.post("/saturnnodes/folder_lora_loader/reset_cycle")
+async def reset_lora_cycle_endpoint(request):
+    """Clears Sequential/Random cycle counters + prompt->LoRA assignments for one node (or all)."""
+    if not is_authenticated_local_request(request):
+        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    node_id = str(data.get("node_id", "")).strip()
+    try:
+        state = load_lora_cycle_state()
+        removed = 0
+        if node_id and node_id != "all":
+            prefixes = (f"seq_{node_id}_", f"rand_{node_id}_", f"noreplace_{node_id}_")
+            for k in list(state.keys()):
+                if k.startswith(prefixes):
+                    del state[k]
+                    removed += 1
+        else:
+            removed = len(state)
+            state = {}
+        save_lora_cycle_state(state)
+        return web.json_response({"status": "ok", "removed": removed})
+    except Exception as e:
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+@routes.post("/saturnnodes/folder_lora_loader/reset_usage")
+async def reset_lora_usage_endpoint(request):
+    """Empties lora_usage.json (usage badges + usage-based sortings)."""
+    if not is_authenticated_local_request(request):
+        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    try:
+        ensure_user_dir()
+        usage_file = os.path.join(USER_DIR, "lora_usage.json")
+        tmp_file = usage_file + ".tmp"
+        with open(tmp_file, "w", encoding="utf-8") as f:
+            json.dump({}, f, indent=4)
+        os.replace(tmp_file, usage_file)
+        return web.json_response({"status": "ok"})
+    except Exception as e:
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
+
+@routes.post("/saturnnodes/folder_lora_loader/clear_cache")
+async def clear_lora_cache_endpoint(request):
+    """Deletes cached WebP thumbnails (regenerated on demand)."""
+    if not is_authenticated_local_request(request):
+        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    removed = 0
+    try:
+        cache_dir = os.path.realpath(THUMBNAILS_DIR)
+        canonical_user = os.path.realpath(USER_DIR)
+        try:
+            if os.path.commonpath([canonical_user, cache_dir]) != canonical_user:
+                return web.json_response({"status": "error", "message": "Security: cache path escapes user directory"}, status=403)
+        except Exception:
+            return web.json_response({"status": "error", "message": "Security path validation error"}, status=403)
+        if os.path.isdir(cache_dir):
+            for name in os.listdir(cache_dir):
+                entry = os.path.join(cache_dir, name)
+                if os.path.isfile(entry):
+                    try:
+                        os.remove(entry)
+                        removed += 1
+                    except Exception:
+                        pass
+        return web.json_response({"status": "ok", "removed": removed})
+    except Exception as e:
+        return web.json_response({"status": "error", "message": str(e)}, status=500)
 
 class FolderLoraLoader:
     @classmethod
