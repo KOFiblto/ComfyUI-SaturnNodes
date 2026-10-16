@@ -303,11 +303,9 @@ app.registerExtension({
                 } else {
                     viewContainer.classList.remove("show-all-mode");
                     viewContainer.classList.add("scrollable-mode");
-                    const restoredH = node.userCustomHeight || userSavedHeight || 480;
-                    const containerH = Math.max(180, restoredH - 150);
                     
-                    viewContainer.style.setProperty("height", `${containerH}px`, "important");
-                    viewContainer.style.setProperty("max-height", `${containerH}px`, "important");
+                    viewContainer.style.setProperty("height", "100%", "important");
+                    viewContainer.style.setProperty("max-height", "100%", "important");
                     viewContainer.style.setProperty("overflow-y", "hidden", "important");
 
                     gridContainer.style.setProperty("height", "100%", "important");
@@ -315,7 +313,10 @@ app.registerExtension({
                     gridContainer.style.setProperty("overflow-y", "auto", "important");
                     gridContainer.style.setProperty("flex", "1 1 0px", "important");
 
-                    node.setSize([node.size[0], Math.max(420, restoredH)]);
+                    const targetH = node.userCustomHeight || userSavedHeight || (node.size ? node.size[1] : 480);
+                    if (targetH && (!node.size || node.size[1] !== targetH)) {
+                        node.setSize([node.size ? node.size[0] : 380, Math.max(420, targetH)]);
+                    }
                     if (app.graph) app.graph.setDirtyCanvas(true, true);
                 }
             };
@@ -325,7 +326,7 @@ app.registerExtension({
                 if (displayModeWidget && displayModeWidget.value === "Show All" && gridContainer) {
                     return [Math.max(380, node.size[0]), Math.max(420, (gridContainer.scrollHeight || 0) + 160)];
                 }
-                return [Math.max(380, node.size[0]), 420];
+                return [Math.max(380, node.size[0]), Math.max(420, node.size ? node.size[1] : 420)];
             };
 
             const updateNodeSize = () => {
@@ -351,6 +352,9 @@ app.registerExtension({
 
             // In ComfyUI LiteGraph (V1), computeLayoutSize handles dynamic widget space distribution.
             // Removing computeSize avoids an infinite expansion loop in _arrangeWidgets.
+            domWidget.computeLayoutSize = function() {
+                return { minHeight: 180, maxHeight: undefined, minWidth: 300 };
+            };
             delete domWidget.computeSize;
 
             const onResize = node.onResize;
@@ -361,11 +365,6 @@ app.registerExtension({
                 if (!isShowAll && size) {
                     node.userCustomHeight = size[1];
                     userSavedHeight = size[1];
-                    if (viewContainer && viewContainer.style) {
-                        const h = Math.max(180, size[1] - 150);
-                        viewContainer.style.setProperty("height", `${h}px`, "important");
-                        viewContainer.style.setProperty("max-height", `${h}px`, "important");
-                    }
                 }
             };
 
@@ -598,6 +597,11 @@ app.registerExtension({
             const originalOnConfigure = node.onConfigure;
             node.onConfigure = function(config) {
                 if (originalOnConfigure) originalOnConfigure.apply(this, arguments);
+
+                if (config && config.size && config.size[1]) {
+                    node.userCustomHeight = config.size[1];
+                    userSavedHeight = config.size[1];
+                }
 
                 const savedTileSize = (config && config.properties && config.properties["tile_size"] != null)
                     ? config.properties["tile_size"]
