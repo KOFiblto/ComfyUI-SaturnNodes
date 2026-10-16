@@ -161,5 +161,3 @@ class TextLoraFinder:
 
         return (current_model, current_clip, ", ".join(formatted_names))
 
-# Alias for backward compatibility
-LoraTextFinder = TextLoraFinder

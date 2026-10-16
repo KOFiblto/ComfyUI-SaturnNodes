@@ -100,7 +100,7 @@ app.registerExtension({
         api.addEventListener("saturnnodes_decision_resolved", handleResolved);
     },
     async nodeCreated(node) {
-        if (node.comfyClass === "SaturnDecision" || node.comfyClass === "LeafFlowDecision") {
+        if (node.comfyClass === "SaturnDecision") {
             const container = document.createElement("div");
             container.className = "saturnnodes-decision-container";
 

@@ -127,18 +127,18 @@ When implementing a new custom node, you **must complete all 5 steps**:
       # ...
   }
   ```
-- [ ] If renaming or replacing an existing node, **always preserve the old name in `NODE_CLASS_MAPPINGS` as an alias** to avoid breaking user workflows!
+- [ ] Avoid renaming or replacing existing node class names; if unavoidable, migrate known workflow files to the new class name instead of keeping permanent legacy aliases (see §7).
 
 ### Step 2.3: Frontend Extensions & Colors (`web/`)
 - [ ] If the node needs custom canvas/DOM widgets, implement the extension under `web/js/<feature>.js`.
-- [ ] In `nodeCreated(node)` or `beforeRegisterNodeDef(nodeType, nodeData)`, **always check both `node.comfyClass` and `node.type`**, and support aliases:
+- [ ] In `nodeCreated(node)` or `beforeRegisterNodeDef(nodeType, nodeData)`, **always check both `node.comfyClass` and `node.type`**:
   ```javascript
-  const isTargetNode = ["YourNodeName", "YourOldAlias"].includes(node.comfyClass) || 
-                       ["YourNodeName", "YourOldAlias"].includes(node.type);
+  const isTargetNode = node.comfyClass === "YourNodeName" ||
+                       node.type === "YourNodeName";
   ```
 - [ ] Register node theme colors in [`web/saturnnodes_colors.js`](./web/saturnnodes_colors.js):
   - The suite uses a single unified Saturn amber theme (`DEFAULT_HEADER_COLOR = "#6a3f20"`, `DEFAULT_BG_COLOR = "#472a15"`), user-overridable via the Custom Node Title/Body Color settings.
-  - Add the new node class key (and any legacy alias it replaces) to `SATURN_NODE_TYPES` so the custom colors apply to it.
+  - Add the new node class key to `SATURN_NODE_TYPES` so the custom colors apply to it.
 
 ### Step 2.4: Documentation (`README.md` & `WALKTHROUGH.md`)
 - [ ] Add a clean heading section in [`README.md`](./README.md) under `## 📦 Individual Nodes Reference`:
@@ -244,7 +244,7 @@ STATE_FILE = os.path.join(USER_DIR, "your_state.json")
 
 ### Directory Rules & Compatibility Policy:
 - All state, caches, and credentials live in `ComfyUI/user/default/SaturnNodes/` only. No legacy directories are read, migrated, or referenced.
-- Never reintroduce pre-rename compatibility shims (old HTTP routes, old setting keys/IDs, old localStorage keys, old headers, old user directories). The **only** permitted backward-compatibility surface is legacy node class-name aliases in `NODE_CLASS_MAPPINGS`, required so old workflow files keep loading.
+- No pre-rename compatibility shims exist or may be reintroduced (old HTTP routes, old setting keys/IDs, old localStorage keys, old headers, old user directories, old node class-name aliases). Old workflow files are migrated to the current node names instead.
 
 ---
 

@@ -825,7 +825,7 @@ app.registerExtension({
         }
 
         // --- 3. VISUAL PRETTY PICKER V2 (Collapsible folders & Multi-selection) ---
-        if (node.comfyClass === "FolderLoraLoaderVisualPrettyV2" || node.comfyClass === "VisualLoraLoader" || node.type === "FolderLoraLoaderVisualPrettyV2" || node.type === "VisualLoraLoader") {
+        if (node.comfyClass === "VisualLoraLoader" || node.type === "VisualLoraLoader") {
             node.size = [380, 360];
 
             const folderWidget = node.widgets.find(w => w.name === "folder");

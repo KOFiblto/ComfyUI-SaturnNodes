@@ -157,7 +157,7 @@ Canvas rendering node that listens to sampler WebSocket latent binary streams an
 <summary><b>🪐 ⏸️ Saturn Decision</b> (<code>SaturnDecision</code>)</summary>
 
 #### Overview
-Pauses workflow execution at a specific step and displays an inline UI popup with Continue, Cancel, or Stop Workflow actions, plus optional native OS desktop notifications. Fully backward compatible with legacy workflows from earlier releases.
+Pauses workflow execution at a specific step and displays an inline UI popup with Continue, Cancel, or Stop Workflow actions, plus optional native OS desktop notifications.
 
 #### Inputs & Widgets
 - **`disable`** (`BOOLEAN`): Bypass decision gate.

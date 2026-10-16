@@ -205,11 +205,9 @@ app.registerExtension({
     async nodeCreated(node) {
         const isVisualImageLoader = [
             "VisualImageLoader",
-            "ImageLoaderVisualPrettyV2",
             "ImageLoaderCustom",
         ].includes(node.comfyClass) || [
             "VisualImageLoader",
-            "ImageLoaderVisualPrettyV2",
             "ImageLoaderCustom",
         ].includes(node.type);
 

@@ -807,5 +807,3 @@ class VisualLoraLoader(FolderLoraLoaderPretty):
         pretty_name_str = ", ".join(loaded_names) if loaded_names else ""
         return (current_model, current_clip, pretty_name_str)
 
-# Alias for backward compatibility
-FolderLoraLoaderVisualPrettyV2 = VisualLoraLoader

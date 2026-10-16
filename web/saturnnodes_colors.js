@@ -9,25 +9,19 @@ export const SATURN_NODE_TYPES = new Set([
     "VisualLoraLoader",
     "FolderLoraLoader",
     "FolderLoraLoaderPretty",
-    "FolderLoraLoaderVisualPrettyV2",
     "VisualImageLoader",
-    "ImageLoaderVisualPrettyV2",
     "LoadRecentOutputs",
 
     // Automation, Flow & Utilities
     "LoadImageFromFolder",
     "TextAspectRatioFinder",
-    "AspectRatioFinder",
     "PreviewImageSizeAspectRatio",
     "TextLoraFinder",
-    "LoraTextFinder",
     "PromptQueueIterator",
     "PromptCounter",
     "MultiTextReplacer",
     "SaturnTextSplit",
-    "LeafFlowTextSplit",
     "SaturnDecision",
-    "LeafFlowDecision",
     "RunLocalFileNode",
 
     // Queue & Previews

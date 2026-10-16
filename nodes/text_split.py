@@ -85,6 +85,3 @@ class SaturnTextSplit:
             t2 = t2.strip()
 
         return (t1, t2)
-
-LeafFlowTextSplit = SaturnTextSplit
-SaturnTextSplit = SaturnTextSplit

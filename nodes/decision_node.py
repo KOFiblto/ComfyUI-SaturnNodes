@@ -199,6 +199,3 @@ async def handle_decision(request):
             return web.json_response({"status": "error", "message": "Node is not waiting."}, status=400)
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
-
-LeafFlowDecision = SaturnDecision
-SaturnDecision = SaturnDecision

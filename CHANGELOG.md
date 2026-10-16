@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Route Namespacing**: All HTTP routes live exclusively under `/saturnnodes/*`; the transitional pre-2.6 route aliases (`/pause_queue/*`, `/persistent_queue/*`, `/image_loader/*`, `/folder_lora_loader/*`) were removed entirely.
-- **Compatibility Surface Reduction**: All remaining pre-rename compatibility layers were purged — duplicate legacy route handlers, frontend settings migration and legacy settings-ID lookups, legacy localStorage/storage keys, the legacy CSRF header fallback, and the legacy user-directory auto-migration. The only retained backward-compatibility surface is the legacy node class-name aliases in `NODE_CLASS_MAPPINGS`, required so old workflow files keep loading.
+- **Compatibility Surface Reduction**: All remaining pre-rename compatibility layers were purged — duplicate legacy route handlers, frontend settings migration and legacy settings-ID lookups, legacy localStorage/storage keys, the legacy CSRF header fallback, the legacy user-directory auto-migration, and all superseded node class-name aliases. No backward-compatibility surface remains.
 - **Naming Consistency**: Unified `ComfyUI.SaturnNodes.*` frontend extension names, `saturnnodes-*` CSS prefixes, and `[SaturnNodes ...]` console log tags.
 - **Documentation Rebrand**: `WALKTHROUGH.md`, the README settings reference, `.env.example`, `AGENTS.md` and `SECURITY.md` were fully rebranded and reconciled with the real setting labels, widget names and environment variables.
 - **Registry Identity**: Package name set to `saturnnodes` (per registry naming best practices); version bumped to `2.6.1`.

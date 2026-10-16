@@ -251,5 +251,3 @@ class PreviewImageSizeAspectRatio:
 
         return {}
 
-# Alias for backward compatibility
-AspectRatioFinder = TextAspectRatioFinder

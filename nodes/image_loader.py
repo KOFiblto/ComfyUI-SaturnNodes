@@ -362,5 +362,3 @@ class VisualImageLoader:
 
         return (image, positive_prompt, width, height)
 
-# Alias for backward compatibility
-ImageLoaderVisualPrettyV2 = VisualImageLoader

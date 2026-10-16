@@ -5,7 +5,7 @@ app.registerExtension({
     name: "ComfyUI.SaturnNodes.PreviewImageSizeAspectRatio",
 
     async beforeRegisterNodeDef(nodeType, nodeData) {
-        if (nodeData.name !== "PreviewImageSizeAspectRatio" && nodeData.name !== "TextAspectRatioFinder" && nodeData.name !== "AspectRatioFinder") return;
+        if (nodeData.name !== "PreviewImageSizeAspectRatio" && nodeData.name !== "TextAspectRatioFinder") return;
 
         if (nodeData.name === "PreviewImageSizeAspectRatio") {
             const onNodeCreated = nodeType.prototype.onNodeCreated;
@@ -301,7 +301,7 @@ api.addEventListener("saturnnodes_update_preview_aspect_ratio", (event) => {
     if (!detail || !detail.node_id) return;
 
     const node = app.graph.getNodeById(detail.node_id);
-    if (node && (node.type === "PreviewImageSizeAspectRatio" || node.type === "TextAspectRatioFinder" || node.type === "AspectRatioFinder")) {
+    if (node && (node.type === "PreviewImageSizeAspectRatio" || node.type === "TextAspectRatioFinder")) {
         node.aspect_ratio_data = {
             ratio: detail.ratio,
             display_text: detail.display_text

@@ -20,16 +20,15 @@ from .nodes.assets_restore import (
 from .nodes.lora_loader import (
     FolderLoraLoader,
     FolderLoraLoaderPretty,
-    VisualLoraLoader,
-    FolderLoraLoaderVisualPrettyV2
+    VisualLoraLoader
 )
-from .nodes.image_loader import VisualImageLoader, ImageLoaderVisualPrettyV2
+from .nodes.image_loader import VisualImageLoader
 from .nodes.auto_watcher import LoadImageFromFolder
 from .nodes.load_recent import LoadRecentOutputs
 from .nodes.preview_latent import PreviewLatentLiveNode
 from .nodes.decision_node import SaturnDecision
-from .nodes.aspect_ratio import TextAspectRatioFinder, AspectRatioFinder, PreviewImageSizeAspectRatio
-from .nodes.lora_finder import TextLoraFinder, LoraTextFinder
+from .nodes.aspect_ratio import TextAspectRatioFinder, PreviewImageSizeAspectRatio
+from .nodes.lora_finder import TextLoraFinder
 from .nodes.prompt_iterator import PromptQueueIterator
 from .nodes.prompt_counter import PromptCounter
 from .nodes.text_replacer import MultiTextReplacer
@@ -63,13 +62,6 @@ NODE_CLASS_MAPPINGS = {
     "SaturnTextSplit": SaturnTextSplit,
     "RunLocalFileNode": RunLocalFileNode,
     "SaturnStereo3D": SaturnStereo3D,
-    # Backward compatibility aliases for pre-rename workflows
-    "LeafFlowDecision": SaturnDecision,
-    "LeafFlowTextSplit": SaturnTextSplit,
-    "FolderLoraLoaderVisualPrettyV2": VisualLoraLoader,
-    "ImageLoaderVisualPrettyV2": VisualImageLoader,
-    "AspectRatioFinder": TextAspectRatioFinder,
-    "LoraTextFinder": TextLoraFinder,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
@@ -90,29 +82,11 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SaturnTextSplit": "🪐 ✂️ Text Split",
     "RunLocalFileNode": "🪐 ⚡ Run Local File",
     "SaturnStereo3D": "🪐 👓 Stereoscopic 3D Generator",
-    # Legacy aliases (labeled clearly to avoid confusing duplicates in search)
-    "LeafFlowDecision": "🪐 ⏸️ Decision [Legacy]",
-    "LeafFlowTextSplit": "🪐 ✂️ Text Split [Legacy]",
-    "FolderLoraLoaderVisualPrettyV2": "🪐 🖼️ Visual LoRA Loader [Legacy]",
-    "ImageLoaderVisualPrettyV2": "🪐 📷 Visual Image Loader [Legacy]",
-    "AspectRatioFinder": "🪐 📐 Aspect Ratio Finder [Legacy]",
-    "LoraTextFinder": "🪐 🔎 Text LoRA Finder [Legacy]",
 }
-
-LEGACY_ALIAS_MAP = {
-    "VisualLoraLoader": "FolderLoraLoaderVisualPrettyV2",
-    "VisualImageLoader": "ImageLoaderVisualPrettyV2",
-    "TextAspectRatioFinder": "AspectRatioFinder",
-    "TextLoraFinder": "LoraTextFinder",
-    "SaturnDecision": "LeafFlowDecision",
-    "SaturnTextSplit": "LeafFlowTextSplit",
-}
-
-CANONICAL_SATURN_NODE_KEYS = [k for k in NODE_CLASS_MAPPINGS if k not in LEGACY_ALIAS_MAP.values()]
 
 ALL_SATURN_NODE_CLASSES = dict(NODE_CLASS_MAPPINGS)
 ALL_SATURN_NODE_DISPLAY_NAMES = dict(NODE_DISPLAY_NAME_MAPPINGS)
-ALL_SATURN_NODE_KEYS = CANONICAL_SATURN_NODE_KEYS
+ALL_SATURN_NODE_KEYS = list(NODE_CLASS_MAPPINGS)
 
 def get_saturn_nodes_info():
     """Returns sorted node metadata auto-generated from NODE_CLASS_MAPPINGS and NODE_DISPLAY_NAME_MAPPINGS."""
@@ -177,10 +151,6 @@ if _active_disabled_nodes:
     for _node_name in _active_disabled_nodes:
         NODE_CLASS_MAPPINGS.pop(_node_name, None)
         NODE_DISPLAY_NAME_MAPPINGS.pop(_node_name, None)
-        _alias = LEGACY_ALIAS_MAP.get(_node_name)
-        if _alias:
-            NODE_CLASS_MAPPINGS.pop(_alias, None)
-            NODE_DISPLAY_NAME_MAPPINGS.pop(_alias, None)
 
 WEB_DIRECTORY = "./web"
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS", "WEB_DIRECTORY"]
