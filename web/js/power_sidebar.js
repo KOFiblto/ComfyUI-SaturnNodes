@@ -625,13 +625,14 @@ function showPowerSidePopup(anchorElement) {
 }
 
 function attachBottomSidebarButton() {
+    // Fast path for the DOM MutationObserver: bail out before any querySelector
+    // work when our button is already mounted (this callback fires for every
+    // mutation in the app while dragging/resizing UI elements).
+    const existingBtn = document.getElementById("saturnnodes-power-bottom-btn");
+    if (existingBtn && existingBtn.isConnected) return;
+
     const bottomGroup = document.querySelector(".sidebar-item-group.mt-auto, .side-bar .mt-auto, [data-testid='bottom-sidebar']");
     if (!bottomGroup) return;
-
-    if (document.getElementById("saturnnodes-power-bottom-btn")) {
-        updateSidebarButtonVisuals();
-        return;
-    }
 
     const btn = document.createElement("button");
     btn.id = "saturnnodes-power-bottom-btn";

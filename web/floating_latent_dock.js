@@ -18,6 +18,16 @@ import { PreviewManager } from "./js/preview_manager.js";
 
 const STORAGE_KEY_VISIBLE = "SaturnNodes.LivePreview.FloatingDockVisible";
 
+// Absolute dock size bounds ("extreme but not absurd"): 100px .. 2000px
+const DOCK_MIN_SIZE = 100;
+const DOCK_MAX_SIZE = 2000;
+
+const clampDockSize = (val) => {
+    const num = Math.round(Number(val));
+    if (!Number.isFinite(num)) return DOCK_MIN_SIZE;
+    return Math.max(DOCK_MIN_SIZE, Math.min(DOCK_MAX_SIZE, num));
+};
+
 class FloatingLatentDock {
     constructor() {
         this.dockEl = null;
@@ -79,12 +89,12 @@ class FloatingLatentDock {
             const saved = localStorage.getItem(`Comfy.SaturnNodes.DockSize.${this.getScreenProfileKey()}`);
             if (saved) {
                 const parsed = JSON.parse(saved);
-                if (parsed && typeof parsed.maxW === "number" && parsed.maxW >= 50) return parsed.maxW;
+                if (parsed && typeof parsed.maxW === "number") return clampDockSize(parsed.maxW);
             }
         } catch (_) {}
         const val = this.getSetting("SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", "280px");
         const parsed = parseInt(String(val), 10);
-        return isNaN(parsed) || parsed < 50 ? 280 : parsed;
+        return isNaN(parsed) ? 280 : clampDockSize(parsed);
     }
 
     getMaxHeight() {
@@ -93,12 +103,12 @@ class FloatingLatentDock {
             const saved = localStorage.getItem(`Comfy.SaturnNodes.DockSize.${this.getScreenProfileKey()}`);
             if (saved) {
                 const parsed = JSON.parse(saved);
-                if (parsed && typeof parsed.maxH === "number" && parsed.maxH >= 50) return parsed.maxH;
+                if (parsed && typeof parsed.maxH === "number") return clampDockSize(parsed.maxH);
             }
         } catch (_) {}
         const val = this.getSetting("SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", "280px");
         const parsed = parseInt(String(val), 10);
-        return isNaN(parsed) || parsed < 50 ? 280 : parsed;
+        return isNaN(parsed) ? 280 : clampDockSize(parsed);
     }
 
     init() {
@@ -144,6 +154,8 @@ class FloatingLatentDock {
                 z-index: 1050;
                 display: flex;
                 flex-direction: column;
+                align-items: center;
+                justify-content: center;
                 box-sizing: border-box;
                 background: #09090b;
                 border: 1px solid rgba(255, 255, 255, 0.16);
@@ -469,6 +481,53 @@ class FloatingLatentDock {
         this.updatePosition();
     }
 
+    persistMaxSize(maxW, maxH) {
+        const widthSettingId = "SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth";
+        const heightSettingId = "SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight";
+        try {
+            localStorage.setItem(`Comfy.SaturnNodes.DockSize.${this.getScreenProfileKey()}`, JSON.stringify({
+                maxW: maxW,
+                maxH: maxH
+            }));
+        } catch (_) {}
+        try {
+            if (app?.ui?.settings?.setSettingValue) {
+                app.ui.settings.setSettingValue(widthSettingId, maxW);
+                app.ui.settings.setSettingValue(heightSettingId, maxH);
+            } else {
+                localStorage.setItem(`Comfy.Settings.${widthSettingId}`, JSON.stringify(maxW));
+                localStorage.setItem(`Comfy.Settings.${heightSettingId}`, JSON.stringify(maxH));
+            }
+        } catch (_) {}
+    }
+
+    applyDragPreview(maxW, maxH) {
+        if (!this.dockEl) return;
+        // Show the free-form drag box (any size / aspect ratio); the latent is fitted & centered inside
+        this.dockEl.style.width = `${maxW}px`;
+        this.dockEl.style.height = `${maxH}px`;
+        this.dockEl.style.minWidth = `${maxW}px`;
+        this.dockEl.style.maxWidth = `${maxW}px`;
+        this.dockEl.style.minHeight = `${maxH}px`;
+        this.dockEl.style.maxHeight = `${maxH}px`;
+
+        if (!this.canvasEl || !this.currentImg) return;
+        const nw = this.currentImg.naturalWidth || this.currentImg.width;
+        const nh = this.currentImg.naturalHeight || this.currentImg.height;
+        if (!nw || !nh) return;
+
+        const scale = Math.min(maxW / nw, maxH / nh);
+        const tw = Math.max(1, Math.round(nw * scale));
+        const th = Math.max(1, Math.round(nh * scale));
+
+        // Cheap path: only CSS display sizes change. No canvas backing-store resize,
+        // no drawImage, no layout reads - keeps dragging at 60fps even on 4K latents.
+        this.canvasEl.style.width = `${tw}px`;
+        this.canvasEl.style.height = `${th}px`;
+        if (this.titleTextEl) this.titleTextEl.style.display = tw < 140 ? "none" : "inline";
+        if (this.statusBadge) this.statusBadge.style.display = tw < 170 ? "none" : "inline";
+    }
+
     setupDockResizeHandle(handle) {
         handle.addEventListener("pointerdown", (e) => {
             if (e.button !== 0) return;
@@ -479,10 +538,6 @@ class FloatingLatentDock {
             const startY = e.clientY;
             const startMaxW = this.getMaxWidth();
             const startMaxH = this.getMaxHeight();
-            const img = this.currentImg;
-            const aspect = (img && (img.naturalWidth || img.width) && (img.naturalHeight || img.height))
-                ? (img.naturalWidth || img.width) / (img.naturalHeight || img.height)
-                : (startMaxW / startMaxH);
 
             handle.classList.add("active");
             if (this.dockEl) this.dockEl.style.transition = "none";
@@ -490,51 +545,56 @@ class FloatingLatentDock {
 
             let curMaxW = startMaxW;
             let curMaxH = startMaxH;
+            let rafPending = false;
+            let rafId = 0;
+            let finished = false;
 
-            const onPointerMove = (me) => {
-                const dx = startX - me.clientX; // drag left -> expand
-                const dy = startY - me.clientY; // drag up -> expand
+            // Pointer capture guarantees pointerup delivery even when the cursor
+            // leaves the window mid-drag (fixes "drag sometimes never stops").
+            try {
+                if (handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
+            } catch (_) {}
 
-                let newW, newH;
-                if (aspect >= 1) {
-                    newW = Math.round(startMaxW + dx);
-                    newH = Math.round(startMaxH + (dx / aspect));
-                } else {
-                    newH = Math.round(startMaxH + dy);
-                    newW = Math.round(startMaxW + (dy * aspect));
-                }
-
-                newW = Math.max(100, Math.min(window.innerWidth - 30, Math.max(newW, Math.round(startMaxW + dx))));
-                newH = Math.max(80, Math.min(window.innerHeight - 80, Math.max(newH, Math.round(startMaxH + dy))));
-
-                curMaxW = Math.max(100, Math.min(window.innerWidth - 30, newW));
-                curMaxH = Math.max(80, Math.min(window.innerHeight - 80, newH));
-
+            const renderDragFrame = () => {
+                rafPending = false;
+                rafId = 0;
                 this._dragOverrideMaxW = curMaxW;
                 this._dragOverrideMaxH = curMaxH;
-
-                if (this.currentImg) {
-                    this.onNewPreview(this.currentImg, this.latestSamplerId);
-                } else if (this.placeholderEl && this.dockEl) {
-                    const pw = Math.max(140, Math.min(curMaxW, 400));
-                    const ph = Math.max(100, Math.min(curMaxH, 300));
-                    this.dockEl.style.width = `${pw}px`;
-                    this.dockEl.style.height = `${ph}px`;
-                    this.dockEl.style.minWidth = `${pw}px`;
-                    this.dockEl.style.maxWidth = `${pw}px`;
-                    this.dockEl.style.minHeight = `${ph}px`;
-                    this.dockEl.style.maxHeight = `${ph}px`;
-                }
-
+                this.applyDragPreview(curMaxW, curMaxH);
                 if (this.aspectBadge) {
                     this.aspectBadge.textContent = `${curMaxW}×${curMaxH}`;
                     this.aspectBadge.style.display = "inline";
                 }
             };
 
-            const onPointerUp = () => {
+            const onPointerMove = (me) => {
+                const dx = startX - me.clientX; // drag left -> expand width
+                const dy = startY - me.clientY; // drag up -> expand height
+                curMaxW = clampDockSize(startMaxW + dx);
+                curMaxH = clampDockSize(startMaxH + dy);
+                if (!rafPending) {
+                    rafPending = true;
+                    rafId = requestAnimationFrame(renderDragFrame);
+                }
+            };
+
+            const finishDrag = () => {
+                if (finished) return;
+                finished = true;
+
+                if (rafId) {
+                    cancelAnimationFrame(rafId);
+                    rafId = 0;
+                }
+
                 window.removeEventListener("pointermove", onPointerMove);
-                window.removeEventListener("pointerup", onPointerUp);
+                window.removeEventListener("pointerup", finishDrag);
+                window.removeEventListener("pointercancel", finishDrag);
+                window.removeEventListener("blur", finishDrag);
+                try {
+                    if (handle.releasePointerCapture) handle.releasePointerCapture(e.pointerId);
+                } catch (_) {}
+
                 handle.classList.remove("active");
                 if (this.dockEl) this.dockEl.style.transition = "";
                 document.body.style.cursor = "";
@@ -542,26 +602,18 @@ class FloatingLatentDock {
                 delete this._dragOverrideMaxW;
                 delete this._dragOverrideMaxH;
 
-                const screenKey = this.getScreenProfileKey();
-                try {
-                    localStorage.setItem(`Comfy.SaturnNodes.DockSize.${screenKey}`, JSON.stringify({
-                        maxW: curMaxW,
-                        maxH: curMaxH
-                    }));
-                } catch (_) {}
+                this.persistMaxSize(curMaxW, curMaxH);
 
-                try {
-                    localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", JSON.stringify(curMaxW));
-                    localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", JSON.stringify(curMaxH));
-                } catch (_) {}
-
+                // Snap back to the exact latent fit within the new limits
                 if (this.currentImg) {
                     this.onNewPreview(this.currentImg, this.latestSamplerId);
                 }
             };
 
             window.addEventListener("pointermove", onPointerMove);
-            window.addEventListener("pointerup", onPointerUp);
+            window.addEventListener("pointerup", finishDrag);
+            window.addEventListener("pointercancel", finishDrag);
+            window.addEventListener("blur", finishDrag);
         });
     }
 

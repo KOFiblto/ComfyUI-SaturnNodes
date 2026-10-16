@@ -950,15 +950,15 @@ app.registerExtension({
 
         // 10.2a Floating Dock Max Width (default: 280)
         const rawMaxWidth = getInitialSetting("SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", 280);
-        const initialMaxWidth = parseInt(String(rawMaxWidth).match(/\d+/)?.[0] || rawMaxWidth, 10) || 280;
+        const initialMaxWidth = Math.max(100, Math.min(2000, parseInt(String(rawMaxWidth).match(/\d+/)?.[0] || rawMaxWidth, 10) || 280));
 
         app.ui.settings.addSetting({
             id: "SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth",
             name: "Floating Dock Max Width",
             type: "slider",
-            attrs: { min: 80, max: 1200, step: 10 },
+            attrs: { min: 100, max: 2000, step: 1 },
             defaultValue: initialMaxWidth,
-            tooltip: "Maximum width limit (in pixels) for the floating live preview dock (80px to 1200px). The dock automatically matches the exact latent aspect ratio without distortion.",
+            tooltip: "Maximum width limit (in pixels) for the floating live preview dock (100px to 2000px, 1px steps). Drag the dock's top-left corner to set any box size; the dock itself always matches the exact latent aspect ratio without distortion.",
             onChange(value) {
                 const num = parseInt(value, 10) || 280;
                 if (typeof localStorage !== "undefined") {
@@ -971,15 +971,15 @@ app.registerExtension({
 
         // 10.2b Floating Dock Max Height (default: 280)
         const rawMaxHeight = getInitialSetting("SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", 280);
-        const initialMaxHeight = parseInt(String(rawMaxHeight).match(/\d+/)?.[0] || rawMaxHeight, 10) || 280;
+        const initialMaxHeight = Math.max(100, Math.min(2000, parseInt(String(rawMaxHeight).match(/\d+/)?.[0] || rawMaxHeight, 10) || 280));
 
         app.ui.settings.addSetting({
             id: "SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight",
             name: "Floating Dock Max Height",
             type: "slider",
-            attrs: { min: 80, max: 1200, step: 10 },
+            attrs: { min: 100, max: 2000, step: 1 },
             defaultValue: initialMaxHeight,
-            tooltip: "Maximum height limit (in pixels) for the floating live preview dock (80px to 1200px). The dock automatically matches the exact latent aspect ratio without distortion.",
+            tooltip: "Maximum height limit (in pixels) for the floating live preview dock (100px to 2000px, 1px steps). Drag the dock's top-left corner to set any box size; the dock itself always matches the exact latent aspect ratio without distortion.",
             onChange(value) {
                 const num = parseInt(value, 10) || 280;
                 if (typeof localStorage !== "undefined") {
@@ -1207,32 +1207,13 @@ app.registerExtension({
             return 0;
         };
 
-        const applyQueueOverlayHeight = (val) => {
-            let style = document.getElementById("saturn-queue-overlay-height");
-            let px = 0;
-            if (typeof val === "number") {
-                px = val;
-            } else if (val && val !== "Native") {
-                const match = String(val).match(/\d+/);
-                if (match) px = parseInt(match[0], 10);
-            }
+        let saturnQueueHeightPx = 0;
 
-            if (!style) {
-                style = document.createElement("style");
-                style.id = "saturn-queue-overlay-height";
-                document.head.appendChild(style);
-            }
-
-            const heightRule = (px && px > 0) ? `max-height: ${px}px !important;` : ``;
-
+        const ensureQueueHandleStyles = () => {
+            if (document.getElementById("saturn-queue-overlay-height")) return;
+            const style = document.createElement("style");
+            style.id = "saturn-queue-overlay-height";
             style.textContent = `
-                [data-testid="queue-progress-overlay"] {
-                    ${heightRule}
-                }
-                .comfy-list {
-                    ${heightRule}
-                    overflow-y: auto !important;
-                }
                 .saturn-queue-resize-handle {
                     width: 100%;
                     height: 12px;
@@ -1265,10 +1246,48 @@ app.registerExtension({
                     width: 52px;
                 }
             `;
+            document.head.appendChild(style);
+        };
+
+        // Applies the queue height via direct inline styles on the overlay elements.
+        // Rewriting a <style> element's text on every pointermove forced a full-document
+        // style recalculation and made resizing extremely laggy.
+        const applyQueueOverlayHeight = (val) => {
+            let px = 0;
+            if (typeof val === "number") {
+                px = val;
+            } else if (val && val !== "Native") {
+                const match = String(val).match(/\d+/);
+                if (match) px = parseInt(match[0], 10);
+            }
+            saturnQueueHeightPx = (px && px > 0) ? Math.min(1200, Math.round(px)) : 0;
+
+            const overlay = document.querySelector('[data-testid="queue-progress-overlay"]');
+            const lists = overlay
+                ? Array.from(overlay.querySelectorAll(".comfy-list"))
+                : Array.from(document.querySelectorAll(".comfy-list"));
+
+            if (overlay) {
+                if (saturnQueueHeightPx > 0) {
+                    overlay.style.setProperty("max-height", `${saturnQueueHeightPx}px`, "important");
+                } else {
+                    overlay.style.removeProperty("max-height");
+                }
+            }
+            for (const listEl of lists) {
+                listEl.style.setProperty("overflow-y", "auto", "important");
+                if (saturnQueueHeightPx > 0) {
+                    listEl.style.setProperty("max-height", `${saturnQueueHeightPx}px`, "important");
+                } else {
+                    listEl.style.removeProperty("max-height");
+                }
+            }
         };
 
         const attachQueueResizeHandle = (overlay) => {
             if (!overlay || overlay.querySelector(".saturn-queue-resize-handle")) return;
+
+            ensureQueueHandleStyles();
 
             const handle = document.createElement("div");
             handle.className = "saturn-queue-resize-handle";
@@ -1281,21 +1300,52 @@ app.registerExtension({
                 e.stopPropagation();
 
                 const startY = e.clientY;
-                const startH = overlay.offsetHeight || getEffectiveQueueHeight() || 360;
+                const startH = overlay.offsetHeight || saturnQueueHeightPx || getEffectiveQueueHeight() || 360;
                 handle.classList.add("active");
                 document.body.style.cursor = "ns-resize";
 
                 let currentH = startH;
+                let rafPending = false;
+                let rafId = 0;
+                let finished = false;
 
-                const onPointerMove = (me) => {
-                    const dy = me.clientY - startY;
-                    currentH = Math.max(120, Math.min(window.innerHeight - 60, Math.round(startH + dy)));
+                // Pointer capture guarantees pointerup delivery even outside the window
+                try {
+                    if (handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
+                } catch (_) {}
+
+                const applyFrame = () => {
+                    rafPending = false;
+                    rafId = 0;
                     applyQueueOverlayHeight(currentH);
                 };
 
-                const onPointerUp = () => {
+                const onPointerMove = (me) => {
+                    const dy = me.clientY - startY;
+                    currentH = Math.max(120, Math.min(1200, Math.round(startH + dy)));
+                    if (!rafPending) {
+                        rafPending = true;
+                        rafId = requestAnimationFrame(applyFrame);
+                    }
+                };
+
+                const finishDrag = () => {
+                    if (finished) return;
+                    finished = true;
+
+                    if (rafId) {
+                        cancelAnimationFrame(rafId);
+                        rafId = 0;
+                    }
+
                     window.removeEventListener("pointermove", onPointerMove);
-                    window.removeEventListener("pointerup", onPointerUp);
+                    window.removeEventListener("pointerup", finishDrag);
+                    window.removeEventListener("pointercancel", finishDrag);
+                    window.removeEventListener("blur", finishDrag);
+                    try {
+                        if (handle.releasePointerCapture) handle.releasePointerCapture(e.pointerId);
+                    } catch (_) {}
+
                     handle.classList.remove("active");
                     document.body.style.cursor = "";
 
@@ -1313,10 +1363,15 @@ app.registerExtension({
                 };
 
                 window.addEventListener("pointermove", onPointerMove);
-                window.addEventListener("pointerup", onPointerUp);
+                window.addEventListener("pointerup", finishDrag);
+                window.addEventListener("pointercancel", finishDrag);
+                window.addEventListener("blur", finishDrag);
             });
 
             overlay.appendChild(handle);
+
+            // Re-apply the stored height budget to freshly mounted overlays
+            applyQueueOverlayHeight(saturnQueueHeightPx);
         };
 
         const existingQueueOverlay = document.querySelector('[data-testid="queue-progress-overlay"]');
@@ -1347,7 +1402,7 @@ app.registerExtension({
             id: "SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight",
             name: "Visible Queue Items (Height)",
             type: "slider",
-            attrs: { min: 0, max: 1200, step: 10 },
+            attrs: { min: 0, max: 1200, step: 1 },
             defaultValue: initialQueueHeight,
             tooltip: "Limits the visible height of the queue overlay panel in pixels (e.g. 360 ≈ 10 items, 500 ≈ 15 items) with a scrollbar. You can also drag the bottom edge of the queue overlay directly on screen (remembers size per monitor). Set to 0 for Native.",
             onChange(value) {
@@ -1695,10 +1750,13 @@ function setupSettingsFooterObserver() {
     }
 
     try {
+        // Shallow body observer (settings dialog mounts/unmounts as a direct child);
+        // deep subtree observation fired this callback for every DOM mutation in the
+        // whole app. The 500ms interval below remains as the catch-all.
         const observer = new MutationObserver(() => {
             updateFooter();
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body, { childList: true, subtree: false });
     } catch (_) {}
 
     setInterval(updateFooter, 500);
