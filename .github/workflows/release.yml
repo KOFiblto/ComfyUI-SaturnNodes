@@ -12,9 +12,23 @@ jobs:
       contents: write
     steps:
     - uses: actions/checkout@v4
+    - name: Extract release notes from CHANGELOG.md
+      run: |
+        python - <<'PY'
+        import os, re, pathlib
+        tag = os.environ["GITHUB_REF_NAME"].lstrip("v")
+        changelog = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+        pattern = re.compile(rf"^## \[{re.escape(tag)}\][^\n]*\n(.*?)(?=^## \[|\Z)", re.M | re.S)
+        match = pattern.search(changelog)
+        body = match.group(1).strip() if match else ""
+        if not body:
+            body = f"See CHANGELOG.md for the full list of changes in v{tag}."
+        pathlib.Path("release_notes.md").write_text(body + "\n", encoding="utf-8")
+        PY
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        generate_release_notes: true
+        body_path: release_notes.md
+        generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

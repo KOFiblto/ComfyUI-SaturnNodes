@@ -1,18 +1,27 @@
 [project]
-name = "comfyui-saturnnodes"
+name = "saturnnodes"
 description = "Essential workflow controls, mid-generation pausing, real-time queue persistence, folder watcher, and visual model loaders for ComfyUI."
-version = "2.6.0"
+version = "2.6.1"
 readme = "README.md"
-license = "MIT"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
 dependencies = ["pillow", "numpy", "piexif"]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
 
 [project.optional-dependencies]
 tray = ["pystray"]
+stereogram = ["onnxruntime"]
 
 [project.urls]
 Repository = "https://github.com/KOFiblto/ComfyUI-SaturnNodes"
+"Bug Tracker" = "https://github.com/KOFiblto/ComfyUI-SaturnNodes/issues"
+Documentation = "https://github.com/KOFiblto/ComfyUI-SaturnNodes#readme"
 
 [tool.comfy]
 PublisherId = "KOFiblto"
 DisplayName = "ComfyUI-SaturnNodes"
 Icon = "https://raw.githubusercontent.com/KOFiblto/ComfyUI-SaturnNodes/main/web/logo.png"
+requires-comfyui = ">=0.3.0"

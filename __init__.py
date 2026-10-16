@@ -4,7 +4,7 @@ import subprocess
 from aiohttp import web
 from server import PromptServer
 
-__version__ = "2.6.0"
+__version__ = "2.6.1"
 
 from .nodes.queue_control import (
     setup_queue_control_routes,
@@ -38,7 +38,6 @@ from .nodes.local_runner import RunLocalFileNode, setup_local_runner_routes
 from .nodes.stereogram import SaturnStereo3D
 from .nodes.utils import (
     get_saturnnodes_user_dir,
-    get_leafflow_user_dir,
     get_env_setting,
     is_local_request,
     is_safe_path,

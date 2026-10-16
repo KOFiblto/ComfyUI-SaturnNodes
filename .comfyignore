@@ -1,0 +1,17 @@
+# Files and folders excluded from the ComfyUI Registry package archive.
+# Everything listed here stays in the GitHub repository but is not bundled
+# when publishing via .github/workflows/publish_action.yml.
+
+# Development, tests & CI
+.github/
+tests/
+
+# Contributor & agent documentation (not needed at runtime)
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+CONTRIBUTING.md
+
+# Python bytecode caches
+__pycache__/
+*.pyc
