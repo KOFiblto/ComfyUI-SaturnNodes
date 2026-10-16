@@ -68,13 +68,34 @@ class FloatingLatentDock {
         return defaultVal;
     }
 
+    getScreenProfileKey() {
+        if (typeof window === "undefined" || !window.screen) return "default";
+        return `${window.screen.width}x${window.screen.height}`;
+    }
+
     getMaxWidth() {
+        if (this._dragOverrideMaxW) return this._dragOverrideMaxW;
+        try {
+            const saved = localStorage.getItem(`Comfy.SaturnNodes.DockSize.${this.getScreenProfileKey()}`);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && typeof parsed.maxW === "number" && parsed.maxW >= 50) return parsed.maxW;
+            }
+        } catch (_) {}
         const val = this.getSetting("SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", "280px");
         const parsed = parseInt(String(val), 10);
         return isNaN(parsed) || parsed < 50 ? 280 : parsed;
     }
 
     getMaxHeight() {
+        if (this._dragOverrideMaxH) return this._dragOverrideMaxH;
+        try {
+            const saved = localStorage.getItem(`Comfy.SaturnNodes.DockSize.${this.getScreenProfileKey()}`);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                if (parsed && typeof parsed.maxH === "number" && parsed.maxH >= 50) return parsed.maxH;
+            }
+        } catch (_) {}
         const val = this.getSetting("SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", "280px");
         const parsed = parseInt(String(val), 10);
         return isNaN(parsed) || parsed < 50 ? 280 : parsed;
@@ -87,6 +108,28 @@ class FloatingLatentDock {
         this.setupExecutionListeners();
         this.setupPositionObserver();
         this.injectToolbarButtonLoop();
+        this.setupScreenProfileWatcher();
+    }
+
+    setupScreenProfileWatcher() {
+        let lastScreenKey = this.getScreenProfileKey();
+        window.addEventListener("resize", () => {
+            const currentKey = this.getScreenProfileKey();
+            if (currentKey !== lastScreenKey) {
+                lastScreenKey = currentKey;
+                if (this.currentImg) {
+                    this.renderImage(this.currentImg, this.latestSamplerId);
+                } else if (this.placeholderEl && this.dockEl) {
+                    const mw = this.getMaxWidth();
+                    const mh = this.getMaxHeight();
+                    const pw = Math.max(140, Math.min(mw, 320));
+                    const ph = Math.max(100, Math.min(mh, 220));
+                    this.dockEl.style.width = `${pw}px`;
+                    this.dockEl.style.height = `${ph}px`;
+                }
+                this.requestPositionUpdate();
+            }
+        });
     }
 
     injectStyles() {
@@ -120,6 +163,34 @@ class FloatingLatentDock {
                 visibility: hidden;
             }
 
+            .saturn-dock-resize-handle {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 18px;
+                height: 18px;
+                cursor: nwse-resize;
+                z-index: 50;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: rgba(255, 255, 255, 0.4);
+                background: rgba(0, 0, 0, 0.45);
+                border-bottom-right-radius: 6px;
+                border-top-left-radius: 7px;
+                transition: color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+                user-select: none;
+                touch-action: none;
+                pointer-events: auto;
+            }
+
+            .saturn-dock-resize-handle:hover,
+            .saturn-dock-resize-handle.active {
+                color: #f59e0b;
+                background: rgba(245, 158, 11, 0.3);
+                transform: scale(1.1);
+            }
+
             .saturn-dock-header {
                 position: absolute;
                 top: 0;
@@ -129,7 +200,7 @@ class FloatingLatentDock {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                padding: 4px 6px;
+                padding: 4px 6px 4px 22px;
                 background: linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0) 100%);
                 gap: 4px;
                 font-family: Inter, system-ui, -apple-system, sans-serif;
@@ -381,9 +452,117 @@ class FloatingLatentDock {
         this.dockEl.appendChild(header);
         this.dockEl.appendChild(body);
 
+        // Top-left resize handle
+        const resizeHandle = document.createElement("div");
+        resizeHandle.className = "saturn-dock-resize-handle";
+        resizeHandle.title = "Drag to resize Live Preview dock (remembers size per monitor)";
+        resizeHandle.innerHTML = `
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+                <path d="M1 9L9 1M1 5L5 1M5 9L9 5"/>
+            </svg>
+        `;
+        this.setupDockResizeHandle(resizeHandle);
+        this.dockEl.appendChild(resizeHandle);
+
         document.body.appendChild(this.dockEl);
         this.updateVisibility();
         this.updatePosition();
+    }
+
+    setupDockResizeHandle(handle) {
+        handle.addEventListener("pointerdown", (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const startMaxW = this.getMaxWidth();
+            const startMaxH = this.getMaxHeight();
+            const img = this.currentImg;
+            const aspect = (img && (img.naturalWidth || img.width) && (img.naturalHeight || img.height))
+                ? (img.naturalWidth || img.width) / (img.naturalHeight || img.height)
+                : (startMaxW / startMaxH);
+
+            handle.classList.add("active");
+            if (this.dockEl) this.dockEl.style.transition = "none";
+            document.body.style.cursor = "nwse-resize";
+
+            let curMaxW = startMaxW;
+            let curMaxH = startMaxH;
+
+            const onPointerMove = (me) => {
+                const dx = startX - me.clientX; // drag left -> expand
+                const dy = startY - me.clientY; // drag up -> expand
+
+                let newW, newH;
+                if (aspect >= 1) {
+                    newW = Math.round(startMaxW + dx);
+                    newH = Math.round(startMaxH + (dx / aspect));
+                } else {
+                    newH = Math.round(startMaxH + dy);
+                    newW = Math.round(startMaxW + (dy * aspect));
+                }
+
+                newW = Math.max(100, Math.min(window.innerWidth - 30, Math.max(newW, Math.round(startMaxW + dx))));
+                newH = Math.max(80, Math.min(window.innerHeight - 80, Math.max(newH, Math.round(startMaxH + dy))));
+
+                curMaxW = Math.max(100, Math.min(window.innerWidth - 30, newW));
+                curMaxH = Math.max(80, Math.min(window.innerHeight - 80, newH));
+
+                this._dragOverrideMaxW = curMaxW;
+                this._dragOverrideMaxH = curMaxH;
+
+                if (this.currentImg) {
+                    this.renderImage(this.currentImg, this.latestSamplerId);
+                } else if (this.placeholderEl && this.dockEl) {
+                    const pw = Math.max(140, Math.min(curMaxW, 400));
+                    const ph = Math.max(100, Math.min(curMaxH, 300));
+                    this.dockEl.style.width = `${pw}px`;
+                    this.dockEl.style.height = `${ph}px`;
+                    this.dockEl.style.minWidth = `${pw}px`;
+                    this.dockEl.style.maxWidth = `${pw}px`;
+                    this.dockEl.style.minHeight = `${ph}px`;
+                    this.dockEl.style.maxHeight = `${ph}px`;
+                }
+
+                if (this.aspectBadge) {
+                    this.aspectBadge.textContent = `${curMaxW}×${curMaxH}`;
+                    this.aspectBadge.style.display = "inline";
+                }
+            };
+
+            const onPointerUp = () => {
+                window.removeEventListener("pointermove", onPointerMove);
+                window.removeEventListener("pointerup", onPointerUp);
+                handle.classList.remove("active");
+                if (this.dockEl) this.dockEl.style.transition = "";
+                document.body.style.cursor = "";
+
+                delete this._dragOverrideMaxW;
+                delete this._dragOverrideMaxH;
+
+                const screenKey = this.getScreenProfileKey();
+                try {
+                    localStorage.setItem(`Comfy.SaturnNodes.DockSize.${screenKey}`, JSON.stringify({
+                        maxW: curMaxW,
+                        maxH: curMaxH
+                    }));
+                } catch (_) {}
+
+                try {
+                    localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02a_FloatingDockMaxWidth", JSON.stringify(curMaxW));
+                    localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.02b_FloatingDockMaxHeight", JSON.stringify(curMaxH));
+                } catch (_) {}
+
+                if (this.currentImg) {
+                    this.renderImage(this.currentImg, this.latestSamplerId);
+                }
+            };
+
+            window.addEventListener("pointermove", onPointerMove);
+            window.addEventListener("pointerup", onPointerUp);
+        });
     }
 
     openLightbox() {

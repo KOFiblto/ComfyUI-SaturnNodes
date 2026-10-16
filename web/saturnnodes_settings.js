@@ -1235,7 +1235,29 @@ app.registerExtension({
             }
         });
 
-        // 4.8 Visible Queue Items (Height Limit)
+        // 4.8 Visible Queue Items (Height Limit) with Per-Resolution Memory & Direct Resize Handle
+        const getScreenProfileKey = () => {
+            if (typeof window === "undefined" || !window.screen) return "default";
+            return `${window.screen.width}x${window.screen.height}`;
+        };
+
+        const getEffectiveQueueHeight = () => {
+            try {
+                const saved = localStorage.getItem(`Comfy.SaturnNodes.QueueHeight.${getScreenProfileKey()}`);
+                if (saved) {
+                    const parsed = parseInt(saved, 10);
+                    if (!isNaN(parsed) && parsed > 0) return parsed;
+                }
+            } catch (_) {}
+            const rawQueueHeight = getInitialSetting("SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", 0);
+            if (typeof rawQueueHeight === "number") return rawQueueHeight;
+            if (rawQueueHeight && rawQueueHeight !== "Native") {
+                const match = String(rawQueueHeight).match(/\d+/);
+                if (match) return parseInt(match[0], 10);
+            }
+            return 0;
+        };
+
         const applyQueueOverlayHeight = (val) => {
             let style = document.getElementById("saturn-queue-overlay-height");
             let px = 0;
@@ -1246,36 +1268,130 @@ app.registerExtension({
                 if (match) px = parseInt(match[0], 10);
             }
 
-            if (!px || px <= 0) {
-                if (style) style.remove();
-                return;
-            }
-
             if (!style) {
                 style = document.createElement("style");
                 style.id = "saturn-queue-overlay-height";
                 document.head.appendChild(style);
             }
 
+            const heightRule = (px && px > 0) ? `max-height: ${px}px !important;` : ``;
+
             style.textContent = `
                 [data-testid="queue-progress-overlay"] {
-                    max-height: ${px}px !important;
+                    ${heightRule}
                 }
                 .comfy-list {
-                    max-height: ${px}px !important;
+                    ${heightRule}
                     overflow-y: auto !important;
+                }
+                .saturn-queue-resize-handle {
+                    width: 100%;
+                    height: 12px;
+                    cursor: ns-resize;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    flex-shrink: 0;
+                    margin-top: auto;
+                    background: transparent;
+                    transition: background 0.15s ease;
+                    user-select: none;
+                    touch-action: none;
+                    z-index: 25;
+                }
+                .saturn-queue-resize-handle:hover,
+                .saturn-queue-resize-handle.active {
+                    background: rgba(245, 158, 11, 0.2);
+                }
+                .saturn-queue-resize-bar {
+                    width: 36px;
+                    height: 3px;
+                    border-radius: 2px;
+                    background: rgba(255, 255, 255, 0.3);
+                    transition: background 0.15s ease, width 0.15s ease;
+                }
+                .saturn-queue-resize-handle:hover .saturn-queue-resize-bar,
+                .saturn-queue-resize-handle.active .saturn-queue-resize-bar {
+                    background: #f59e0b;
+                    width: 52px;
                 }
             `;
         };
 
-        const rawQueueHeight = getInitialSetting("SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", 0);
-        let initialQueueHeight = 0;
-        if (typeof rawQueueHeight === "number") {
-            initialQueueHeight = rawQueueHeight;
-        } else if (rawQueueHeight && rawQueueHeight !== "Native") {
-            const match = String(rawQueueHeight).match(/\d+/);
-            if (match) initialQueueHeight = parseInt(match[0], 10);
-        }
+        const attachQueueResizeHandle = (overlay) => {
+            if (!overlay || overlay.querySelector(".saturn-queue-resize-handle")) return;
+
+            const handle = document.createElement("div");
+            handle.className = "saturn-queue-resize-handle";
+            handle.title = "Drag to resize queue overlay (remembers size per monitor)";
+            handle.innerHTML = `<div class="saturn-queue-resize-bar"></div>`;
+
+            handle.addEventListener("pointerdown", (e) => {
+                if (e.button !== 0) return;
+                e.preventDefault();
+                e.stopPropagation();
+
+                const startY = e.clientY;
+                const startH = overlay.offsetHeight || getEffectiveQueueHeight() || 360;
+                handle.classList.add("active");
+                document.body.style.cursor = "ns-resize";
+
+                let currentH = startH;
+
+                const onPointerMove = (me) => {
+                    const dy = me.clientY - startY;
+                    currentH = Math.max(120, Math.min(window.innerHeight - 60, Math.round(startH + dy)));
+                    applyQueueOverlayHeight(currentH);
+                };
+
+                const onPointerUp = () => {
+                    window.removeEventListener("pointermove", onPointerMove);
+                    window.removeEventListener("pointerup", onPointerUp);
+                    handle.classList.remove("active");
+                    document.body.style.cursor = "";
+
+                    const screenKey = getScreenProfileKey();
+                    try {
+                        localStorage.setItem(`Comfy.SaturnNodes.QueueHeight.${screenKey}`, String(currentH));
+                    } catch (_) {}
+
+                    try {
+                        localStorage.setItem("Comfy.Settings.SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", JSON.stringify(currentH));
+                        if (app?.ui?.settings?.setSettingValue) {
+                            app.ui.settings.setSettingValue("SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", currentH);
+                        }
+                    } catch (_) {}
+                };
+
+                window.addEventListener("pointermove", onPointerMove);
+                window.addEventListener("pointerup", onPointerUp);
+            });
+
+            overlay.appendChild(handle);
+        };
+
+        const existingQueueOverlay = document.querySelector('[data-testid="queue-progress-overlay"]');
+        if (existingQueueOverlay) attachQueueResizeHandle(existingQueueOverlay);
+
+        const queueOverlayObserver = new MutationObserver(() => {
+            const overlay = document.querySelector('[data-testid="queue-progress-overlay"]');
+            if (overlay) {
+                attachQueueResizeHandle(overlay);
+            }
+        });
+        queueOverlayObserver.observe(document.body, { childList: true, subtree: true });
+
+        // Listen for screen resolution changes when moving between laptop and 4K display
+        let lastScreenKey = getScreenProfileKey();
+        window.addEventListener("resize", () => {
+            const currentKey = getScreenProfileKey();
+            if (currentKey !== lastScreenKey) {
+                lastScreenKey = currentKey;
+                applyQueueOverlayHeight(getEffectiveQueueHeight());
+            }
+        });
+
+        const initialQueueHeight = getEffectiveQueueHeight();
         applyQueueOverlayHeight(initialQueueHeight);
 
         app.ui.settings.addSetting({
@@ -1284,12 +1400,16 @@ app.registerExtension({
             type: "slider",
             attrs: { min: 0, max: 1200, step: 10 },
             defaultValue: initialQueueHeight,
-            tooltip: "Limits the visible height of the queue overlay panel in pixels (e.g. 360 ≈ 10 items, 500 ≈ 15 items) with a scrollbar. Set to 0 for Native (unconstrained ComfyUI default height).",
+            tooltip: "Limits the visible height of the queue overlay panel in pixels (e.g. 360 ≈ 10 items, 500 ≈ 15 items) with a scrollbar. You can also drag the bottom edge of the queue overlay directly on screen (remembers size per monitor). Set to 0 for Native.",
             onChange(value) {
                 const num = parseInt(value, 10) || 0;
+                const screenKey = getScreenProfileKey();
                 if (typeof localStorage !== "undefined") {
                     try {
                         localStorage.setItem("Comfy.Settings.SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", JSON.stringify(num));
+                        if (num > 0) {
+                            localStorage.setItem(`Comfy.SaturnNodes.QueueHeight.${screenKey}`, String(num));
+                        }
                     } catch (_) {}
                 }
                 applyQueueOverlayHeight(num);
