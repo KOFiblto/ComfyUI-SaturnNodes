@@ -3,17 +3,17 @@ import sys
 import types
 from unittest.mock import MagicMock
 
-LEAFFLOW_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SATURNNODES_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# Ensure LeafFlow root is prioritized at the very start of sys.path
-while LEAFFLOW_ROOT in sys.path:
-    sys.path.remove(LEAFFLOW_ROOT)
-sys.path.insert(0, LEAFFLOW_ROOT)
+# Ensure SaturnNodes root is prioritized at the very start of sys.path
+while SATURNNODES_ROOT in sys.path:
+    sys.path.remove(SATURNNODES_ROOT)
+sys.path.insert(0, SATURNNODES_ROOT)
 
-# If 'nodes' in sys.modules is ComfyUI's root nodes.py file, replace it with LeafFlow's nodes package
+# If 'nodes' in sys.modules is ComfyUI's root nodes.py file, replace it with SaturnNodes' nodes package
 if "nodes" in sys.modules:
     nodes_mod = sys.modules["nodes"]
-    if not hasattr(nodes_mod, "__path__") or not getattr(nodes_mod, "__file__", "").startswith(LEAFFLOW_ROOT):
+    if not hasattr(nodes_mod, "__path__") or not getattr(nodes_mod, "__file__", "").startswith(SATURNNODES_ROOT):
         del sys.modules["nodes"]
 
 # Provide lightweight mock stubs for ComfyUI environment if running in standalone CI / test runner
@@ -67,12 +67,12 @@ if "comfy" not in sys.modules:
 
 if "folder_paths" not in sys.modules:
     fp_mock = types.ModuleType("folder_paths")
-    fp_mock.get_input_directory = MagicMock(return_value=os.path.join(LEAFFLOW_ROOT, "input"))
-    fp_mock.get_output_directory = MagicMock(return_value=os.path.join(LEAFFLOW_ROOT, "output"))
-    fp_mock.get_temp_directory = MagicMock(return_value=os.path.join(LEAFFLOW_ROOT, "temp"))
+    fp_mock.get_input_directory = MagicMock(return_value=os.path.join(SATURNNODES_ROOT, "input"))
+    fp_mock.get_output_directory = MagicMock(return_value=os.path.join(SATURNNODES_ROOT, "output"))
+    fp_mock.get_temp_directory = MagicMock(return_value=os.path.join(SATURNNODES_ROOT, "temp"))
     fp_mock.get_filename_list = MagicMock(return_value=[])
     fp_mock.get_full_path = MagicMock(return_value="")
-    fp_mock.base_path = LEAFFLOW_ROOT
+    fp_mock.base_path = SATURNNODES_ROOT
     sys.modules["folder_paths"] = fp_mock
 
 if "server" not in sys.modules:

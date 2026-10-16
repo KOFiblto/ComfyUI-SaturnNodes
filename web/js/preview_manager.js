@@ -66,8 +66,8 @@ class PreviewManagerClass {
         const images = document.querySelectorAll('img[alt*="Live sampling preview"]');
         images.forEach(imgEl => {
             const src = imgEl.src;
-            if (src && src.startsWith("blob:") && imgEl.dataset.lastLeafFlowSrc !== src) {
-                imgEl.dataset.lastLeafFlowSrc = src;
+            if (src && src.startsWith("blob:") && imgEl.dataset.lastSaturnNodesSrc !== src) {
+                imgEl.dataset.lastSaturnNodesSrc = src;
                 
                 const nodeEl = imgEl.closest('[data-node-id], [data-widgets-grid-node-id], .lg-node');
                 const nodeId = nodeEl ? (nodeEl.dataset.nodeId || nodeEl.dataset.widgetsGridNodeId || nodeEl.getAttribute('data-node-id')) : null;

@@ -4,12 +4,12 @@ import { PreviewManager } from "./js/preview_manager.js";
 
 // Global CSS injection to guarantee zero-expansion in Vue Node 2.0 and LiteGraph
 if (typeof document !== "undefined") {
-    const styleId = "leafflow-live-preview-styles";
+    const styleId = "saturnnodes-live-preview-styles";
     if (!document.getElementById(styleId)) {
         const style = document.createElement("style");
         style.id = styleId;
         style.textContent = `
-            .leafflow-live-preview-container {
+            .saturnnodes-live-preview-container {
                 position: absolute !important;
                 inset: 0 !important;
                 top: 70px !important;
@@ -29,7 +29,7 @@ if (typeof document !== "undefined") {
                 box-sizing: border-box !important;
                 pointer-events: none !important;
             }
-            .leafflow-live-preview-img {
+            .saturnnodes-live-preview-img {
                 position: absolute !important;
                 top: 0 !important;
                 left: 0 !important;
@@ -48,7 +48,7 @@ if (typeof document !== "undefined") {
                 min-height: 0 !important;
                 min-width: 0 !important;
             }
-            [node-type="PreviewLatentLive"] .leafflow-live-preview-container {
+            [node-type="PreviewLatentLive"] .saturnnodes-live-preview-container {
                 position: absolute !important;
             }
         `;
@@ -176,7 +176,7 @@ function updateAllPreviewNodeDropdowns() {
 }
 
 app.registerExtension({
-    name: "ComfyUI.LeafFlow.PreviewLatentLive",
+    name: "ComfyUI.SaturnNodes.PreviewLatentLive",
     async setup() {
         PreviewManager.init(app, api);
         
@@ -234,7 +234,7 @@ app.registerExtension({
                 this.imageIndex = 0;
                 
                 const viewContainer = document.createElement("div");
-                viewContainer.className = "leafflow-live-preview-container";
+                viewContainer.className = "saturnnodes-live-preview-container";
                 viewContainer.style.position = "absolute";
                 viewContainer.style.inset = "0";
                 viewContainer.style.top = "70px";
@@ -253,12 +253,12 @@ app.registerExtension({
                 viewContainer.style.pointerEvents = "none";
                 
                 const fallbackText = document.createElement("div");
-                fallbackText.className = "leafflow-live-preview-fallback";
+                fallbackText.className = "saturnnodes-live-preview-fallback";
                 fallbackText.innerText = "Waiting for live preview...";
                 viewContainer.appendChild(fallbackText);
                 
                 const imgElement = document.createElement("img");
-                imgElement.className = "leafflow-live-preview-img";
+                imgElement.className = "saturnnodes-live-preview-img";
                 imgElement.style.position = "absolute";
                 imgElement.style.top = "0";
                 imgElement.style.left = "0";
@@ -358,12 +358,12 @@ app.registerExtension({
                 this.imageIndex = 0;
                 
                 if (typeof document !== "undefined") {
-                    const domImgs = document.querySelectorAll(`[data-node-id="${this.id}"] .leafflow-live-preview-img, [data-widgets-grid-node-id="${this.id}"] .leafflow-live-preview-img`);
+                    const domImgs = document.querySelectorAll(`[data-node-id="${this.id}"] .saturnnodes-live-preview-img, [data-widgets-grid-node-id="${this.id}"] .saturnnodes-live-preview-img`);
                     if (domImgs.length > 0) {
                         domImgs.forEach(imgEl => {
                             imgEl.src = img.src;
                             imgEl.style.display = "block";
-                            const fallback = imgEl.parentElement?.querySelector(".leafflow-live-preview-fallback");
+                            const fallback = imgEl.parentElement?.querySelector(".saturnnodes-live-preview-fallback");
                             if (fallback) fallback.style.display = "none";
                         });
                     }

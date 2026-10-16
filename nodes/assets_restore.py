@@ -9,9 +9,9 @@ import logging
 from PIL import Image
 
 import folder_paths
-from .utils import get_leafflow_user_dir
+from .utils import get_saturnnodes_user_dir
 
-USER_DIR = get_leafflow_user_dir()
+USER_DIR = get_saturnnodes_user_dir()
 ENV_FILE = os.path.join(USER_DIR, ".env")
 
 def get_env_setting(key, default_val):
@@ -166,7 +166,7 @@ class AssetsRestoreManager:
                             {
                                 "create_time": mtime_ms,
                                 "extra_pnginfo": extra_pnginfo,
-                                "client_id": "leafflow_restored"
+                                "client_id": "saturnnodes_restored"
                             },
                             [output_node_id]
                         ],

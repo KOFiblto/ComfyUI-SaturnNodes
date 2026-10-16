@@ -11,7 +11,7 @@ async function copyToClipboard(text) {
             await navigator.clipboard.writeText(text);
             return true;
         } catch (e) {
-            console.warn("[LeafFlow] Navigator clipboard failed, trying textarea fallback:", e);
+            console.warn("[SaturnNodes CopyPrompt] Navigator clipboard failed, trying textarea fallback:", e);
         }
     }
     try {
@@ -28,7 +28,7 @@ async function copyToClipboard(text) {
         document.body.removeChild(textarea);
         return successful;
     } catch (err) {
-        console.error("[LeafFlow] Clipboard copy fallback failed:", err);
+        console.error("[SaturnNodes CopyPrompt] Clipboard copy fallback failed:", err);
         return false;
     }
 }
@@ -233,7 +233,7 @@ async function extractPromptFromImageUrl(imgSrc) {
             } catch (_) {}
         }
     } catch (e) {
-        console.warn("[LeafFlow] Direct PNG metadata extraction failed:", e);
+        console.warn("[SaturnNodes CopyPrompt] Direct PNG metadata extraction failed:", e);
     }
     return null;
 }
@@ -354,12 +354,12 @@ app.registerExtension({
                             if (app.extensionManager?.toast?.add) {
                                 app.extensionManager.toast.add({
                                     severity: "warn",
-                                    summary: "LeafFlow Copy Prompt",
+                                    summary: "SaturnNodes Copy Prompt",
                                     detail: "Could not extract positive prompt from this image.",
                                     life: 3000
                                 });
                             } else {
-                                alert("LeafFlow: Could not extract positive prompt from this image.");
+                                alert("SaturnNodes: Could not extract positive prompt from this image.");
                             }
                         }
                     },
@@ -459,14 +459,14 @@ function injectCopyPromptNextToDownload(downloadBtn) {
     let lastBtn = downloadBtn;
 
     // 1. Copy Prompt Button
-    let copyBtn = parent.querySelector(".leafflow-hover-copy");
+    let copyBtn = parent.querySelector(".saturnnodes-hover-copy");
     if (enableCopy) {
         if (!copyBtn) {
             copyBtn = document.createElement("button");
             copyBtn.type = "button";
             copyBtn.title = "Copy Prompt";
             copyBtn.setAttribute("aria-label", "Copy Prompt");
-            copyBtn.className = `leafflow-hover-btn leafflow-hover-copy ${baseClasses} shrink-0`;
+            copyBtn.className = `saturnnodes-hover-btn saturnnodes-hover-copy ${baseClasses} shrink-0`;
 
             if (hasModernIcons) {
                 copyBtn.innerHTML = `<i class="icon-[lucide--copy] size-4 pointer-events-none"></i>`;
@@ -503,14 +503,14 @@ function injectCopyPromptNextToDownload(downloadBtn) {
     }
 
     // 2. Inspect Asset (Zoom) Button
-    let inspectBtn = parent.querySelector(".leafflow-hover-inspect");
+    let inspectBtn = parent.querySelector(".saturnnodes-hover-inspect");
     if (enableInspect) {
         if (!inspectBtn) {
             inspectBtn = document.createElement("button");
             inspectBtn.type = "button";
             inspectBtn.title = "Inspect asset";
             inspectBtn.setAttribute("aria-label", "Inspect asset");
-            inspectBtn.className = `leafflow-hover-btn leafflow-hover-inspect ${baseClasses} shrink-0`;
+            inspectBtn.className = `saturnnodes-hover-btn saturnnodes-hover-inspect ${baseClasses} shrink-0`;
             inspectBtn.innerHTML = INSPECT_SVG;
 
             inspectBtn.onclick = (e) => {
@@ -534,7 +534,7 @@ function injectCopyPromptNextToDownload(downloadBtn) {
 // 4. Inject Copy Prompt into PrimeVue Context Menu Next to Download Item
 function injectContextMenuCopy(contextMenu) {
     if (!contextMenu) return;
-    if (contextMenu.querySelector(".leafflow-contextmenu-copy")) return;
+    if (contextMenu.querySelector(".saturnnodes-contextmenu-copy")) return;
     if (!isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.02_EnableContextMenuCopyPrompt")) return;
 
     // Guard: strictly ignore top menu, menubar, command menus, and main application menus!
@@ -580,7 +580,7 @@ function injectContextMenuCopy(contextMenu) {
     );
 
     const copyLi = document.createElement("li");
-    copyLi.className = "p-contextmenu-item leafflow-contextmenu-copy";
+    copyLi.className = "p-contextmenu-item saturnnodes-contextmenu-copy";
     copyLi.setAttribute("role", "menuitem");
     copyLi.setAttribute("aria-label", "Copy prompt");
     copyLi.setAttribute("data-pc-section", "item");
@@ -622,7 +622,7 @@ function injectContextMenuCopy(contextMenu) {
 
 // 5. Fallback Hook for Older Frontend Action Bars
 function injectHoverCopyAction(overlayBar) {
-    if (!overlayBar || overlayBar.querySelector(".leafflow-hover-copy")) return;
+    if (!overlayBar || overlayBar.querySelector(".saturnnodes-hover-copy")) return;
     if (!isCopyEnabled("LeafFlow.3 - 📋 Prompt Actions.01_EnableAssetsCopyPromptButton")) return;
 
     if (isQueueItemElement(overlayBar)) return;
@@ -651,7 +651,7 @@ function injectHoverCopyAction(overlayBar) {
 
     const copyBtn = document.createElement("button");
     copyBtn.className =
-        "leafflow-hover-btn leafflow-hover-copy relative inline-flex items-center justify-center cursor-pointer touch-manipulation appearance-none border-none text-xs font-medium font-inter transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-white text-gray-700 hover:bg-gray-100 size-8 p-0 rounded-none pointer-events-auto border-r border-gray-200 shrink-0";
+        "saturnnodes-hover-btn saturnnodes-hover-copy relative inline-flex items-center justify-center cursor-pointer touch-manipulation appearance-none border-none text-xs font-medium font-inter transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-white text-gray-700 hover:bg-gray-100 size-8 p-0 rounded-none pointer-events-auto border-r border-gray-200 shrink-0";
     copyBtn.title = "Copy Prompt";
     copyBtn.setAttribute("aria-label", "Copy Prompt");
     copyBtn.setAttribute("data-pd-tooltip", "true");

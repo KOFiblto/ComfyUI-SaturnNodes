@@ -5,7 +5,7 @@ import { authenticatedFetch } from "./auth_helper.js";
 // Create global styles for the decision buttons
 const styles = document.createElement("style");
 styles.textContent = `
-    .leafflow-decision-btn {
+    .saturnnodes-decision-btn {
         margin: 4px;
         padding: 6px 12px;
         border: none;
@@ -15,19 +15,19 @@ styles.textContent = `
         color: white;
         transition: all 0.2s;
     }
-    .leafflow-decision-btn:disabled {
+    .saturnnodes-decision-btn:disabled {
         opacity: 0.3;
         cursor: not-allowed;
         filter: grayscale(100%);
     }
-    .leafflow-btn-continue { background-color: #2e7d32; }
-    .leafflow-btn-continue:hover:not(:disabled) { background-color: #388e3c; }
-    .leafflow-btn-cancel { background-color: #f57c00; }
-    .leafflow-btn-cancel:hover:not(:disabled) { background-color: #fb8c00; }
-    .leafflow-btn-stop { background-color: #d32f2f; }
-    .leafflow-btn-stop:hover:not(:disabled) { background-color: #f44336; }
+    .saturnnodes-btn-continue { background-color: #2e7d32; }
+    .saturnnodes-btn-continue:hover:not(:disabled) { background-color: #388e3c; }
+    .saturnnodes-btn-cancel { background-color: #f57c00; }
+    .saturnnodes-btn-cancel:hover:not(:disabled) { background-color: #fb8c00; }
+    .saturnnodes-btn-stop { background-color: #d32f2f; }
+    .saturnnodes-btn-stop:hover:not(:disabled) { background-color: #f44336; }
     
-    .leafflow-decision-container {
+    .saturnnodes-decision-container {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -74,7 +74,7 @@ function findGraphNode(id) {
 }
 
 app.registerExtension({
-    name: "Comfy.SaturnNodesDecision",
+    name: "ComfyUI.SaturnNodes.Decision",
     async setup() {
         const handleWaiting = (event) => {
             const data = event.detail;
@@ -102,20 +102,20 @@ app.registerExtension({
     async nodeCreated(node) {
         if (node.comfyClass === "SaturnDecision" || node.comfyClass === "LeafFlowDecision") {
             const container = document.createElement("div");
-            container.className = "leafflow-decision-container";
+            container.className = "saturnnodes-decision-container";
 
             const btnContinue = document.createElement("button");
-            btnContinue.className = "leafflow-decision-btn leafflow-btn-continue";
+            btnContinue.className = "saturnnodes-decision-btn saturnnodes-btn-continue";
             btnContinue.innerText = "Continue Workflow";
             btnContinue.disabled = true;
 
             const btnCancel = document.createElement("button");
-            btnCancel.className = "leafflow-decision-btn leafflow-btn-cancel";
+            btnCancel.className = "saturnnodes-decision-btn saturnnodes-btn-cancel";
             btnCancel.innerText = "Cancel (Return True)";
             btnCancel.disabled = true;
 
             const btnStop = document.createElement("button");
-            btnStop.className = "leafflow-decision-btn leafflow-btn-stop";
+            btnStop.className = "saturnnodes-decision-btn saturnnodes-btn-stop";
             btnStop.innerText = "Stop Workflow";
             btnStop.disabled = true;
 

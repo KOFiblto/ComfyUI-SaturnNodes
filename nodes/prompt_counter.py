@@ -2,7 +2,7 @@ from .prompt_iterator import parse_prompt_blocks
 
 class PromptCounter:
     """
-    LeafFlow Prompt Counter:
+    SaturnNodes Prompt Counter:
     Multiline text prompt input node with real-time prompt counting according to
     selectable separator ("Newline", ">1 Empty Line", ">2 Empty Lines", "Custom Regex").
     Outputs STRING (unmodified text) and count (integer count of prompts).

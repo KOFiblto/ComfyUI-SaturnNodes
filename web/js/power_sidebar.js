@@ -3,7 +3,7 @@ import { api } from "/scripts/api.js";
 import { authenticatedFetch } from "./auth_helper.js";
 
 const EXTENSION_NAME = "SaturnNodes.PowerControlSidebar";
-const STYLE_ID = "leafflow-power-sidebar-styles";
+const STYLE_ID = "saturnnodes-power-sidebar-styles";
 
 let currentPowerState = {
     pending_action: null,
@@ -19,7 +19,7 @@ function injectStyles() {
     style.id = STYLE_ID;
     style.textContent = `
         /* Power Sidebar Button Layout (Matching standard full-width sidebar button) */
-        #leafflow-power-bottom-btn {
+        #saturnnodes-power-bottom-btn {
             width: 100% !important;
             height: auto !important;
             min-height: 48px !important;
@@ -29,7 +29,7 @@ function injectStyles() {
             align-self: stretch !important;
         }
 
-        #leafflow-power-bottom-btn .side-bar-button-content {
+        #saturnnodes-power-bottom-btn .side-bar-button-content {
             width: 100% !important;
             display: flex !important;
             flex-direction: column !important;
@@ -38,33 +38,33 @@ function injectStyles() {
         }
 
         /* Power Sidebar Button Armed Red Warning State */
-        #leafflow-power-bottom-btn.leafflow-power-btn-armed,
-        .comfy-power-btn.leafflow-power-btn-armed,
-        .side-bar-button.leafflow-power-btn-armed,
-        .side-bar-button:has(.leafflow-power-icon-armed),
-        button[aria-label*="Power"].leafflow-power-btn-armed {
+        #saturnnodes-power-bottom-btn.saturnnodes-power-btn-armed,
+        .comfy-power-btn.saturnnodes-power-btn-armed,
+        .side-bar-button.saturnnodes-power-btn-armed,
+        .side-bar-button:has(.saturnnodes-power-icon-armed),
+        button[aria-label*="Power"].saturnnodes-power-btn-armed {
             background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%) !important;
             color: #ffffff !important;
             border: 1px solid #f87171 !important;
             box-shadow: 0 0 14px rgba(239, 68, 68, 0.8) !important;
-            animation: leafflow-power-pulse 1.8s infinite ease-in-out !important;
+            animation: saturnnodes-power-pulse 1.8s infinite ease-in-out !important;
         }
 
-        .leafflow-power-btn-armed svg,
-        .leafflow-power-btn-armed .side-bar-button-icon,
-        .leafflow-power-btn-armed span {
+        .saturnnodes-power-btn-armed svg,
+        .saturnnodes-power-btn-armed .side-bar-button-icon,
+        .saturnnodes-power-btn-armed span {
             color: #ffffff !important;
             stroke: #ffffff !important;
         }
 
-        @keyframes leafflow-power-pulse {
+        @keyframes saturnnodes-power-pulse {
             0% { box-shadow: 0 0 6px rgba(239, 68, 68, 0.5); transform: scale(1); }
             50% { box-shadow: 0 0 16px rgba(239, 68, 68, 0.95); transform: scale(1.03); }
             100% { box-shadow: 0 0 6px rgba(239, 68, 68, 0.5); transform: scale(1); }
         }
 
         /* Power Side Popup Menu (like Help Center popup) */
-        .leafflow-power-popup {
+        .saturnnodes-power-popup {
             position: fixed;
             z-index: 10005;
             min-width: 250px;
@@ -76,15 +76,15 @@ function injectStyles() {
             padding: 8px;
             color: var(--fg-color, #f4f4f5);
             font-family: inherit;
-            animation: leafflow-popup-fade 0.15s ease-out;
+            animation: saturnnodes-popup-fade 0.15s ease-out;
         }
 
-        @keyframes leafflow-popup-fade {
+        @keyframes saturnnodes-popup-fade {
             from { opacity: 0; transform: translateX(-6px); }
             to { opacity: 1; transform: translateX(0); }
         }
 
-        .leafflow-power-popup .help-menu-item {
+        .saturnnodes-power-popup .help-menu-item {
             display: flex;
             align-items: center;
             gap: 10px;
@@ -101,27 +101,27 @@ function injectStyles() {
             transition: background 0.15s ease, color 0.15s ease;
         }
 
-        .leafflow-power-popup .help-menu-item:hover {
+        .saturnnodes-power-popup .help-menu-item:hover {
             background: var(--comfy-menu-secondary-bg, rgba(255, 255, 255, 0.08));
         }
 
-        .leafflow-power-popup .help-menu-item.danger-item:hover {
+        .saturnnodes-power-popup .help-menu-item.danger-item:hover {
             background: rgba(239, 68, 68, 0.15);
             color: #f87171;
         }
 
-        .leafflow-power-popup .help-menu-item.armed-cancel-item {
+        .saturnnodes-power-popup .help-menu-item.armed-cancel-item {
             background: rgba(239, 68, 68, 0.85);
             color: #ffffff;
             font-weight: 600;
             margin-bottom: 6px;
         }
 
-        .leafflow-power-popup .help-menu-item.armed-cancel-item:hover {
+        .saturnnodes-power-popup .help-menu-item.armed-cancel-item:hover {
             background: #dc2626;
         }
 
-        .leafflow-power-popup .help-menu-icon-container {
+        .saturnnodes-power-popup .help-menu-icon-container {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -131,18 +131,18 @@ function injectStyles() {
             color: var(--descrip-text, #a1a1aa);
         }
 
-        .leafflow-power-popup .help-menu-item:hover .help-menu-icon-container {
+        .saturnnodes-power-popup .help-menu-item:hover .help-menu-icon-container {
             color: var(--fg-color, #f4f4f5);
         }
 
-        .leafflow-power-popup .menu-label {
+        .saturnnodes-power-popup .menu-label {
             flex: 1;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        .leafflow-power-popup .menu-divider {
+        .saturnnodes-power-popup .menu-divider {
             height: 1px;
             background: var(--border-color, #27272a);
             margin: 4px 0;
@@ -150,7 +150,7 @@ function injectStyles() {
         }
 
         /* Power Confirm Modal */
-        .leafflow-power-modal {
+        .saturnnodes-power-modal {
             display: flex;
             flex-direction: column;
             gap: 12px;
@@ -172,17 +172,17 @@ function getPowerIconSvg(size = 18) {
 
 function updateSidebarButtonVisuals() {
     const isArmed = Boolean(currentPowerState.pending_action);
-    const btns = document.querySelectorAll('#leafflow-power-bottom-btn, .comfy-power-btn, [aria-label*="Power"], .side-bar-button:has(.pi-power)');
+    const btns = document.querySelectorAll('#saturnnodes-power-bottom-btn, .comfy-power-btn, [aria-label*="Power"], .side-bar-button:has(.pi-power)');
     btns.forEach(btn => {
         if (isArmed) {
-            btn.classList.add("leafflow-power-btn-armed");
+            btn.classList.add("saturnnodes-power-btn-armed");
             const icon = btn.querySelector(".side-bar-button-icon, i, svg");
-            if (icon) icon.classList.add("leafflow-power-icon-armed");
+            if (icon) icon.classList.add("saturnnodes-power-icon-armed");
             btn.setAttribute("title", `⚠️ ComfyUI Power: Armed to ${currentPowerState.pending_action.toUpperCase()} after queue finish! Click to cancel.`);
         } else {
-            btn.classList.remove("leafflow-power-btn-armed");
+            btn.classList.remove("saturnnodes-power-btn-armed");
             const icon = btn.querySelector(".side-bar-button-icon, i, svg");
-            if (icon) icon.classList.remove("leafflow-power-icon-armed");
+            if (icon) icon.classList.remove("saturnnodes-power-icon-armed");
             btn.setAttribute("title", "Power (Restart / Shutdown)");
         }
     });
@@ -210,7 +210,7 @@ function openConfirmModal(title, message, onConfirm, isDanger = false) {
     overlay.style.backdropFilter = "blur(3px)";
 
     const modal = document.createElement("div");
-    modal.className = "leafflow-power-modal";
+    modal.className = "saturnnodes-power-modal";
     modal.style.border = isDanger ? "1px solid rgba(239, 68, 68, 0.5)" : "1px solid rgba(59, 130, 246, 0.5)";
     modal.style.boxShadow = isDanger ? "0 0 25px rgba(239, 68, 68, 0.35)" : "0 0 25px rgba(59, 130, 246, 0.35)";
 
@@ -313,7 +313,7 @@ function showPowerSidePopup(anchorElement) {
     }
 
     const popup = document.createElement("div");
-    popup.className = "help-center-popup sidebar-left leafflow-power-popup";
+    popup.className = "help-center-popup sidebar-left saturnnodes-power-popup";
     popup.setAttribute("data-testid", "power-popup");
 
     const rect = anchorElement.getBoundingClientRect();
@@ -628,13 +628,13 @@ function attachBottomSidebarButton() {
     const bottomGroup = document.querySelector(".sidebar-item-group.mt-auto, .side-bar .mt-auto, [data-testid='bottom-sidebar']");
     if (!bottomGroup) return;
 
-    if (document.getElementById("leafflow-power-bottom-btn")) {
+    if (document.getElementById("saturnnodes-power-bottom-btn")) {
         updateSidebarButtonVisuals();
         return;
     }
 
     const btn = document.createElement("button");
-    btn.id = "leafflow-power-bottom-btn";
+    btn.id = "saturnnodes-power-bottom-btn";
     btn.type = "button";
     btn.className = "relative inline-flex items-center justify-center gap-2 touch-manipulation whitespace-nowrap appearance-none font-medium font-inter transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([width]):not([height])]:size-4 [&_svg]:shrink-0 bg-transparent text-muted-foreground hover:bg-secondary-background-hover h-8 rounded-lg p-2 text-xs side-bar-button cursor-pointer border-none comfy-power-btn";
     btn.setAttribute("aria-label", "Power");

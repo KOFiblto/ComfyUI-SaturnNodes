@@ -40,7 +40,7 @@ function countPromptsInText(text, separator, customRegex) {
 }
 
 app.registerExtension({
-    name: "ComfyUI.LeafFlow.PromptCounter",
+    name: "ComfyUI.SaturnNodes.PromptCounter",
     async nodeCreated(node) {
         if (node.comfyClass === "PromptCounter") {
             const textWidget = node.widgets?.find(w => w.name === "text");

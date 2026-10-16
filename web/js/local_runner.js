@@ -3,7 +3,7 @@ import { authenticatedFetch } from "./auth_helper.js";
 
 // SaturnNodes Local File Runner In-Memory Consent Gate Extension
 app.registerExtension({
-    name: "SaturnNodes.LocalRunner.Security",
+    name: "ComfyUI.SaturnNodes.LocalRunner",
     async nodeCreated(node) {
         if (node.comfyClass !== "RunLocalFileNode") return;
 

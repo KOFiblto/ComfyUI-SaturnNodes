@@ -115,14 +115,14 @@ function getNextBatch(batchCount = 1) {
 // Inject CSS for the 1D git-graph style line
 function injectBatchStyles() {
     if (typeof document === "undefined") return;
-    const styleId = "leafflow-batch-queue-styles";
+    const styleId = "saturnnodes-batch-queue-styles";
     if (document.getElementById(styleId)) return;
 
     const style = document.createElement("style");
     style.id = styleId;
     style.textContent = `
-        /* LeafFlow 1D Git-Graph Batch Line Container */
-        .leafflow-batch-line-wrap {
+        /* SaturnNodes 1D Git-Graph Batch Line Container */
+        .saturnnodes-batch-line-wrap {
             position: absolute;
             left: -9px;
             top: 0;
@@ -136,7 +136,7 @@ function injectBatchStyles() {
             overflow: visible;
         }
 
-        .leafflow-batch-line-svg {
+        .saturnnodes-batch-line-svg {
             width: 100%;
             height: 100%;
             display: block;
@@ -183,16 +183,16 @@ function buildSvgPath(segmentType) {
 function renderBatchLineOnElement(element, segmentType, color) {
     if (!element) return;
 
-    let wrap = element.querySelector(".leafflow-batch-line-wrap");
+    let wrap = element.querySelector(".saturnnodes-batch-line-wrap");
     if (!wrap) {
         wrap = document.createElement("div");
-        wrap.className = "leafflow-batch-line-wrap";
+        wrap.className = "saturnnodes-batch-line-wrap";
         element.appendChild(wrap);
     }
 
     const dPath = buildSvgPath(segmentType);
     wrap.innerHTML = `
-        <svg class="leafflow-batch-line-svg" viewBox="0 0 10 48" preserveAspectRatio="none">
+        <svg class="saturnnodes-batch-line-svg" viewBox="0 0 10 48" preserveAspectRatio="none">
             <path d="${dPath}" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" />
         </svg>
     `;
@@ -200,7 +200,7 @@ function renderBatchLineOnElement(element, segmentType, color) {
 
 function removeBatchLineFromElement(element) {
     if (!element) return;
-    const wrap = element.querySelector(".leafflow-batch-line-wrap");
+    const wrap = element.querySelector(".saturnnodes-batch-line-wrap");
     if (wrap) {
         wrap.remove();
     }
@@ -316,7 +316,7 @@ function mergeDynamicSeeds(snapPrompt, livePrompt) {
         }
         return cloned;
     } catch (e) {
-        console.warn("[LeafFlow BatchQueue] Error merging dynamic seeds into snapshot:", e);
+        console.warn("[SaturnNodes BatchQueue] Error merging dynamic seeds into snapshot:", e);
         return snapPrompt;
     }
 }
@@ -358,7 +358,7 @@ async function loadBatchFromServer() {
 // Refresh visual lines in DOM for both v1 and v2
 async function updateQueueBatchVisuals() {
     if (!isBatchQueueEnabled()) {
-        document.querySelectorAll(".leafflow-batch-line-wrap").forEach(el => el.remove());
+        document.querySelectorAll(".saturnnodes-batch-line-wrap").forEach(el => el.remove());
         return;
     }
 
@@ -476,7 +476,7 @@ function setupQueueHooks() {
                     try {
                         activeBatchContext.snapshotPrompt = JSON.parse(JSON.stringify(prompt));
                     } catch (e) {
-                        console.warn("[LeafFlow BatchQueue] Failed to snapshot prompt:", e);
+                        console.warn("[SaturnNodes BatchQueue] Failed to snapshot prompt:", e);
                     }
                 } else if (activeBatchContext.snapshotPrompt) {
                     promptToSend = mergeDynamicSeeds(activeBatchContext.snapshotPrompt, prompt);

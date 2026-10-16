@@ -9,7 +9,7 @@ import subprocess
 from aiohttp import web
 from server import PromptServer
 import folder_paths
-from .utils import get_saturnnodes_user_dir, get_leafflow_user_dir, is_authenticated_local_request
+from .utils import get_saturnnodes_user_dir, is_authenticated_local_request
 
 CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 USER_DIR = get_saturnnodes_user_dir()

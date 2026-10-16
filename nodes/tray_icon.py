@@ -3,7 +3,7 @@ import sys
 import threading
 import webbrowser
 from PIL import Image, ImageDraw
-from .utils import get_saturnnodes_user_dir, get_leafflow_user_dir
+from .utils import get_saturnnodes_user_dir
 
 USER_DIR = get_saturnnodes_user_dir()
 ENV_FILE = os.path.join(USER_DIR, ".env")

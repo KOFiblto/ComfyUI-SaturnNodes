@@ -47,6 +47,7 @@ def get_saturnnodes_user_dir():
 
     return saturn_dir
 
+# Backward-compatible alias for legacy integrations referencing the pre-rename helper name.
 get_leafflow_user_dir = get_saturnnodes_user_dir
 
 _SESSION_CSRF_TOKEN = secrets.token_hex(32)
@@ -96,7 +97,7 @@ def is_authenticated_local_request(request):
     Guarantees user-initiated actions and protects against CSRF / drive-by requests from open browser tabs:
     1. Originates strictly from loopback IP (is_local_request)
     2. Not a cross-site drive-by request (is_same_origin_or_direct)
-    3. Contains a valid X-LeafFlow-CSRF-Token header matching the session secret.
+    3. Contains a valid X-SaturnNodes-CSRF-Token header (legacy X-LeafFlow-CSRF-Token also accepted) matching the session secret.
     """
     if not is_local_request(request):
         return False
@@ -238,7 +239,7 @@ def sanitize_image_loader_folder(folder_input, default_to_output=True):
 
 def get_env_setting(key, default_val):
     """
-    Reads a key setting from ComfyUI/user/default/LeafFlow/.env safely.
+    Reads a key setting from ComfyUI/user/default/SaturnNodes/.env safely.
     """
     user_dir = get_saturnnodes_user_dir()
     env_file = os.path.join(user_dir, ".env")
