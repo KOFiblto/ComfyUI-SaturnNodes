@@ -9,7 +9,7 @@ from server import PromptServer
 import nodes
 from .tray_icon import TrayIconManager, is_tray_icon_enabled
 from .assets_restore import assets_restore_manager, is_assets_restore_enabled, get_assets_restore_count
-from .utils import get_saturnnodes_user_dir, get_leafflow_user_dir, is_local_request, is_authenticated_local_request
+from .utils import get_saturnnodes_user_dir, is_local_request, is_authenticated_local_request
 
 QUEUE_CATEGORY = "🪐 SaturnNodes/Queue"
 
@@ -75,7 +75,7 @@ class PauseQueueManager:
                 if self.paused:
                     if not self.is_waiting:
                         self.is_waiting = True
-                        print("[PauseQueue] Workflow paused: Queue is paused, waiting before next workflow.")
+                        print("[SaturnNodes PauseQueue] Workflow paused: Queue is paused, waiting before next workflow.")
                         self.notify_clients()
                     while self.paused:
                         try:
@@ -110,7 +110,7 @@ class PauseQueueManager:
                     if self.paused and self.mode == "instantly":
                         if not self.is_waiting:
                             self.is_waiting = True
-                            print(f"[PauseQueue] Workflow Paused Instant: Paused before executing node '{data.get('node')}'.")
+                            print(f"[SaturnNodes PauseQueue] Workflow Paused Instant: Paused before executing node '{data.get('node')}'.")
                             self.notify_clients()
                         while self.paused and self.mode == "instantly":
                             # Check for user cancellation or interrupt while paused
@@ -162,20 +162,20 @@ class PauseQueueManager:
             if not self.is_currently_executing():
                 self.is_waiting = True
                 if self.mode == "instantly":
-                    print("[PauseQueue] Workflow Paused Instant: Queue is empty/idle, pause active.")
+                    print("[SaturnNodes PauseQueue] Workflow Paused Instant: Queue is empty/idle, pause active.")
                 else:
-                    print("[PauseQueue] Workflow paused after this run: Queue is empty/idle, pause active.")
+                    print("[SaturnNodes PauseQueue] Workflow paused after this run: Queue is empty/idle, pause active.")
             else:
                 self.is_waiting = False
                 if self.mode == "instantly":
-                    print("[PauseQueue] Workflow Paused Instant requested. Waiting for current node to complete...")
+                    print("[SaturnNodes PauseQueue] Workflow Paused Instant requested. Waiting for current node to complete...")
                 else:
-                    print("[PauseQueue] Workflow paused after this run requested. Will pause when current workflow completes...")
+                    print("[SaturnNodes PauseQueue] Workflow paused after this run requested. Will pause when current workflow completes...")
             self.event.clear()
         else:
             self.is_waiting = False
             self.event.set()
-            print("[PauseQueue] Continue pressed: Resuming execution.")
+            print("[SaturnNodes PauseQueue] Continue pressed: Resuming execution.")
 
         self.notify_clients()
 
@@ -204,7 +204,7 @@ class PauseQueueManager:
 
     def set_mode(self, mode):
         self.mode = mode
-        print(f"[PauseQueue] Selected pause mode: '{self.mode}'")
+        print(f"[SaturnNodes PauseQueue] Selected pause mode: '{self.mode}'")
         self.notify_clients()
 
     def notify_clients(self):
@@ -250,7 +250,7 @@ class PersistentQueueManager:
                         else:
                             self.persistent_items = []
                 except Exception as e:
-                    print(f"[PersistentQueue] Error loading persistent queue file: {e}")
+                    print(f"[SaturnNodes PersistentQueue] Error loading persistent queue file: {e}")
                     self.persistent_items = []
             else:
                 self.persistent_items = []
@@ -278,7 +278,7 @@ class PersistentQueueManager:
                     json.dump(self.persistent_items, f, indent=2, default=str)
                 os.replace(temp_file, PERSISTENT_FILE)
             except Exception as e:
-                print(f"[PersistentQueue] Error saving persistent queue file: {e}")
+                print(f"[SaturnNodes PersistentQueue] Error saving persistent queue file: {e}")
 
     def add_item(self, item_tuple):
         if self.is_restoring or not is_persistent_queue_enabled():
@@ -300,9 +300,9 @@ class PersistentQueueManager:
                     self.persistent_items = [x for x in self.persistent_items if str(x.get("prompt_id")) != pid_str]
                     self.persistent_items.append(entry)
                 self.save_to_file()
-                print(f"[PersistentQueue] Persisted prompt {pid_str} to disk.")
+                print(f"[SaturnNodes PersistentQueue] Persisted prompt {pid_str} to disk.")
         except Exception as e:
-            print(f"[PersistentQueue] Error formatting queue item for persistence: {e}")
+            print(f"[SaturnNodes PersistentQueue] Error formatting queue item for persistence: {e}")
 
     def remove_item(self, prompt_id):
         if not prompt_id:
@@ -315,7 +315,7 @@ class PersistentQueueManager:
             changed = len(self.persistent_items) != initial_count
         if changed and is_persistent_queue_enabled():
             self.save_to_file()
-            print(f"[PersistentQueue] Removed prompt {pid_str} from disk.")
+            print(f"[SaturnNodes PersistentQueue] Removed prompt {pid_str} from disk.")
 
     def wipe_all(self):
         with self.lock:
@@ -323,7 +323,7 @@ class PersistentQueueManager:
             self.batch_meta = {}
         if is_persistent_queue_enabled():
             self.save_to_file()
-        print("[PersistentQueue] Cleared all saved queue items.")
+        print("[SaturnNodes PersistentQueue] Cleared all saved queue items.")
 
     def patch_server(self):
         if self._patched:
@@ -415,7 +415,7 @@ class PersistentQueueManager:
             return
 
         if not is_persistent_queue_enabled():
-            print("[PersistentQueue] Auto-recovery is disabled in settings.")
+            print("[SaturnNodes PersistentQueue] Auto-recovery is disabled in settings.")
             self.has_claimed_once = True
             return
 
@@ -430,7 +430,7 @@ class PersistentQueueManager:
         elif restored_state_setting == "Force Running":
             pause_manager.set_pause(False)
 
-        print(f"[PersistentQueue] Restoring {len(self.persistent_items)} saved queue item(s) to client '{active_client_id}'...")
+        print(f"[SaturnNodes PersistentQueue] Restoring {len(self.persistent_items)} saved queue item(s) to client '{active_client_id}'...")
         self.is_restoring = True
         max_number = 0
         restored_count = 0
@@ -463,7 +463,7 @@ class PersistentQueueManager:
                     server.prompt_queue.put(tuple(item_list))
                     restored_count += 1
                 except Exception as e:
-                    print(f"[PersistentQueue] Error restoring prompt {entry.get('prompt_id')}: {e}")
+                    print(f"[SaturnNodes PersistentQueue] Error restoring prompt {entry.get('prompt_id')}: {e}")
         finally:
             self.is_restoring = False
             self.has_claimed_once = True
@@ -515,7 +515,7 @@ class PowerControlManager:
         with self.lock:
             if action in ["restart", "shutdown"]:
                 if not is_process_management_enabled():
-                    print(f"[SaturnNodes Power] Arm rejected: Process Management is disabled in LeafFlow settings.")
+                    print(f"[SaturnNodes Power] Arm rejected: Process Management is disabled in SaturnNodes settings.")
                     return False
                 self.pending_action = action
                 import time
@@ -580,7 +580,7 @@ class PowerControlManager:
 
     def execute_restart(self):
         if not is_process_management_enabled():
-            print("[SaturnNodes Power] Rejected restart: Process Management is disabled in LeafFlow settings.")
+            print("[SaturnNodes Power] Rejected restart: Process Management is disabled in SaturnNodes settings.")
             return False
 
         def _run():
@@ -622,7 +622,7 @@ class PowerControlManager:
 
     def execute_shutdown(self):
         if not is_process_management_enabled():
-            print("[SaturnNodes Power] Rejected shutdown: Process Management is disabled in LeafFlow settings.")
+            print("[SaturnNodes Power] Rejected shutdown: Process Management is disabled in SaturnNodes settings.")
             return False
 
         def _run():
@@ -836,7 +836,8 @@ def setup_queue_control_routes(server):
             return web.json_response({"error": str(e)}, status=400)
         return web.json_response({"success": False}, status=400)
 
-    @routes.get("/pause_queue/status")
+    @routes.get("/saturnnodes/pause_queue/status")
+    @routes.get("/pause_queue/status")  # Legacy alias
     async def get_status(request):
         if not is_local_request(request):
             return web.json_response({"error": "Forbidden: Local access only"}, status=403)
@@ -847,7 +848,8 @@ def setup_queue_control_routes(server):
             "waiting": pause_manager.is_waiting
         })
 
-    @routes.post("/pause_queue/toggle")
+    @routes.post("/saturnnodes/pause_queue/toggle")
+    @routes.post("/pause_queue/toggle")  # Legacy alias
     async def toggle_pause(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -864,7 +866,8 @@ def setup_queue_control_routes(server):
             "waiting": pause_manager.is_waiting
         })
 
-    @routes.post("/pause_queue/mode")
+    @routes.post("/saturnnodes/pause_queue/mode")
+    @routes.post("/pause_queue/mode")  # Legacy alias
     async def set_mode_route(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -880,7 +883,8 @@ def setup_queue_control_routes(server):
             "waiting": pause_manager.is_waiting
         })
 
-    @routes.post("/pause_queue/continue")
+    @routes.post("/saturnnodes/pause_queue/continue")
+    @routes.post("/pause_queue/continue")  # Legacy alias
     async def continue_queue(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -891,7 +895,8 @@ def setup_queue_control_routes(server):
             "waiting": pause_manager.is_waiting
         })
 
-    @routes.post("/persistent_queue/claim")
+    @routes.post("/saturnnodes/persistent_queue/claim")
+    @routes.post("/persistent_queue/claim")  # Legacy alias
     async def claim_queue(request):
         if not is_authenticated_local_request(request):
             return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
@@ -901,5 +906,5 @@ def setup_queue_control_routes(server):
             if client_id and not persistent_manager.has_claimed_once:
                 persistent_manager.restore_queue(client_id)
         except Exception as e:
-            print(f"[PersistentQueue] Error in claim endpoint: {e}")
+            print(f"[SaturnNodes PersistentQueue] Error in claim endpoint: {e}")
         return web.json_response({"status": "ok"})

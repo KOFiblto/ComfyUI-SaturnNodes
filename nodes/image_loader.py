@@ -11,7 +11,6 @@ from server import PromptServer
 import folder_paths
 from .utils import (
     sanitize_folder_path,
-    get_leafflow_user_dir,
     is_local_request,
     is_safe_path,
     sanitize_image_loader_folder,
@@ -176,7 +175,8 @@ else:
     routes = web.RouteTableDef()
     print("[SaturnNodes] Notice: PromptServer instance not available during image_loader import; using standalone route table.")
 
-@routes.get("/image_loader/get_images")
+@routes.get("/saturnnodes/image_loader/get_images")
+@routes.get("/image_loader/get_images")  # Legacy alias
 async def get_images_endpoint(request):
     if not is_local_request(request):
         return web.json_response({"error": "Forbidden: Local access only"}, status=403)
@@ -258,7 +258,8 @@ async def get_images_endpoint(request):
         "prompts": prompts
     })
 
-@routes.get("/image_loader/get_thumbnail")
+@routes.get("/saturnnodes/image_loader/get_thumbnail")
+@routes.get("/image_loader/get_thumbnail")  # Legacy alias
 async def get_thumbnail_endpoint(request):
     if not is_local_request(request):
         return web.Response(status=403)
@@ -289,7 +290,8 @@ async def get_thumbnail_endpoint(request):
     except Exception:
         return web.FileResponse(full_path)
 
-@routes.get("/image_loader/get_full_image")
+@routes.get("/saturnnodes/image_loader/get_full_image")
+@routes.get("/image_loader/get_full_image")  # Legacy alias
 async def get_full_image_endpoint(request):
     if not is_local_request(request):
         return web.Response(status=403)

@@ -201,7 +201,7 @@ visualStyles.textContent = `
 document.head.appendChild(visualStyles);
 
 app.registerExtension({
-    name: "Comfy.ImageLoaderCustom",
+    name: "ComfyUI.SaturnNodes.VisualImageLoader",
     async nodeCreated(node) {
         const isVisualImageLoader = [
             "VisualImageLoader",
@@ -510,7 +510,7 @@ app.registerExtension({
 
                             const img = document.createElement("img");
                             let fetchFolder = folder;
-                            img.dataset.src = `/image_loader/get_thumbnail?folder=${encodeURIComponent(fetchFolder)}&image=${encodeURIComponent(item.relPath)}`;
+                            img.dataset.src = `/saturnnodes/image_loader/get_thumbnail?folder=${encodeURIComponent(fetchFolder)}&image=${encodeURIComponent(item.relPath)}`;
                             img.onload = () => img.classList.add("loaded");
                             
                             img.onerror = () => {
@@ -561,7 +561,7 @@ app.registerExtension({
                 activeRequest = currentRequest;
 
                 try {
-                    const response = await api.fetchApi(`/image_loader/get_images?folder=${encodeURIComponent(folder)}`);
+                    const response = await api.fetchApi(`/saturnnodes/image_loader/get_images?folder=${encodeURIComponent(folder)}`);
                     if (activeRequest !== currentRequest) return;
                     
                     imagesData = await response.json();

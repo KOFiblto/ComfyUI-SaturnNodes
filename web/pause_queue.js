@@ -33,13 +33,13 @@ class PauseQueueUI {
 
     async fetchStatus() {
         try {
-            const res = await api.fetchApi("/pause_queue/status");
+            const res = await api.fetchApi("/saturnnodes/pause_queue/status");
             if (res.ok) {
                 const data = await res.json();
                 this.updateState(data);
             }
         } catch (e) {
-            console.error("[LeafFlow] Error fetching status:", e);
+            console.error("[SaturnNodes PauseQueue] Error fetching status:", e);
         }
     }
 
@@ -58,7 +58,7 @@ class PauseQueueUI {
 
     async togglePause(paused) {
         try {
-            const res = await authenticatedFetch("/pause_queue/toggle", {
+            const res = await authenticatedFetch("/saturnnodes/pause_queue/toggle", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ paused, mode: this.state.mode })
@@ -68,13 +68,13 @@ class PauseQueueUI {
                 this.updateState(data);
             }
         } catch (e) {
-            console.error("[LeafFlow] Error toggling pause:", e);
+            console.error("[SaturnNodes PauseQueue] Error toggling pause:", e);
         }
     }
 
     async setMode(mode) {
         try {
-            const res = await authenticatedFetch("/pause_queue/mode", {
+            const res = await authenticatedFetch("/saturnnodes/pause_queue/mode", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ mode })
@@ -84,19 +84,19 @@ class PauseQueueUI {
                 this.updateState(data);
             }
         } catch (e) {
-            console.error("[LeafFlow] Error setting mode:", e);
+            console.error("[SaturnNodes PauseQueue] Error setting mode:", e);
         }
     }
 
     async continueQueue() {
         try {
-            const res = await authenticatedFetch("/pause_queue/continue", { method: "POST" });
+            const res = await authenticatedFetch("/saturnnodes/pause_queue/continue", { method: "POST" });
             if (res.ok) {
                 const data = await res.json();
                 this.updateState(data);
             }
         } catch (e) {
-            console.error("[LeafFlow] Error continuing queue:", e);
+            console.error("[SaturnNodes PauseQueue] Error continuing queue:", e);
         }
     }
 

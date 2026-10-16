@@ -20,7 +20,6 @@ from .utils import (
     format_lora_output_name,
     sanitize_folder_path,
     get_saturnnodes_user_dir,
-    get_leafflow_user_dir,
     is_local_request,
     is_safe_path
 )
@@ -365,7 +364,8 @@ def get_filtered_loras_mapping(folder_filter, pretty=False):
 server = PromptServer.instance
 routes = server.routes
 
-@routes.get("/folder_lora_loader/get_loras")
+@routes.get("/saturnnodes/folder_lora_loader/get_loras")
+@routes.get("/folder_lora_loader/get_loras")  # Legacy alias
 async def get_loras_endpoint(request):
     if not is_local_request(request):
         return web.json_response({"error": "Forbidden: Local access only"}, status=403)
@@ -442,7 +442,8 @@ def get_or_create_thumbnail(img_path, max_size=256):
     except Exception:
         return img_path
 
-@routes.get("/folder_lora_loader/get_preview")
+@routes.get("/saturnnodes/folder_lora_loader/get_preview")
+@routes.get("/folder_lora_loader/get_preview")  # Legacy alias
 async def get_preview_endpoint(request):
     if not is_local_request(request):
         return web.Response(status=403)

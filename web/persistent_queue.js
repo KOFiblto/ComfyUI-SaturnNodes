@@ -47,7 +47,7 @@ app.registerExtension({
         const claimQueueOwnership = async () => {
             if (api && api.clientId) {
                 try {
-                    await authenticatedFetch("/persistent_queue/claim", {
+                    await authenticatedFetch("/saturnnodes/persistent_queue/claim", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ client_id: api.clientId })
@@ -57,7 +57,7 @@ app.registerExtension({
                     setTimeout(patchRgthree, 150);
                     setTimeout(patchRgthree, 600);
                 } catch (e) {
-                    console.error("[LeafFlow] Error claiming queue ownership:", e);
+                    console.error("[SaturnNodes PersistentQueue] Error claiming queue ownership:", e);
                 }
             }
         };

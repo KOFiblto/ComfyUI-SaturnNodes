@@ -397,7 +397,7 @@ visualStyles.textContent = `
 document.head.appendChild(visualStyles);
 
 app.registerExtension({
-    name: "Comfy.FolderLoraLoader",
+    name: "ComfyUI.SaturnNodes.FolderLoraLoader",
     async nodeCreated(node) {
         // --- 1. ORIGINAL DROPDOWN NODES ---
         if (node.comfyClass === "FolderLoraLoader" || node.comfyClass === "FolderLoraLoaderPretty" || node.type === "FolderLoraLoader" || node.type === "FolderLoraLoaderPretty") {
@@ -423,7 +423,7 @@ app.registerExtension({
                     activeRequest = currentRequest;
 
                     try {
-                        const response = await api.fetchApi(`/folder_lora_loader/get_loras?folder=${encodeURIComponent(folder)}&pretty=${pretty}`);
+                        const response = await api.fetchApi(`/saturnnodes/folder_lora_loader/get_loras?folder=${encodeURIComponent(folder)}&pretty=${pretty}`);
                         if (activeRequest !== currentRequest) return;
                         const data = await response.json();
                         
@@ -576,7 +576,7 @@ app.registerExtension({
                 activeRequest = currentRequest;
 
                 try {
-                    const response = await api.fetchApi(`/folder_lora_loader/get_loras?folder=${encodeURIComponent(folder)}&pretty=true`);
+                    const response = await api.fetchApi(`/saturnnodes/folder_lora_loader/get_loras?folder=${encodeURIComponent(folder)}&pretty=true`);
                     if (activeRequest !== currentRequest) return;
                     const data = await response.json();
 
@@ -704,7 +704,7 @@ app.registerExtension({
                         const img = document.createElement("img");
                         img.loading = "lazy";
                         const bypassThumbs = app.ui.settings?.getSettingValue?.("SaturnNodes.🖼️ Visual Loaders.07_BypassThumbnailDownscaling", false);
-                        img.dataset.src = `/folder_lora_loader/get_preview?lora=${encodeURIComponent(loraName)}&folder=${encodeURIComponent(folder)}&pretty=true` + (bypassThumbs ? "&full=true" : "&size=200");
+                        img.dataset.src = `/saturnnodes/folder_lora_loader/get_preview?lora=${encodeURIComponent(loraName)}&folder=${encodeURIComponent(folder)}&pretty=true` + (bypassThumbs ? "&full=true" : "&size=200");
                         tileObserver.observe(img);
                         
                         img.onerror = () => {
@@ -1276,7 +1276,7 @@ app.registerExtension({
                 activeRequest = currentRequest;
 
                 try {
-                    const response = await api.fetchApi(`/folder_lora_loader/get_loras?folder=${encodeURIComponent(folder)}&pretty=true&scrape_on_new=${encodeURIComponent(scrapeOnNew)}`);
+                    const response = await api.fetchApi(`/saturnnodes/folder_lora_loader/get_loras?folder=${encodeURIComponent(folder)}&pretty=true&scrape_on_new=${encodeURIComponent(scrapeOnNew)}`);
                     if (activeRequest !== currentRequest) return;
                     const data = await response.json();
 
@@ -1515,7 +1515,7 @@ app.registerExtension({
                             const img = document.createElement("img");
                             img.loading = "lazy";
                             const bypassThumbs = app.ui.settings?.getSettingValue?.("SaturnNodes.🖼️ Visual Loaders.07_BypassThumbnailDownscaling", false);
-                            img.dataset.src = `/folder_lora_loader/get_preview?system_path=${encodeURIComponent(item.systemPath)}` + (bypassThumbs ? "&full=true" : "&size=200");
+                            img.dataset.src = `/saturnnodes/folder_lora_loader/get_preview?system_path=${encodeURIComponent(item.systemPath)}` + (bypassThumbs ? "&full=true" : "&size=200");
                             imageObserver.observe(img);
                             
                             img.onerror = () => {
