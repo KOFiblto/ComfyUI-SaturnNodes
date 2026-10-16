@@ -13,13 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Curated GitHub Releases**: `release.yml` now publishes the matching `CHANGELOG.md` section as the GitHub Release body instead of raw auto-generated compare links.
 
 ### Changed
-- **Route Namespacing**: All HTTP routes now live under `/saturnnodes/*`, with permanent legacy aliases (`/pause_queue/*`, `/persistent_queue/*`, `/image_loader/*`, `/folder_lora_loader/*`) kept for backward compatibility.
-- **Naming Consistency**: Unified `ComfyUI.SaturnNodes.*` frontend extension names, `saturnnodes-*` CSS prefixes, and `[SaturnNodes ...]` console log tags; all remaining user-visible LeafFlow-era strings were rebranded (legacy setting keys, localStorage keys and legacy node aliases are intentionally preserved for compatibility).
+- **Route Namespacing**: All HTTP routes live exclusively under `/saturnnodes/*`; the transitional pre-2.6 route aliases (`/pause_queue/*`, `/persistent_queue/*`, `/image_loader/*`, `/folder_lora_loader/*`) were removed entirely.
+- **Compatibility Surface Reduction**: All remaining pre-rename compatibility layers were purged — duplicate legacy route handlers, frontend settings migration and legacy settings-ID lookups, legacy localStorage/storage keys, the legacy CSRF header fallback, and the legacy user-directory auto-migration. The only retained backward-compatibility surface is the legacy node class-name aliases in `NODE_CLASS_MAPPINGS`, required so old workflow files keep loading.
+- **Naming Consistency**: Unified `ComfyUI.SaturnNodes.*` frontend extension names, `saturnnodes-*` CSS prefixes, and `[SaturnNodes ...]` console log tags.
 - **Documentation Rebrand**: `WALKTHROUGH.md`, the README settings reference, `.env.example`, `AGENTS.md` and `SECURITY.md` were fully rebranded and reconciled with the real setting labels, widget names and environment variables.
 - **Registry Identity**: Package name set to `saturnnodes` (per registry naming best practices); version bumped to `2.6.1`.
 
 ### Fixed
-- **Publishing Compliance**: Removed `install.py` (no runtime `pip` execution, matching the documented "Zero Runtime Package Installs" claim) and corrected a README claim about non-existent `/leafflow/*` route aliases.
+- **Publishing Compliance**: Removed `install.py` (no runtime `pip` execution, matching the documented "Zero Runtime Package Installs" claim) and corrected a stale README claim about legacy route aliases.
 - **Audit Remediation Hardening**: Full audit remediation pass — pause queue stall/deadlock fixes, restart verification hardening, atomic `.env` writes with proper error responses, debug endpoint guards, subgraph-safe lookups, runner pipe streaming, IPv4-mapped loopback handling and more (119 unit tests passing).
 
 ### Removed
@@ -82,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Core Stability & Logic**:
   - Implemented true cycle permutation for `Random (Cycle)` in `PromptQueueIterator`.
   - Upgraded comma parsing in `MultiTextReplacer` with `csv.reader` to preserve quoted phrases.
-  - Removed legacy node mappings (`LeafFlowDecision`, `LeafFlowTextSplit`).
+  - Removed legacy pre-rebrand node class mappings.
   - Added robust exception handling for unterminated regex in text splitting.
   - Optimized 60fps canvas draw loops by decoupling badge geometry enforcement from `onDrawForeground`.
 
@@ -92,14 +93,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed & Rebranded
 - **Full Suite Rebrand to SaturnNodes (`🪐`)**:
-  - Rebranded the entire suite from `ComfyUI-LeafFlow` to **`ComfyUI-SaturnNodes`** with signature emoji `🪐`.
+  - Renamed the entire suite to **`ComfyUI-SaturnNodes`** with signature emoji `🪐`.
   - Node display names updated with the `🪐` prefix across all 16 custom nodes.
   - Node category updated to `🪐 SaturnNodes/*` (`Loaders`, `Utils`, `Previews`, `Queue`, `Automation`).
-  - Full backward compatibility: all legacy class names (`LeafFlowDecision`, `LeafFlowTextSplit`) preserved and aliased alongside new class names in `NODE_CLASS_MAPPINGS`.
-  - Dual HTTP route registration: both `/saturnnodes/*` and `/leafflow/*` routes are active, guaranteeing compatibility with existing scripts, extensions, and bookmarks.
-  - Dual WebSocket event emission: both `saturnnodes_*` and `leafflow_*` events are broadcast to the frontend.
-  - Seamless settings migration: frontend settings and local storage automatically migrate from `LeafFlow.*` to `SaturnNodes.*` with instant fallback.
-  - Automatic user directory migration: `.env` and `prompt_iterator_state.json` migrate smoothly from `user/default/LeafFlow/` to `user/default/SaturnNodes/`.
+  - Full backward compatibility: all legacy pre-rebrand class names preserved and aliased alongside the new class names in `NODE_CLASS_MAPPINGS`.
+  - Dual HTTP route registration for full compatibility with existing scripts, extensions, and bookmarks.
+  - Dual WebSocket event emission for full frontend compatibility.
+  - Seamless settings migration: frontend settings and local storage automatically migrated to `SaturnNodes.*` keys with instant fallback.
+  - Automatic user directory migration: `.env` and `prompt_iterator_state.json` migrated smoothly into `user/default/SaturnNodes/`.
   - Removed third-party PromptBookmarks coupling: cleaned UI bookmarks button from copy prompt node for modularity.
 
 ---
@@ -108,10 +109,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security & Hardening
 - **Universal CSRF Protection Across All Mutation Routes**:
-  - Protected `POST /leafflow/prompt_iterator/reset_node`, `POST /leafflow/prompt_iterator/clear`, and `POST /leafflow/prompt_iterator/open_file` with `is_authenticated_local_request`.
-  - Protected `POST /leafflow/decision` with `is_authenticated_local_request`.
-  - Protected queue-mutating endpoints (`POST /pause_queue/toggle`, `POST /pause_queue/mode`, `POST /pause_queue/continue`, `POST /persistent_queue/claim`, `POST /leafflow/batch_queue/sync`, `POST /leafflow/assets/restore`) with `is_authenticated_local_request`.
-  - Updated all frontend callers in `web/` to send the `X-LeafFlow-CSRF-Token` session header via `authenticatedFetch`.
+  - Protected the prompt iterator reset, clear, and open-file endpoints with `is_authenticated_local_request`.
+  - Protected the decision node endpoint with `is_authenticated_local_request`.
+  - Protected all queue-mutating endpoints (pause controls, persistent queue claim, batch queue sync, assets restore) with `is_authenticated_local_request`.
+  - Updated all frontend callers in `web/` to send the session CSRF header via `authenticatedFetch`.
 - **SSRF Protection & Scheme Filtering for Preview Scrapers**:
   - Added `is_safe_external_image_url` validating that downloaded image URLs use standard `https` or `http` schemes.
   - Strictly blocked internal loopback (`127.0.0.1`, `localhost`), private networks (`10.*`, `172.16.*`, `192.168.*`), and link-local cloud metadata endpoints (`169.254.*`).
@@ -144,18 +145,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Recursive process tree termination on timeout or cancellation (uses `taskkill /F /T` on Windows to prevent orphaned background processes).
     - **In-Memory Operator Authorization Gate**: Removed `security_consent` from `INPUT_TYPES` so consent never serializes into workflow JSON or dropped image metadata. Requires active canvas button click `[⚡ Authorize Run]` with 5-minute single-use memory token.
     - Visual node status indicator (`[ARMED]` in emerald green vs `[DISARMED]` in red).
-    - Global toggle setting (`LeafFlow.9 - 🛡️ Security.01_AllowLocalFileExecution`, default `false`).
+    - Global `Allow Local File Execution` toggle setting (default `false`).
 - **🛡️ CSRF Defense & Request Authentication**:
   - Added `is_authenticated_local_request` validating loopback origin, `Sec-Fetch-Site` header (blocking `cross-site` calls from visited web pages), and `Origin`/`Referer` headers.
-  - Cryptographically secure per-session CSRF token (`X-LeafFlow-CSRF-Token`) generated via `secrets.token_hex(32)` and validated with `secrets.compare_digest`.
+  - Cryptographically secure per-session CSRF token generated via `secrets.token_hex(32)` and validated with `secrets.compare_digest`.
   - Added frontend auth helper (`web/js/auth_helper.js`) automatically fetching and attaching CSRF tokens to administrative fetch requests.
 - **⚡ Two-Step Power Action Handshake**:
-  - Server restart and shutdown endpoints require `ALLOW_PROCESS_MANAGEMENT=true` plus a two-step confirmation handshake (`POST /leafflow/power/request_token` to issue a 30s single-use ticket, followed by `POST /leafflow/power/confirm_action` to consume and execute).
+  - Server restart and shutdown endpoints require `ALLOW_PROCESS_MANAGEMENT=true` plus a two-step confirmation handshake (requesting a 30-second single-use ticket, then confirming the action to consume and execute it).
 
 ### Fixed & Compliance
 - **Complete Removal of `ALLOW_ANY_SCRIPT_PATH`**: Eliminated all path escape settings to guarantee execution confinement to `ComfyUI/scripts/`.
 - **Dynamic Node Count**: Replaced hardcoded node count in startup banner with dynamic `len(NODE_CLASS_MAPPINGS)` (now reporting all 16 registered nodes).
-- **Universal Synchronized Versioning**: Version `2.3.0` synchronized across `__init__.py`, `pyproject.toml`, `/leafflow/debug/export`, `README.md`, and `CHANGELOG.md`.
+- **Universal Synchronized Versioning**: Version `2.3.0` synchronized across `__init__.py`, `pyproject.toml`, the debug export endpoint, `README.md`, and `CHANGELOG.md`.
 - **Process Management Security Toggle**: Server restart and shutdown controls are disabled by default (`ALLOW_PROCESS_MANAGEMENT=false`). If disabled, attempts to trigger restart/shutdown via the UI or API return HTTP 403 with clear instructions.
 - **Optional `pystray` Dependency**: Made `pystray` an optional extra (`[project.optional-dependencies] tray = ["pystray"]`) and removed all runtime `pip install` subprocess calls, ensuring zero crashes on headless cloud servers, Docker, or Google Colab.
 - **Universal Loopback Protection**: Added `is_local_request(request)` validation to all legacy queue endpoints (`/pause_queue/*` and `/persistent_queue/claim`).
@@ -182,7 +183,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Restores the direct "Inspect asset" (zoom in) button directly onto image cards in the Assets pane hover action bar, placed seamlessly alongside Download, Copy Prompt, and Bookmarks (restoring access since newer ComfyUI versions tucked it away behind the 3-dots submenu). Default is `false` (opt-in).
 - **🔖 Robust Inline SVG Icons for "Save to Prompt Bookmarks"**:
   - Replaced runtime Tailwind icon class references with crisp inline SVG ribbons, fixing an issue in modern `comfyui_frontend_package` where the bookmark icon rendered with 0 dimensions (empty space).
-- **🎨 1D Git-Graph Batch Queue Visualizer (`ComfyUI.LeafFlow.BatchQueue`)**:
+- **🎨 1D Git-Graph Batch Queue Visualizer**:
   - Automatically identifies workflows queued together as batches in both ComfyUI Frontend V2 (`JobAssetsList`) and Classic V1 queue list.
   - Purely graphical 1D colored line along the left edge of queue items without any text or number clutter.
   - **36 Curated Cycling Colors**: Sequential assignment ensures adjacent batches have distinct, high-contrast colors.
@@ -193,7 +194,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Single-item batches curve inward at both top and bottom (`(`).
   - **In-between Infiltration Handling**: When another prompt or batch is queued in-between items of an existing batch, the interrupted batch retains its open straight ends (no false start/end curves), while the inserted item is cleanly enclosed in its own bracket.
   - **PersistentQueue Interoperability**: Operates client-side via `localStorage` when standalone, and synchronizes with `PersistentQueueManager` so batch relationships restore automatically upon server restart.
-  - **Settings Toggle**: Added `LeafFlow.BatchQueue.Enabled` setting in ComfyUI Settings menu.
+  - **Settings Toggle**: Added an enable/disable batch queue setting in the ComfyUI Settings menu.
 
 ### Fixed
 - **📐 Independent Per-Node `tile_size` in Visual Loaders**:
@@ -203,7 +204,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Hardened image card button injection guards to avoid injecting into queue item elements or small icon previews in modern virtual grids.
 
 ### Security & Registry Compliance
-- **Local-Only Route Enforcement**: All server control endpoints (`/leafflow/power/*`), settings updates (`/leafflow/settings`), and queue sync routes now strictly verify loopback origin (`127.0.0.1` / `::1`), rejecting remote calls with `403 Forbidden`.
+- **Local-Only Route Enforcement**: All server control endpoints (power actions, settings updates, queue sync) now strictly verify loopback origin (`127.0.0.1` / `::1`), rejecting remote calls with `403 Forbidden`.
 - **Directory Traversal Protection**: Image loading (`VisualImageLoader`) and thumbnail endpoints are strictly confined to ComfyUI `input`, `output`, and `temp` directories.
 - **Packaging & Installation Standards**: Removed runtime `install.py` in favor of standard `requirements.txt` (`Pillow`, `piexif`, `numpy`, `pystray`), and removed `"torch"` from `pyproject.toml` to prevent host CUDA environment corruption.
 - **Opt-In Preview Scraping**: Civitai and TMDB network scraping defaulted to disabled (`ENABLE_CIVITAI_SCRAPING=false`, `ENABLE_TMDB_SCRAPING=false`).
@@ -218,7 +219,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.1.0] - 2026-08-24
 
 ### Added
-- **Centralized ComfyUI User Directory (`ComfyUI/user/default/LeafFlow/`)**:
+- **Centralized ComfyUI User Directory (`ComfyUI/user/default/SaturnNodes/`)**:
   - All runtime JSON state (`lora_usage.json`, `lora_loader_state.json`, `image_prompts_cache.json`, `failed_scrapes.json`, `prompt_iterator_state.json`, `persistent_queue.json`, `.env`) now strictly lives inside the ComfyUI user folder rather than polluting the node directory.
 - **Structured ComfyUI V2 Settings Menu**:
   - Restructured settings into 6 explicit subcategories with clear titles, info tooltips, and real styled action buttons (`🗑️ Reset Scrapes Cache`, `🔄 Reset All Queues`).
@@ -229,7 +230,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed empty folder matching edge case in `BackToPlaceholder` (`undo_placeholder.py`).
-- Fixed XML entity escaping for native Windows Toast Notifications in `LeafFlowDecision`.
+- Fixed XML entity escaping for native Windows Toast Notifications in the decision node.
 - Removed accidental scrape cache reset during minor settings updates in `__init__.py`.
 - Removed obsolete `playwright` dependency from `pyproject.toml` and `install.py`.
 
@@ -244,7 +245,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **🍃 🔄 Prompt Queue Iterator**: Multiline batch prompt queue iterator with Pop, Cycle, and Random modes.
 - **🍃 🔤 Multi Text Replacer**: High-performance multi-target find & replace node with protection against recursive replacement loops.
 - **🍃 ✂️ Text Split**: Split strings into two outputs using literal delimiters or regex patterns (forward/backward).
-- **🍃 ⏸️ LeafFlow Decision**: Interactive mid-workflow pause node with UI buttons (Continue / Cancel / Stop) and desktop notifications.
+- **🍃 ⏸️ Decision**: Interactive mid-workflow pause node with UI buttons (Continue / Cancel / Stop) and desktop notifications.
 - **🍃 🔔 System Tray Integration**: OS notification area tray icon with real-time queue status colors and outside-browser queue controls.
 - **🍃 🖼️ Assets & History Restore**: Automatic restoration of recent generations into the ComfyUI Assets / History pane on startup.
 

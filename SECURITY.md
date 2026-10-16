@@ -15,11 +15,11 @@ Instead, please report security vulnerabilities directly to the maintainer via G
 
 ## Security Architecture & Best Practices
 
-- **CSRF Defense & Fetch Metadata Validation**: All administrative endpoints (`/saturnnodes/*` plus the backward-compatible legacy route aliases `/pause_queue/*`, `/persistent_queue/*`, `/image_loader/*`, `/folder_lora_loader/*`) enforce multi-layer CSRF protection via `is_authenticated_local_request(request)`.
+- **CSRF Defense & Fetch Metadata Validation**: All administrative endpoints under `/saturnnodes/*` enforce multi-layer CSRF protection via `is_authenticated_local_request(request)`.
   - Enforces loopback origin checks (`127.0.0.1` / `::1`), rejecting remote calls with `403 Forbidden`.
   - Rejects `cross-site` requests via `Sec-Fetch-Site` header checks, preventing external malicious web pages visited by the operator from triggering actions.
   - Verifies `Origin` and `Referer` headers against loopback hostnames.
-  - Requires cryptographically random session tokens in the `X-SaturnNodes-CSRF-Token` / `X-LeafFlow-CSRF-Token` header (`secrets.compare_digest`), prompting CORS preflight rejection if an external origin attempts unauthorized requests.
+  - Requires cryptographically random session tokens in the `X-SaturnNodes-CSRF-Token` header (`secrets.compare_digest`), prompting CORS preflight rejection if an external origin attempts unauthorized requests.
 - **Two-Step Ephemeral Ticket Handshake for Power Actions**:
   - Server restart and shutdown endpoints require `ALLOW_PROCESS_MANAGEMENT=true` in settings.
   - Execution requires a two-step handshake: the client requests a single-use ephemeral ticket (`POST /saturnnodes/power/request_token`) valid for 30 seconds.

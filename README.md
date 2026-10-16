@@ -65,7 +65,7 @@ Loads a LoRA using formatted pretty names (e.g. `Cyberpunk Character V1` instead
 </details>
 
 <details>
-<summary><b>🪐 🖼️ Visual LoRA Loader</b> (<code>VisualLoraLoader</code> / alias <code>FolderLoraLoaderVisualPrettyV2</code>)</summary>
+<summary><b>🪐 🖼️ Visual LoRA Loader</b> (<code>VisualLoraLoader</code>)</summary>
 
 #### Overview
 Visual thumbnail browser for LoRAs with Civitai SHA256 search & TMDB auto-scraping, popularity rank badges (🔥), multi-selection support, and independent per-node thumbnail zoom sizing.
@@ -90,7 +90,7 @@ Visual thumbnail browser for LoRAs with Civitai SHA256 search & TMDB auto-scrapi
 </details>
 
 <details>
-<summary><b>🪐 📷 Visual Image Loader</b> (<code>VisualImageLoader</code> / alias <code>ImageLoaderVisualPrettyV2</code>)</summary>
+<summary><b>🪐 📷 Visual Image Loader</b> (<code>VisualImageLoader</code>)</summary>
 
 #### Overview
 Visual thumbnail browser for image folders with instant preview selection, independent per-node thumbnail zoom sizing, and EXIF positive prompt metadata extraction. Path access is strictly confined to ComfyUI `input`, `output`, and `temp` directories for safe operation.
@@ -154,10 +154,10 @@ Canvas rendering node that listens to sampler WebSocket latent binary streams an
 </details>
 
 <details>
-<summary><b>🪐 ⏸️ Saturn Decision</b> (<code>SaturnDecision</code> / alias <code>LeafFlowDecision</code>)</summary>
+<summary><b>🪐 ⏸️ Saturn Decision</b> (<code>SaturnDecision</code>)</summary>
 
 #### Overview
-Pauses workflow execution at a specific step and displays an inline UI popup with Continue, Cancel, or Stop Workflow actions, plus optional native OS desktop notifications. Fully backward compatible with workflows containing `LeafFlowDecision`.
+Pauses workflow execution at a specific step and displays an inline UI popup with Continue, Cancel, or Stop Workflow actions, plus optional native OS desktop notifications. Fully backward compatible with legacy workflows from earlier releases.
 
 #### Inputs & Widgets
 - **`disable`** (`BOOLEAN`): Bypass decision gate.
@@ -169,7 +169,7 @@ Pauses workflow execution at a specific step and displays an inline UI popup wit
 </details>
 
 <details>
-<summary><b>🪐 📐 Text Aspect Ratio Finder</b> (<code>TextAspectRatioFinder</code> / alias <code>AspectRatioFinder</code>)</summary>
+<summary><b>🪐 📐 Text Aspect Ratio Finder</b> (<code>TextAspectRatioFinder</code>)</summary>
 
 #### Overview
 Parses input text for aspect ratios (e.g. `16:9`, `2.35:1`), syntax-checks them, and calculates pixel resolution for a target megapixel target.
@@ -207,7 +207,7 @@ Computes image dimensions and aspect ratio from an input image tensor and format
 </details>
 
 <details>
-<summary><b>🪐 🔎 Text LoRA Finder & Loader</b> (<code>TextLoraFinder</code> / alias <code>LoraTextFinder</code>)</summary>
+<summary><b>🪐 🔎 Text LoRA Finder & Loader</b> (<code>TextLoraFinder</code>)</summary>
 
 #### Overview
 Scans input prompt text for `<lora:name:strength>` tags or names matching a folder on disk, dynamically applies them, and returns patched models along with sanitized prompt text.
@@ -281,7 +281,7 @@ Performs multiple text replacements in a single step using comma-separated or ne
 </details>
 
 <details>
-<summary><b>🪐 ✂️ Text Split</b> (<code>SaturnTextSplit</code> / alias <code>LeafFlowTextSplit</code>)</summary>
+<summary><b>🪐 ✂️ Text Split</b> (<code>SaturnTextSplit</code>)</summary>
 
 #### Overview
 Splits text into two parts at a specified delimiter. Supports forward (from start) and backward (from end) search, as well as regular expressions.
@@ -464,14 +464,14 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 For the comprehensive engineering standard, threat model, and review precedents enforced by the ComfyUI-Manager maintainers, see the full **[ComfyUI Custom Node Security & Compliance Rulebook](SECURITY_AUDIT_PLAYBOOK.md)**.
 
 - **Local Runner Sandbox & Operator Authorization Gate:** The `Run Local File` node enforces single-use interactive operator authorization (`⚡ Authorize Run (5 min)`), strictly confines execution to `ComfyUI/scripts/`, never uses `shell=True`, terminates whole process trees on timeout or cancellation, and **never persists authorization inside workflow JSON or image metadata**.
-- **CSRF Defense & Fetch Metadata Validation:** All administrative endpoints (`/saturnnodes/settings`, `/saturnnodes/power/*`, `/saturnnodes/local_runner/*`, `/saturnnodes/scrapes/clear`, `/saturnnodes/pause_queue/*`, `/saturnnodes/persistent_queue/*`, `/saturnnodes/image_loader/*`, `/saturnnodes/folder_lora_loader/*`) enforce loopback checks, `Sec-Fetch-Site` header checks (blocking cross-site requests from visited web pages), and cryptographic per-session `X-SaturnNodes-CSRF-Token` headers (the legacy `X-LeafFlow-CSRF-Token` header is also accepted). Backward-compatible legacy route aliases (`/pause_queue/*`, `/persistent_queue/*`, `/image_loader/*`, `/folder_lora_loader/*`) remain active for older scripts.
+- **CSRF Defense & Fetch Metadata Validation:** All administrative endpoints (`/saturnnodes/settings`, `/saturnnodes/power/*`, `/saturnnodes/local_runner/*`, `/saturnnodes/scrapes/clear`, `/saturnnodes/pause_queue/*`, `/saturnnodes/persistent_queue/*`, `/saturnnodes/image_loader/*`, `/saturnnodes/folder_lora_loader/*`) enforce loopback checks, `Sec-Fetch-Site` header checks (blocking cross-site requests from visited web pages), and cryptographic per-session `X-SaturnNodes-CSRF-Token` headers.
 - **Two-Step Ephemeral Ticket Handshake for Power Actions:** Process restart and shutdown controls are disabled by default (`ALLOW_PROCESS_MANAGEMENT=false`), require CSRF authentication, and execute only after a single-use 30-second ephemeral ticket confirmation handshake.
 - **Universal Loopback Protection:** All administrative and queue endpoints strictly verify loopback origin (`127.0.0.1` / `::1`), rejecting external network requests with `403 Forbidden`.
 - **Directory Traversal Protection:** Image loading and thumbnail routes are strictly confined to ComfyUI `input`, `output`, and `temp` directories with traversal guards.
 - **Optional Headless Dependencies:** System tray desktop integration (`pystray`) is an optional dependency, ensuring cloud containers (Docker, Colab, RunPod) run with zero dependency errors.
 - **Opt-In Scraping:** Civitai and TMDB network scraping are opt-in and disabled by default.
 - **Zero Runtime Package Installs:** No `install.py` or dynamic `pip` execution; all standard dependencies are cleanly declared in `requirements.txt`.
-- **Local Environment:** All API keys and settings are stored locally in `.env` inside `user/default/SaturnNodes/` (auto-migrated from legacy `LeafFlow/` folder if present).
+- **Local Environment:** All API keys and settings are stored locally in `.env` inside `user/default/SaturnNodes/`.
 - **Atomic File Writes:** Safe atomic writes (`.tmp` + `os.replace`) prevent JSON corruption during sudden crashes.
 
 ---

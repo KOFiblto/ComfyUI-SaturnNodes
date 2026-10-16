@@ -242,8 +242,9 @@ STATE_FILE = os.path.join(USER_DIR, "your_state.json")
 - `ComfyUI/user/default/SaturnNodes/prompt_iterator_state.json` — Current iteration pointers and popped prompt queues
 - `ComfyUI/user/default/SaturnNodes/persistent_queue.json` — Real-time queue crash recovery state
 
-### Legacy Migration Behavior:
-`get_saturnnodes_user_dir()` automatically and idempotently copies legacy `ComfyUI/user/default/LeafFlow/` files into the new `SaturnNodes/` directory on first access (existing destination files are never overwritten). A deprecated `get_leafflow_user_dir()` alias is kept in `nodes/utils.py` for backward compatibility with third-party integrations.
+### Directory Rules & Compatibility Policy:
+- All state, caches, and credentials live in `ComfyUI/user/default/SaturnNodes/` only. No legacy directories are read, migrated, or referenced.
+- Never reintroduce pre-rename compatibility shims (old HTTP routes, old setting keys/IDs, old localStorage keys, old headers, old user directories). The **only** permitted backward-compatibility surface is legacy node class-name aliases in `NODE_CLASS_MAPPINGS`, required so old workflow files keep loading.
 
 ---
 
