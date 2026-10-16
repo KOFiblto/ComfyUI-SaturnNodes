@@ -1,7 +1,7 @@
 # 🤖 Agent & Developer Standard Operating Procedure (SOP)
-## `ComfyUI-LeafFlow` Contributor & Automation Guide
+## `ComfyUI-SaturnNodes` Contributor & Automation Guide
 
-This guide defines the engineering checklist and architecture standards for all AI agents (Antigravity, Claude, Gemini, Cursor, Copilot) and human developers contributing to **`ComfyUI-LeafFlow`**.
+This guide defines the engineering checklist and architecture standards for all AI agents (Antigravity, Claude, Gemini, Cursor, Copilot) and human developers contributing to **`ComfyUI-SaturnNodes`**.
 
 For Git workflow, branch protection, and Pull Request guidelines, see **[`CONTRIBUTING.md`](./CONTRIBUTING.md)**.
 
@@ -31,7 +31,7 @@ For Git workflow, branch protection, and Pull Request guidelines, see **[`CONTRI
 3. [Checklist: Adding a New Setting / Feature Flag](#3-checklist-adding-a-new-setting--feature-flag)
 4. [Checklist: Updating Dependencies](#4-checklist-updating-dependencies)
 5. [Cross-Platform & Safe Coding Standards](#5-cross-platform--safe-coding-standards)
-6. [User Data & Storage Architecture (`ComfyUI/user/default/LeafFlow/`)](#7-user-data--storage-architecture-comfyuiuserdefaultleafflow)
+6. [User Data & Storage Architecture (`ComfyUI/user/default/SaturnNodes/`)](#7-user-data--storage-architecture-comfyuiuserdefaultsaturnnodes)
 7. [Git, Branching & Commit Conventions](#6-git-branching--commit-conventions)
 
 ---
@@ -39,42 +39,55 @@ For Git workflow, branch protection, and Pull Request guidelines, see **[`CONTRI
 ## 1. Architecture & Directory Layout
 
 ```
-ComfyUI-LeafFlow/
-├── __init__.py                # Node registration (NODE_CLASS_MAPPINGS), web endpoints (/leafflow/settings)
-├── install.py                 # Dependency installer script for ComfyUI Manager
-├── pyproject.toml             # Package metadata and pip dependencies
+ComfyUI-SaturnNodes/
+├── __init__.py                # Node registration (NODE_CLASS_MAPPINGS), settings routes (/saturnnodes/*)
+├── pyproject.toml             # Package metadata, dependencies & ComfyUI Registry configuration
+├── requirements.txt           # Pip dependencies (auto-installed by ComfyUI Manager)
 ├── .env.example               # Template of all supported environment variables
 ├── .gitignore                 # Exclusion rules for caches, states, and credentials
+├── .comfyignore               # Files excluded from the ComfyUI Registry package archive
 ├── nodes/                     # Python backend node implementations
 │   ├── aspect_ratio.py        # Text & preview aspect ratio calculation nodes
+│   ├── assets_restore.py      # Startup output-folder history restoration
 │   ├── auto_watcher.py        # Automated folder watch image loaders
 │   ├── decision_node.py       # Inline pause/gate decision node & notifications
-│   ├── text_split.py          # Forward/backward & regex text splitter node
 │   ├── image_loader.py        # Visual image browser & EXIF/PNG metadata parser
 │   ├── load_recent.py         # Recent outputs loader node
+│   ├── local_runner.py        # Confined local script execution node & authorization routes
 │   ├── lora_finder.py         # Text-based prompt LoRA scanner & patcher
 │   ├── lora_loader.py         # Folder & visual LoRA loaders + Civitai/TMDB scrapers
 │   ├── preview_latent.py      # Live latent WebSocket preview node
+│   ├── prompt_counter.py      # Multiline prompt counter node
 │   ├── prompt_iterator.py     # Multiline prompt queue batch popper
 │   ├── queue_control.py       # Pause Queue, Persistent Queue hooks, and server routes
+│   ├── stereogram.py          # Stereoscopic 3D / cross-eye generator nodes
 │   ├── text_replacer.py       # Multiline regex & list text replacer node
+│   ├── text_split.py          # Forward/backward & regex text splitter node
 │   ├── tray_icon.py           # OS system tray icon manager & status indicator
 │   └── utils.py               # Shared path sanitization, string parsing, and formatting helpers
 ├── web/                       # Frontend extensions & static assets
-│   ├── leafflow_colors.js # Node theme colors (LiteGraph canvas & Vue V2)
-│   ├── leafflow_settings.js# Native ComfyUI Settings panel registrations
+│   ├── saturnnodes_colors.js  # Node theme colors (LiteGraph canvas & Vue V2)
+│   ├── saturnnodes_settings.js# Native ComfyUI Settings panel registrations
 │   ├── pause_queue.js         # Top toolbar Pause/Continue button group & dropdown
 │   ├── pause_queue.css        # Toolbar styling
 │   ├── persistent_queue.js    # Queue crash-recovery client ownership claimer
+│   ├── batch_queue.js         # 1D git-graph batch queue visualizer
+│   ├── floating_latent_dock.js# Floating live latent preview dock
 │   ├── preview_node.js        # Live latent canvas preview widget
+│   ├── logo.png               # Registry icon (400x400)
 │   └── js/                    # Node-specific UI widgets (visual pickers, buttons, aspect preview)
-│       ├── decision_node.js
+│       ├── auth_helper.js     # CSRF token helper shared by all frontend extensions
 │       ├── copy_prompt.js
+│       ├── decision_node.js
 │       ├── folder_lora_loader.js
 │       ├── image_loader.js
+│       ├── local_runner.js
+│       ├── power_sidebar.js
 │       ├── preview_aspect_ratio.js
 │       ├── preview_manager.js
-│       └── prompt_iterator.js
+│       ├── prompt_counter.js
+│       ├── prompt_iterator.js
+│       └── stereogram.js
 ├── README.md                  # Main documentation & complete node reference
 ├── WALKTHROUGH.md             # End-user guide for workflows and features
 └── CHANGELOG.md               # Version release history
@@ -92,7 +105,7 @@ When implementing a new custom node, you **must complete all 5 steps**:
   - `RETURN_TYPES`: Tuple of output types (e.g. `("IMAGE", "STRING")`).
   - `RETURN_NAMES`: Tuple of human-readable output labels.
   - `FUNCTION`: Exact method name to execute.
-  - `CATEGORY`: Categorized under `"🍃 LeafFlow/Loaders"`, `"🍃 LeafFlow/Utils"`, `"🍃 LeafFlow/Automation"`, or `"🍃 LeafFlow/Previews"`.
+  - `CATEGORY`: Categorized under `"🪐 SaturnNodes/Loaders"`, `"🪐 SaturnNodes/Utils"`, `"🪐 SaturnNodes/Automation"`, `"🪐 SaturnNodes/Previews"`, or `"🪐 SaturnNodes/3D & Previews"`.
   - `DESCRIPTION`: Clear multi-line string explaining node functionality and parameters.
 - [ ] Use `sanitize_folder_path(folder_input, default_dir)` from `nodes.utils` for any path/directory arguments (handles Windows/Linux slashes, wildcards `*`, and relative paths cleanly).
 - [ ] Ensure dummy tensors are valid 4D float32 batches `torch.zeros((1, 64, 64, 3), dtype=torch.float32)` for empty image states.
@@ -107,10 +120,10 @@ When implementing a new custom node, you **must complete all 5 steps**:
       # ...
   }
   ```
-- [ ] Register in `NODE_DISPLAY_NAME_MAPPINGS` with leaf prefix and emoji:
+- [ ] Register in `NODE_DISPLAY_NAME_MAPPINGS` with the Saturn prefix and emoji:
   ```python
   NODE_DISPLAY_NAME_MAPPINGS = {
-      "YourNewNodeName": "🍃 🏷️ Your Display Name",
+      "YourNewNodeName": "🪐 🏷️ Your Display Name",
       # ...
   }
   ```
@@ -123,10 +136,9 @@ When implementing a new custom node, you **must complete all 5 steps**:
   const isTargetNode = ["YourNodeName", "YourOldAlias"].includes(node.comfyClass) || 
                        ["YourNodeName", "YourOldAlias"].includes(node.type);
   ```
-- [ ] Register node theme colors in [`web/leafflow_colors.js`](./web/leafflow_colors.js):
-  - Loaders: Emerald Green (`color: "#059669"`, `bgcolor: "#047857"`)
-  - Automation & Utils: Amber (`color: "#d97706"`, `bgcolor: "#b45309"`)
-  - Previews & Decisions: Violet (`color: "#7c3aed"`, `bgcolor: "#6d28d9"`)
+- [ ] Register node theme colors in [`web/saturnnodes_colors.js`](./web/saturnnodes_colors.js):
+  - The suite uses a single unified Saturn amber theme (`DEFAULT_HEADER_COLOR = "#6a3f20"`, `DEFAULT_BG_COLOR = "#472a15"`), user-overridable via the Custom Node Title/Body Color settings.
+  - Add the new node class key (and any legacy alias it replaces) to `SATURN_NODE_TYPES` so the custom colors apply to it.
 
 ### Step 2.4: Documentation (`README.md` & `WALKTHROUGH.md`)
 - [ ] Add a clean heading section in [`README.md`](./README.md) under `## 📦 Individual Nodes Reference`:
@@ -156,17 +168,17 @@ When introducing a configurable option or feature toggle:
 - [ ] In `get_settings()` route: parse and return the setting.
 - [ ] In `save_settings()` route: read value from incoming JSON, persist to `.env` file via `new_lines`, update `os.environ`, and trigger any dynamic runtime manager updates.
 
-### Step 3.3: Frontend Settings Registration (`web/leafflow_settings.js`)
+### Step 3.3: Frontend Settings Registration (`web/saturnnodes_settings.js`)
 - [ ] Register via `app.ui.settings.addSetting({...})`:
   ```javascript
   app.ui.settings.addSetting({
-      id: "LeafFlow.YourSettingName",
-      name: "🍃 LeafFlow: Your Setting Display Name",
+      id: "SaturnNodes.YourSettingName",
+      name: "🪐 SaturnNodes: Your Setting Display Name",
       type: "boolean" /* or "text", "combo" */,
       defaultValue: false,
       tooltip: "Descriptive tooltip explaining user impact.",
       onChange(value) {
-          api.fetchApi("/leafflow/settings", {
+          api.fetchApi("/saturnnodes/settings", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ your_setting_key: value })
@@ -184,16 +196,17 @@ When introducing a configurable option or feature toggle:
 ## 4. Checklist: Updating Dependencies
 
 If a feature requires a new Python package:
-- [ ] Add package to `dependencies` in [`pyproject.toml`](./pyproject.toml).
-- [ ] Add package to `dependencies` list in [`install.py`](./install.py).
+- [ ] Add the package to `dependencies` in [`pyproject.toml`](./pyproject.toml) (ComfyUI Registry packaging).
+- [ ] Keep [`requirements.txt`](./requirements.txt) in sync for ComfyUI Manager auto-install.
 - [ ] Check imports gracefully handle missing optional libraries (e.g. `try... except ImportError`).
+- [ ] **Never** add an `install.py` or any runtime `pip`/`subprocess` installation — the suite is ComfyUI Registry compliant and installs nothing dynamically.
 
 ---
 
 ## 5. Cross-Platform & Safe Coding Standards
 
 1. **Terminal Console Safety (Windows `cp1252` encoding)**:
-   - **Never include raw unicode emojis in backend `print()` calls** (e.g. write `print("[LeafFlow] Started")` instead of `print("[LeafFlow] 🍃 ...")`).
+   - **Never include raw unicode emojis in backend `print()` calls** (e.g. write `print("[SaturnNodes] Started")` instead of `print("[SaturnNodes] 🪐 ...")`).
    - Windows consoles running on default codepages will raise fatal `UnicodeEncodeError: 'charmap' codec can't encode character` if raw emoji bytes hit standard output.
 2. **Path Sanitization**:
    - Never assume `/` or `\` separators; always use `os.path.join()`, `os.path.normpath()`, or `sanitize_folder_path()`.
@@ -210,31 +223,27 @@ If a feature requires a new Python package:
 
 ---
 
-## 7. User Data & Storage Architecture (`ComfyUI/user/default/LeafFlow/`)
+## 7. User Data & Storage Architecture (`ComfyUI/user/default/SaturnNodes/`)
 
-All user-specific runtime states, API credentials, usage counters, and temporary caches **MUST** be stored centrally in `ComfyUI/user/default/LeafFlow/` using the helper `get_leafflow_user_dir()` in `nodes/utils.py`:
+All user-specific runtime states, API credentials, usage counters, and temporary caches **MUST** be stored centrally in `ComfyUI/user/default/SaturnNodes/` using the helper `get_saturnnodes_user_dir()` in `nodes/utils.py`:
 
 ```python
-from .utils import get_leafflow_user_dir
+from .utils import get_saturnnodes_user_dir
 
-USER_DIR = get_leafflow_user_dir()
+USER_DIR = get_saturnnodes_user_dir()
 STATE_FILE = os.path.join(USER_DIR, "your_state.json")
 ```
 
 ### Stored User Files:
-- `ComfyUI/user/default/LeafFlow/.env` — API keys and persistent settings
-- `ComfyUI/user/default/LeafFlow/lora_usage.json` — LoRA selection counts and usage badges
-- `ComfyUI/user/default/LeafFlow/image_prompts_cache.json` — Cached positive prompts extracted from images
-- `ComfyUI/user/default/LeafFlow/failed_scrapes.json` — Failed Civitai/TMDB scraping attempts cache
-- `ComfyUI/user/default/LeafFlow/prompt_iterator_state.json` — Current iteration pointers and popped prompt queues
-- `ComfyUI/user/default/LeafFlow/persistent_queue.json` — Real-time queue crash recovery state
+- `ComfyUI/user/default/SaturnNodes/.env` — API keys and persistent settings
+- `ComfyUI/user/default/SaturnNodes/lora_usage.json` — LoRA selection counts and usage badges
+- `ComfyUI/user/default/SaturnNodes/image_prompts_cache.json` — Cached positive prompts extracted from images
+- `ComfyUI/user/default/SaturnNodes/failed_scrapes.json` — Failed Civitai/TMDB scraping attempts cache
+- `ComfyUI/user/default/SaturnNodes/prompt_iterator_state.json` — Current iteration pointers and popped prompt queues
+- `ComfyUI/user/default/SaturnNodes/persistent_queue.json` — Real-time queue crash recovery state
 
-### Future Migration Hooks SOP:
-If legacy files need to be migrated in future multi-user releases or version upgrades:
-1. In `nodes/utils.py`, define a startup check `migrate_legacy_user_data()`.
-2. Inspect `custom_nodes/ComfyUI-LeafFlow/` for legacy files (`.env`, `lora_usage.json`, etc.).
-3. Atomically move them to `get_leafflow_user_dir()` using `shutil.move()` or copy + delete.
-4. Log a single clean notification `[LeafFlow] 🍃 Migrated legacy user data to ComfyUI/user/default/LeafFlow/`.
+### Legacy Migration Behavior:
+`get_saturnnodes_user_dir()` automatically and idempotently copies legacy `ComfyUI/user/default/LeafFlow/` files into the new `SaturnNodes/` directory on first access (existing destination files are never overwritten). A deprecated `get_leafflow_user_dir()` alias is kept in `nodes/utils.py` for backward compatibility with third-party integrations.
 
 ---
 
@@ -275,3 +284,9 @@ Use atomic, descriptive English commit headers:
 - `Docs: ...` (Documentation, README, Walkthrough updates)
 - `Refactor: ...` (Code restructuring or cleanup)
 - `Release: ...` (Consolidated version release merge)
+
+### 6.4 Registry Publishing (ComfyUI Registry)
+- Registry node name: `saturnnodes` (Publisher `KOFiblto`, `DisplayName = ComfyUI-SaturnNodes`). **Published versions are immutable** — always bump the version before publishing a change.
+- `.github/workflows/publish_action.yml` publishes automatically when `pyproject.toml` changes on `main` (and can also be triggered manually via workflow dispatch). It requires the `REGISTRY_ACCESS_TOKEN` repository secret.
+- `.comfyignore` excludes development files (tests, CI, contributor docs) from the published package archive.
+- Icon (`web/logo.png`) must be square, 400x400 or smaller.

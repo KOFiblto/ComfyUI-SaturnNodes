@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for ComfyUI-LeafFlow
+about: Suggest an idea for ComfyUI-SaturnNodes
 title: '[FEAT] '
 labels: 'enhancement'
 assignees: ''

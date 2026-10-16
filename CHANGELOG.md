@@ -5,7 +5,25 @@ All notable changes to `ComfyUI-SaturnNodes` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.6.0] - In Development
+## [2.6.1] - In Development
+
+### Added
+- **Per-Resolution Dock Memory & Drag Resize Handles**: The Floating Latent Dock and the queue overlay now remember their size per resolution/monitor and expose on-screen drag resize handles.
+- **ComfyUI Registry Packaging**: Complete registry metadata (`pyproject.toml` with `requires-comfyui`, classifiers and optional extras), a Saturn icon (`web/logo.png`), a `.comfyignore` manifest, and an automated `publish_action.yml` workflow.
+- **Curated GitHub Releases**: `release.yml` now publishes the matching `CHANGELOG.md` section as the GitHub Release body instead of raw auto-generated compare links.
+
+### Changed
+- **Route Namespacing**: All HTTP routes now live under `/saturnnodes/*`, with permanent legacy aliases (`/pause_queue/*`, `/persistent_queue/*`, `/image_loader/*`, `/folder_lora_loader/*`) kept for backward compatibility.
+- **Naming Consistency**: Unified `ComfyUI.SaturnNodes.*` frontend extension names, `saturnnodes-*` CSS prefixes, and `[SaturnNodes ...]` console log tags; all remaining user-visible LeafFlow-era strings were rebranded (legacy setting keys, localStorage keys and legacy node aliases are intentionally preserved for compatibility).
+- **Documentation Rebrand**: `WALKTHROUGH.md`, the README settings reference, `.env.example`, `AGENTS.md` and `SECURITY.md` were fully rebranded and reconciled with the real setting labels, widget names and environment variables.
+- **Registry Identity**: Package name set to `saturnnodes` (per registry naming best practices); version bumped to `2.6.1`.
+
+### Fixed
+- **Publishing Compliance**: Removed `install.py` (no runtime `pip` execution, matching the documented "Zero Runtime Package Installs" claim) and corrected a README claim about non-existent `/leafflow/*` route aliases.
+- **Audit Remediation Hardening**: Full audit remediation pass — pause queue stall/deadlock fixes, restart verification hardening, atomic `.env` writes with proper error responses, debug endpoint guards, subgraph-safe lookups, runner pipe streaming, IPv4-mapped loopback handling and more (119 unit tests passing).
+
+### Removed
+- `install.py` — dependencies are declared in `pyproject.toml` / `requirements.txt` only, and ComfyUI Manager handles installation.
 
 ---
 

@@ -2,6 +2,8 @@
 
 A unified workflow control and productivity suite for **ComfyUI**. Both **Frontend V1 (LiteGraph)** and **Frontend V2 (Vue UI)** are supported, though `VisualLoraLoader` breaks on V1 for now (will be fixed).
 
+> 📖 **New here?** Follow the step-by-step [Complete Walkthrough](WALKTHROUGH.md) for setup, node recipes, and batch-prompting patterns.
+
 ---
 
 ## 🚀 Key Capabilities & Overview
@@ -371,6 +373,16 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`Enable TMDB Auto-Scraping`** (`boolean`, *Default: false*): Automatically download media preview images from TMDB.
 - **`Enable LoRA Usage Tracking`** (`boolean`, *Default: true*): Toggle LoRA usage counting and visual rank badges (🔥, Gold, Silver, Bronze) in the picker.
 - **`Reset Failed Scrapes Cache`** (*Button: `🗑️ Clear Scrapes Cache`*): Clears failed scrape history so Civitai/TMDB can retry downloading missing preview images.
+- **`Disable Thumbnail Downscaling (Serve Raw)`** (`boolean`, *Default: false*): Serves full-resolution original preview images instead of generating downscaled WebP thumbnails (downscaled WebP thumbnails render faster in the picker and are recommended).
+</details>
+
+<details>
+<summary><b>👁️ Live Preview (Floating Latent Dock)</b></summary>
+
+- **`Enable Floating Latent Dock`** (`boolean`, *Default: true*): Adds the floating picture-in-picture Live Latent preview dock (bottom-right corner) plus a canvas toolbar toggle button.
+- **`Floating Dock Max Width`** (`slider`, *Default: 280*): Maximum dock width in pixels (80–1200); the dock always matches the exact latent aspect ratio without distortion.
+- **`Floating Dock Max Height`** (`slider`, *Default: 280*): Maximum dock height in pixels (80–1200); the dock always matches the exact latent aspect ratio without distortion.
+- **`Auto-Hide Dock When Idle`** (`boolean`, *Default: false*): Hides the dock while idle and reveals it automatically when sampling begins.
 </details>
 
 <details>
@@ -398,12 +410,13 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`Toolbar Button Paused Color`** (`text`, *Default: `#ea580c`*): Hex color for the toolbar paused state.
 - **`Enable System Tray Icon`** (`boolean`, *Default: false*): Displays an OS system tray icon with real-time queue status colors and outside-browser controls.
 - **`Allow Process Management (Restart / Shutdown)`** (`boolean`, *Default: false*): Opt-in authorization allowing server restart and shutdown actions from the SaturnNodes power controls. Disabled by default for maximum security.
+- **`Visible Queue Items (Height)`** (`slider`, *Default: automatic per-monitor*): Limits the visible height of the queue overlay panel in pixels (`0` = native). The overlay's bottom edge can also be dragged directly on screen; sizes are remembered per monitor.
 </details>
 
 <details>
 <summary><b>💾 Persistent Queue</b></summary>
 
-- **`Persistent Queue (Auto-Recovery)`** (`boolean`, *Default: true*): Automatically saves unfinished queue items and restores them after restart/crash.
+- **`Enable Persistent Queue (Auto-Recovery)`** (`boolean`, *Default: true*): Automatically saves unfinished queue items and restores them after restart/crash.
 - **`Recovery Launch State`** (`combo`, *Default: `Match Default`*): Override launch state when restored queue items are recovered on startup (`Match Default`, `Force Paused`, `Force Running`).
 </details>
 
@@ -438,6 +451,12 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **Strict Confinement**: Execution is strictly limited to the `ComfyUI/scripts/` directory. Absolute paths and directory traversal (`..`) are permanently blocked.
 </details>
 
+<details>
+<summary><b>🧩 Node Management</b></summary>
+
+- One enable/disable toggle per SaturnNodes node (e.g. `Loaders / LoRA Loader (Folder)`, `Utils / Prompt Counter`): hides individual nodes from the node search menu. Disabled nodes remain registered, so existing workflows keep loading unchanged — they are only hidden from the Add Node menu (requires a server restart to take effect).
+</details>
+
 ---
 
 ## 🔒 Security & Privacy
@@ -445,7 +464,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 For the comprehensive engineering standard, threat model, and review precedents enforced by the ComfyUI-Manager maintainers, see the full **[ComfyUI Custom Node Security & Compliance Rulebook](SECURITY_AUDIT_PLAYBOOK.md)**.
 
 - **Local Runner Sandbox & Operator Authorization Gate:** The `Run Local File` node enforces single-use interactive operator authorization (`⚡ Authorize Run (5 min)`), strictly confines execution to `ComfyUI/scripts/`, never uses `shell=True`, terminates whole process trees on timeout or cancellation, and **never persists authorization inside workflow JSON or image metadata**.
-- **CSRF Defense & Fetch Metadata Validation:** All administrative endpoints (`/saturnnodes/settings`, `/saturnnodes/power/*`, `/saturnnodes/local_runner/*`, `/saturnnodes/scrapes/clear` and backward-compatible `/leafflow/*` aliases) enforce loopback checks, `Sec-Fetch-Site` header checks (blocking cross-site requests from visited web pages), and cryptographic per-session `X-SaturnNodes-CSRF-Token` headers.
+- **CSRF Defense & Fetch Metadata Validation:** All administrative endpoints (`/saturnnodes/settings`, `/saturnnodes/power/*`, `/saturnnodes/local_runner/*`, `/saturnnodes/scrapes/clear`, `/saturnnodes/pause_queue/*`, `/saturnnodes/persistent_queue/*`, `/saturnnodes/image_loader/*`, `/saturnnodes/folder_lora_loader/*`) enforce loopback checks, `Sec-Fetch-Site` header checks (blocking cross-site requests from visited web pages), and cryptographic per-session `X-SaturnNodes-CSRF-Token` headers (the legacy `X-LeafFlow-CSRF-Token` header is also accepted). Backward-compatible legacy route aliases (`/pause_queue/*`, `/persistent_queue/*`, `/image_loader/*`, `/folder_lora_loader/*`) remain active for older scripts.
 - **Two-Step Ephemeral Ticket Handshake for Power Actions:** Process restart and shutdown controls are disabled by default (`ALLOW_PROCESS_MANAGEMENT=false`), require CSRF authentication, and execute only after a single-use 30-second ephemeral ticket confirmation handshake.
 - **Universal Loopback Protection:** All administrative and queue endpoints strictly verify loopback origin (`127.0.0.1` / `::1`), rejecting external network requests with `403 Forbidden`.
 - **Directory Traversal Protection:** Image loading and thumbnail routes are strictly confined to ComfyUI `input`, `output`, and `temp` directories with traversal guards.
@@ -459,13 +478,24 @@ For the comprehensive engineering standard, threat model, and review precedents 
 
 ## 🚀 Installation & Setup
 
+**Option A — ComfyUI Manager / Registry (recommended):**
+
+1. Open ComfyUI Manager → **Install Custom Nodes** and search for `SaturnNodes`, or run:
+   ```bash
+   comfy node install saturnnodes
+   ```
+2. Restart ComfyUI.
+
+**Option B — Manual (git clone):**
+
 1. Open your terminal and navigate to your ComfyUI `custom_nodes` directory:
    ```bash
    cd ComfyUI/custom_nodes
    git clone https://github.com/KOFiblto/ComfyUI-SaturnNodes.git
    ```
 2. Restart ComfyUI.
-3. Open ComfyUI Settings (⚙ gear menu) to configure API keys or feature toggles if desired.
+
+**After install (either option):** open ComfyUI Settings (⚙ gear menu) to configure API keys or feature toggles if desired, and see the [Complete Walkthrough](WALKTHROUGH.md) for usage recipes.
 
 ---
 
