@@ -118,7 +118,7 @@ class FloatingLatentDock {
             if (currentKey !== lastScreenKey) {
                 lastScreenKey = currentKey;
                 if (this.currentImg) {
-                    this.renderImage(this.currentImg, this.latestSamplerId);
+                    this.onNewPreview(this.currentImg, this.latestSamplerId);
                 } else if (this.placeholderEl && this.dockEl) {
                     const mw = this.getMaxWidth();
                     const mh = this.getMaxHeight();
@@ -514,7 +514,7 @@ class FloatingLatentDock {
                 this._dragOverrideMaxH = curMaxH;
 
                 if (this.currentImg) {
-                    this.renderImage(this.currentImg, this.latestSamplerId);
+                    this.onNewPreview(this.currentImg, this.latestSamplerId);
                 } else if (this.placeholderEl && this.dockEl) {
                     const pw = Math.max(140, Math.min(curMaxW, 400));
                     const ph = Math.max(100, Math.min(curMaxH, 300));
@@ -556,7 +556,7 @@ class FloatingLatentDock {
                 } catch (_) {}
 
                 if (this.currentImg) {
-                    this.renderImage(this.currentImg, this.latestSamplerId);
+                    this.onNewPreview(this.currentImg, this.latestSamplerId);
                 }
             };
 

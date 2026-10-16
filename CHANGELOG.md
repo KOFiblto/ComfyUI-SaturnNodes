@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **Publishing Compliance**: Removed `install.py` (no runtime `pip` execution, matching the documented "Zero Runtime Package Installs" claim) and corrected a stale README claim about legacy route aliases.
 - **Audit Remediation Hardening**: Full audit remediation pass — pause queue stall/deadlock fixes, restart verification hardening, atomic `.env` writes with proper error responses, debug endpoint guards, subgraph-safe lookups, runner pipe streaming, IPv4-mapped loopback handling and more (119 unit tests passing).
+- **Floating Latent Dock Resize Crash**: Fixed a `this.renderImage is not a function` error thrown while dragging the dock's resize handles or when the screen profile changed; the resize paths now invoke the dock's actual render routine.
 
 ### Removed
 - `install.py` — dependencies are declared in `pyproject.toml` / `requirements.txt` only, and ComfyUI Manager handles installation.
