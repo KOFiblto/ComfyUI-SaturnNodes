@@ -70,6 +70,12 @@ Loads a LoRA using formatted pretty names (e.g. `Cyberpunk Character V1` instead
 #### Overview
 Visual thumbnail browser for LoRAs with Civitai SHA256 search & TMDB auto-scraping, popularity rank badges (🔥), multi-selection support, and independent per-node thumbnail zoom sizing.
 
+#### Maintenance Reset Buttons
+The node's control bar exposes three maintenance buttons — each asks for confirmation before acting:
+- **`↺ Counter`**: Resets this node's `Sequential`/`Random` cycle position and clears its prompt→LoRA assignments (stored in `user/default/SaturnNodes/lora_loader_state.json`). ⚠️ Only use between batches: running/queued workflows will restart the cycle from the first selected LoRA and can mismatch their prompts.
+- **`🧹 Usage`**: Clears all LoRA usage counters and badges (`lora_usage.json`). Cosmetic only — affects badges and `Usage` sortings, not LoRA loading.
+- **`🗑 Cache`**: Deletes cached thumbnail images. They regenerate automatically when you view the grid.
+
 #### Inputs & Widgets
 - **`model`** (`MODEL`): Input model.
 - **`clip`** (`CLIP`): Input CLIP.
@@ -380,8 +386,8 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 <summary><b>👁️ Live Preview (Floating Latent Dock)</b></summary>
 
 - **`Enable Floating Latent Dock`** (`boolean`, *Default: true*): Adds the floating picture-in-picture Live Latent preview dock (bottom-right corner) plus a canvas toolbar toggle button.
-- **`Floating Dock Max Width`** (`slider`, *Default: 280*): Maximum dock width in pixels (80–1200); the dock always matches the exact latent aspect ratio without distortion.
-- **`Floating Dock Max Height`** (`slider`, *Default: 280*): Maximum dock height in pixels (80–1200); the dock always matches the exact latent aspect ratio without distortion.
+- **`Floating Dock Max Width`** (`slider`, *Default: 280*, 1px steps): Maximum dock width box in pixels (100–2000). Drag the dock's top-left corner to set a free-form width×height box; the dragged dimensions are saved back into this setting, and the dock then snaps to the exact latent aspect ratio without distortion.
+- **`Floating Dock Max Height`** (`slider`, *Default: 280*, 1px steps): Maximum dock height box in pixels (100–2000). Drag the dock's top-left corner to set a free-form width×height box; the dragged dimensions are saved back into this setting, and the dock then snaps to the exact latent aspect ratio without distortion.
 - **`Auto-Hide Dock When Idle`** (`boolean`, *Default: false*): Hides the dock while idle and reveals it automatically when sampling begins.
 </details>
 
@@ -410,7 +416,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`Toolbar Button Paused Color`** (`text`, *Default: `#ea580c`*): Hex color for the toolbar paused state.
 - **`Enable System Tray Icon`** (`boolean`, *Default: false*): Displays an OS system tray icon with real-time queue status colors and outside-browser controls.
 - **`Allow Process Management (Restart / Shutdown)`** (`boolean`, *Default: false*): Opt-in authorization allowing server restart and shutdown actions from the SaturnNodes power controls. Disabled by default for maximum security.
-- **`Visible Queue Items (Height)`** (`slider`, *Default: automatic per-monitor*): Limits the visible height of the queue overlay panel in pixels (`0` = native). The overlay's bottom edge can also be dragged directly on screen; sizes are remembered per monitor.
+- **`Visible Queue Items (Height)`** (`slider`, *Default: automatic per-monitor*, 1px steps, 0–1200): Limits the visible height of the queue overlay panel in pixels (`0` = native). The overlay's bottom edge can also be dragged directly on screen; sizes are remembered per monitor.
 </details>
 
 <details>

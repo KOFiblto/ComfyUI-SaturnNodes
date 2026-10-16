@@ -81,6 +81,7 @@ Tired of guessing what a LoRA does based on its filename?
 2. If you enable the **Civitai Auto-Scraper** in your ComfyUI Settings, the node will calculate the SHA256 hash of your LoRA and automatically download the official preview thumbnail directly from Civitai!
 3. **Pretty Name String Output**: The node outputs the parsed, human-readable name of the loaded LoRA (e.g. "Addison Rae V1") by default, allowing you to route it into a text prompt or watermark node. You can easily switch this via the `output_name` toggle on the node to output the raw filename without extension instead.
 4. **Independent Per-Node Zoom**: Use the `tile_size` slider to adjust preview card sizes to your preference. Zoom levels are saved per node directly inside your workflow JSON, so different visual loaders maintain independent tile sizes across browser reloads.
+5. **Maintenance Reset Buttons**: The control bar offers `↺ Counter` (reset this node's Sequential/Random LoRA cycle + prompt→LoRA assignments), `🧹 Usage` (clear usage badges), and `🗑 Cache` (delete cached thumbnails). Each asks for confirmation. ⚠️ Only use `↺ Counter` when the queue is empty — resetting mid-batch restarts the LoRA cycle from the first selected LoRA and can mismatch prompts against LoRAs.
 
 ### 🪐 ⏱️ Recent Outputs
 Want to quickly reference your recent generations without digging through Windows Explorer? The **`🪐 ⏱️ Recent Outputs`** node cycles chronologically through your `output/` directory, pulling your freshest creations right back into the workflow canvas.
@@ -93,7 +94,7 @@ Managing multi-prompt queues and setting the exact ComfyUI batch size has never 
    - If `Custom Regex` is selected, enter any custom delimiter pattern (such as `\n---\n`). The regex field is dynamically enabled only when Custom Regex is active.
 2. **`🪐 🔄 Prompt Queue Iterator`**: Connect the `STRING` output of the Prompt Counter into the Prompt Queue Iterator to sequentially pop and execute each prompt run-by-run.
    - Now supports `Custom Regex` in addition to empty line and newline separators.
-   - Includes live progress counter widget (`Run X / Y`), instant index reset button (`Reset Counter (0)`), and direct state file access (`Open Queue File`).
+   - Includes live progress counter widget (`Run X / Y`), an index reset button (`Reset Counter (0)`, now with a confirmation explaining that it only restarts the run pointer — it does **not** empty the queue state file; use Settings → `🔄 Reset All Queues` for a full wipe), and direct state file access (`Open Queue File`).
 
 ---
 
