@@ -536,8 +536,17 @@ class FloatingLatentDock {
 
             const startX = e.clientX;
             const startY = e.clientY;
-            const startMaxW = this.getMaxWidth();
-            const startMaxH = this.getMaxHeight();
+
+            // Baseline = the dock's CURRENT on-screen size (the latent-fitted box),
+            // not the possibly larger saved settings box - so grabbing the corner
+            // never makes the dock jump. The final dragged box is written to the
+            // settings on release.
+            const visualW = this.dockEl ? this.dockEl.offsetWidth : 0;
+            const visualH = this.dockEl ? this.dockEl.offsetHeight : 0;
+            const startMaxW = visualW > 0 ? visualW : this.getMaxWidth();
+            const startMaxH = visualH > 0 ? visualH : this.getMaxHeight();
+            const minDragW = Math.min(DOCK_MIN_SIZE, startMaxW);
+            const minDragH = Math.min(DOCK_MIN_SIZE, startMaxH);
 
             handle.classList.add("active");
             if (this.dockEl) this.dockEl.style.transition = "none";
@@ -570,8 +579,8 @@ class FloatingLatentDock {
             const onPointerMove = (me) => {
                 const dx = startX - me.clientX; // drag left -> expand width
                 const dy = startY - me.clientY; // drag up -> expand height
-                curMaxW = clampDockSize(startMaxW + dx);
-                curMaxH = clampDockSize(startMaxH + dy);
+                curMaxW = Math.max(minDragW, Math.min(DOCK_MAX_SIZE, Math.round(startMaxW + dx)));
+                curMaxH = Math.max(minDragH, Math.min(DOCK_MAX_SIZE, Math.round(startMaxH + dy)));
                 if (!rafPending) {
                     rafPending = true;
                     rafId = requestAnimationFrame(renderDragFrame);
@@ -602,7 +611,7 @@ class FloatingLatentDock {
                 delete this._dragOverrideMaxW;
                 delete this._dragOverrideMaxH;
 
-                this.persistMaxSize(curMaxW, curMaxH);
+                this.persistMaxSize(clampDockSize(curMaxW), clampDockSize(curMaxH));
 
                 // Snap back to the exact latent fit within the new limits
                 if (this.currentImg) {
