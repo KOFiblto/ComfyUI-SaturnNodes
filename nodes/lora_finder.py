@@ -81,30 +81,35 @@ class TextLoraFinder:
 
         if search_for == "Custom Regex":
             if custom_regex and custom_regex.strip():
+                # Invert the name lookup: build it once instead of scanning the
+                # whole LoRA mapping for every regex match in the prompt.
+                lookup = {}
+                for display_name, sys_path in mapping.items():
+                    if display_name in ["[ NONE ]", "[ RANDOM ]"] or not sys_path or sys_path == "[ NONE ]":
+                        continue
+                    pretty_val = re.sub(r'\s+V\d+(\.\d+)?$', '', parse_pretty_name(sys_path), flags=re.IGNORECASE).strip()
+                    fname = os.path.basename(sys_path)
+                    fname_noext = os.path.splitext(fname)[0]
+                    for key in (pretty_val, fname, fname_noext, display_name):
+                        if key:
+                            lookup.setdefault(key.lower(), []).append((display_name, sys_path))
                 try:
                     pattern = re.compile(custom_regex, re.IGNORECASE)
                     for m in pattern.finditer(text_str):
-                        matched_text = m.group(0).strip()
-                        for display_name, sys_path in mapping.items():
-                            if display_name in ["[ NONE ]", "[ RANDOM ]"] or not sys_path or sys_path == "[ NONE ]":
-                                continue
+                        matched_text = m.group(0).strip().lower()
+                        for display_name, sys_path in lookup.get(matched_text, []):
                             if sys_path in seen_paths:
                                 continue
-                            
-                            pretty_val = re.sub(r'\s+V\d+(\.\d+)?$', '', parse_pretty_name(sys_path), flags=re.IGNORECASE).strip()
-                            fname = os.path.basename(sys_path)
-                            fname_noext = os.path.splitext(fname)[0]
-                            
-                            if (matched_text.lower() in [pretty_val.lower(), fname.lower(), fname_noext.lower(), display_name.lower()]):
-                                matches.append((m.start(), display_name, sys_path))
-                                seen_paths.add(sys_path)
+                            matches.append((m.start(), display_name, sys_path))
+                            seen_paths.add(sys_path)
                 except Exception as e:
                     print(f"[SaturnNodes] Invalid custom regex pattern '{custom_regex}': {e}")
         else:
+            # Build one name lookup and scan the prompt once (combined regex),
+            # instead of running one regex scan per installed LoRA.
+            lookup = {}
             for display_name, sys_path in mapping.items():
                 if display_name in ["[ NONE ]", "[ RANDOM ]"] or not sys_path or sys_path == "[ NONE ]":
-                    continue
-                if sys_path in seen_paths:
                     continue
 
                 if search_for in ["Pretty Name", "Parsed Name"]:
@@ -116,11 +121,31 @@ class TextLoraFinder:
 
                 if not target_name:
                     continue
+                lookup.setdefault(target_name.lower(), []).append((display_name, sys_path))
 
-                pattern = r'(?<!\w)' + re.escape(target_name) + r'(?!\w)'
-                for m in re.finditer(pattern, text_str, flags=re.IGNORECASE):
-                    matches.append((m.start(), display_name, sys_path))
-                    seen_paths.add(sys_path)
+            if lookup:
+                # Longest-first so "Style XL" wins over "Style" at the same position.
+                ordered_names = sorted(lookup.keys(), key=len, reverse=True)
+                combined_pattern = r'(?<!\w)(?:' + "|".join(re.escape(n) for n in ordered_names) + r')(?!\w)'
+                try:
+                    combined_regex = re.compile(combined_pattern, flags=re.IGNORECASE)
+                    for m in combined_regex.finditer(text_str):
+                        for display_name, sys_path in lookup.get(m.group(0).lower(), []):
+                            if sys_path in seen_paths:
+                                continue
+                            matches.append((m.start(), display_name, sys_path))
+                            seen_paths.add(sys_path)
+                except re.error:
+                    # Extremely large catalogs can exceed the regex compiler's
+                    # limits; fall back to the original per-name scan.
+                    for target_name, entries in lookup.items():
+                        pattern = r'(?<!\w)' + re.escape(target_name) + r'(?!\w)'
+                        for m in re.finditer(pattern, text_str, flags=re.IGNORECASE):
+                            for display_name, sys_path in entries:
+                                if sys_path in seen_paths:
+                                    continue
+                                matches.append((m.start(), display_name, sys_path))
+                                seen_paths.add(sys_path)
 
         if not matches:
             return (model, clip, "")

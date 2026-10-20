@@ -5,6 +5,7 @@ import json
 import time
 import hashlib
 import asyncio
+import atexit
 import folder_paths
 import urllib.request
 import urllib.parse
@@ -22,7 +23,8 @@ from .utils import (
     get_saturnnodes_user_dir,
     is_local_request,
     is_authenticated_local_request,
-    is_safe_path
+    is_safe_path,
+    get_env_setting
 )
 
 LORA_CATEGORY = "🪐 SaturnNodes/Loaders"
@@ -39,34 +41,49 @@ CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 USER_DIR = get_saturnnodes_user_dir()
 ENV_FILE = os.path.join(USER_DIR, ".env")
 LORA_STATE_FILE = os.path.join(USER_DIR, "lora_loader_state.json")
+HASH_CACHE_FILE = os.path.join(USER_DIR, "lora_hash_cache.json")
+
+_LORA_STATE_LOCK = threading.RLock()
 
 def ensure_user_dir():
     os.makedirs(USER_DIR, exist_ok=True)
 
+def _entry_timestamp(entry):
+    if isinstance(entry, dict):
+        try:
+            return int(entry.get("last_updated", 0))
+        except (TypeError, ValueError):
+            return 0
+    return 0
+
 def load_lora_cycle_state():
     ensure_user_dir()
-    if os.path.exists(LORA_STATE_FILE):
-        try:
-            with open(LORA_STATE_FILE, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
-    return {}
+    with _LORA_STATE_LOCK:
+        if os.path.exists(LORA_STATE_FILE):
+            try:
+                with open(LORA_STATE_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        return data
+            except Exception:
+                pass
+        return {}
 
 def save_lora_cycle_state(state):
     ensure_user_dir()
-    try:
-        # Auto-prune abandoned state keys if count exceeds 100 entries
-        if len(state) > 100:
-            excess_keys = list(state.keys())[:-100]
-            for k in excess_keys:
-                del state[k]
-        temp_file = LORA_STATE_FILE + ".tmp"
-        with open(temp_file, "w", encoding="utf-8") as f:
-            json.dump(state, f, indent=4, ensure_ascii=False)
-        os.replace(temp_file, LORA_STATE_FILE)
-    except Exception as e:
-        print(f"[SaturnNodes] Error saving lora loader cycle state: {e}")
+    with _LORA_STATE_LOCK:
+        try:
+            # Global prune: keep the 100 most recently used node/selection entries.
+            if len(state) > 100:
+                keep = set(sorted(state.keys(), key=lambda k: _entry_timestamp(state[k]), reverse=True)[:100])
+                for k in [k for k in state.keys() if k not in keep]:
+                    del state[k]
+            temp_file = LORA_STATE_FILE + ".tmp"
+            with open(temp_file, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=4, ensure_ascii=False)
+            os.replace(temp_file, LORA_STATE_FILE)
+        except Exception as e:
+            print(f"[SaturnNodes] Error saving lora loader cycle state: {e}")
 
 def get_api_keys():
     civitai_key = os.getenv("CIVITAI_API_KEY", "")
@@ -88,9 +105,18 @@ def get_api_keys():
 scraping_thread = None
 scraping_lock = threading.Lock()
 
-def load_usage_data():
-    usage_file = os.path.join(USER_DIR, "lora_usage.json")
+_USAGE_LOCK = threading.RLock()
+_USAGE_CACHE = None
+_USAGE_DIRTY = False
+_USAGE_TIMER = None
+_USAGE_FLUSH_DELAY = 2.0
+
+def _usage_file_path():
+    return os.path.join(USER_DIR, "lora_usage.json")
+
+def _read_usage_data_from_disk():
     usage_data = {}
+    usage_file = _usage_file_path()
     if os.path.exists(usage_file):
         try:
             with open(usage_file, "r", encoding="utf-8") as f:
@@ -105,22 +131,68 @@ def load_usage_data():
             print(f"[SaturnNodes] Error loading usage data: {e}")
     return usage_data
 
+def load_usage_data():
+    global _USAGE_CACHE
+    with _USAGE_LOCK:
+        if _USAGE_CACHE is None:
+            _USAGE_CACHE = _read_usage_data_from_disk()
+        return dict(_USAGE_CACHE)
+
+def flush_lora_usage():
+    """Write pending usage increments to disk (debounced and atomic)."""
+    global _USAGE_DIRTY
+    with _USAGE_LOCK:
+        if not _USAGE_DIRTY or _USAGE_CACHE is None:
+            return
+        try:
+            ensure_user_dir()
+            usage_file = _usage_file_path()
+            temp_file = usage_file + ".tmp"
+            with open(temp_file, "w", encoding="utf-8") as f:
+                json.dump(_USAGE_CACHE, f, indent=4, ensure_ascii=False)
+            os.replace(temp_file, usage_file)
+            _USAGE_DIRTY = False
+        except Exception as e:
+            print(f"[SaturnNodes] Error updating lora usage: {e}")
+
+def _schedule_usage_flush():
+    global _USAGE_TIMER
+    if _USAGE_TIMER is None or not _USAGE_TIMER.is_alive():
+        _USAGE_TIMER = threading.Timer(_USAGE_FLUSH_DELAY, flush_lora_usage)
+        _USAGE_TIMER.daemon = True
+        _USAGE_TIMER.start()
+
+atexit.register(flush_lora_usage)
+
 def increment_lora_usage(lora_path):
     if not lora_path or lora_path == "[ NONE ]":
         return
-    if get_env_setting("ENABLE_LORA_USAGE", "true").lower() != "true":
+    if get_env_setting("ENABLE_LORA_USAGE", "true").lower() not in ["true", "1", "yes"]:
         return
+    global _USAGE_CACHE, _USAGE_DIRTY
     try:
-        usage_file = os.path.join(USER_DIR, "lora_usage.json")
-        usage_data = load_usage_data()
-        pretty_key = parse_pretty_name(lora_path)
-        usage_data[pretty_key] = usage_data.get(pretty_key, 0) + 1
-        temp_file = usage_file + ".tmp"
-        with open(temp_file, "w", encoding="utf-8") as f:
-            json.dump(usage_data, f, indent=4, ensure_ascii=False)
-        os.replace(temp_file, usage_file)
+        with _USAGE_LOCK:
+            if _USAGE_CACHE is None:
+                _USAGE_CACHE = _read_usage_data_from_disk()
+            pretty_key = parse_pretty_name(lora_path)
+            _USAGE_CACHE[pretty_key] = _USAGE_CACHE.get(pretty_key, 0) + 1
+            _USAGE_DIRTY = True
+            _schedule_usage_flush()
     except Exception as e:
         print(f"[SaturnNodes] Error updating lora usage: {e}")
+
+def reset_lora_usage_file():
+    """Clear usage counters, discarding any pending debounced writes."""
+    global _USAGE_CACHE, _USAGE_DIRTY
+    with _USAGE_LOCK:
+        ensure_user_dir()
+        usage_file = _usage_file_path()
+        temp_file = usage_file + ".tmp"
+        with open(temp_file, "w", encoding="utf-8") as f:
+            json.dump({}, f, indent=4)
+        os.replace(temp_file, usage_file)
+        _USAGE_CACHE = {}
+        _USAGE_DIRTY = False
 
 def find_preview_image(lora_relative_path):
     lora_full_path = folder_paths.get_full_path("loras", lora_relative_path)
@@ -140,6 +212,73 @@ def get_file_sha256(filepath):
         for chunk in iter(lambda: f.read(1024 * 1024), b''):
             h.update(chunk)
     return h.hexdigest().upper()
+
+_HASH_CACHE_LOCK = threading.RLock()
+_HASH_CACHE = None
+
+def _load_hash_cache():
+    global _HASH_CACHE
+    if _HASH_CACHE is not None:
+        return _HASH_CACHE
+    _HASH_CACHE = {}
+    try:
+        if os.path.exists(HASH_CACHE_FILE):
+            with open(HASH_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, dict):
+                    _HASH_CACHE = data
+    except Exception:
+        _HASH_CACHE = {}
+    return _HASH_CACHE
+
+def _save_hash_cache():
+    try:
+        ensure_user_dir()
+        temp_file = HASH_CACHE_FILE + ".tmp"
+        with open(temp_file, "w", encoding="utf-8") as f:
+            json.dump(_HASH_CACHE, f, indent=2, ensure_ascii=False)
+        os.replace(temp_file, HASH_CACHE_FILE)
+    except Exception:
+        pass
+
+def get_file_sha256_cached(filepath):
+    """Hash a LoRA once and reuse it while mtime/size stay unchanged."""
+    try:
+        before = os.stat(filepath)
+    except OSError:
+        return get_file_sha256(filepath)
+
+    cache_key = os.path.normcase(os.path.abspath(filepath))
+    with _HASH_CACHE_LOCK:
+        cache = _load_hash_cache()
+        entry = cache.get(cache_key)
+        if (isinstance(entry, dict)
+                and entry.get("mtime_ns") == before.st_mtime_ns
+                and entry.get("size") == before.st_size
+                and entry.get("sha256")):
+            return entry["sha256"]
+
+    digest = get_file_sha256(filepath)
+
+    try:
+        after = os.stat(filepath)
+        if after.st_mtime_ns == before.st_mtime_ns and after.st_size == before.st_size:
+            with _HASH_CACHE_LOCK:
+                cache = _load_hash_cache()
+                cache[cache_key] = {
+                    "mtime_ns": before.st_mtime_ns,
+                    "size": before.st_size,
+                    "sha256": digest,
+                    "last_updated": int(time.time()),
+                }
+                if len(cache) > 1000:
+                    keep = set(sorted(cache.keys(), key=lambda k: int(cache[k].get("last_updated", 0)), reverse=True)[:1000])
+                    for k in [k for k in cache.keys() if k not in keep]:
+                        del cache[k]
+                _save_hash_cache()
+    except OSError:
+        pass
+    return digest
 
 def is_safe_external_image_url(url_str):
     """
@@ -166,17 +305,6 @@ def is_safe_external_image_url(url_str):
         return True
     except Exception:
         return False
-
-def get_env_setting(key, default_val):
-    if os.path.exists(ENV_FILE):
-        try:
-            with open(ENV_FILE, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip().startswith(f"{key}="):
-                        return line.strip().split("=", 1)[1].strip()
-        except Exception:
-            pass
-    return default_val
 
 def scrape_missing_images_sync():
     try:
@@ -218,7 +346,7 @@ def scrape_missing_images_sync():
 
             if civitai_enabled:
                 try:
-                    file_hash = get_file_sha256(lora_path)
+                    file_hash = get_file_sha256_cached(lora_path)
                     civitai_url = f"https://civitai.com/api/v1/model-versions/by-hash/{file_hash}"
                     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
                     if civitai_key:
@@ -377,7 +505,7 @@ async def get_loras_endpoint(request):
     if scrape_on_new:
         start_async_scraping()
     
-    usage_enabled = get_env_setting("ENABLE_LORA_USAGE", "true").lower() == "true"
+    usage_enabled = get_env_setting("ENABLE_LORA_USAGE", "true").lower() in ["true", "1", "yes"]
     usage_by_path = {}
     mtime_by_path = {}
     
@@ -504,12 +632,7 @@ async def reset_lora_usage_endpoint(request):
     if not is_authenticated_local_request(request):
         return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
     try:
-        ensure_user_dir()
-        usage_file = os.path.join(USER_DIR, "lora_usage.json")
-        tmp_file = usage_file + ".tmp"
-        with open(tmp_file, "w", encoding="utf-8") as f:
-            json.dump({}, f, indent=4)
-        os.replace(tmp_file, usage_file)
+        reset_lora_usage_file()
         return web.json_response({"status": "ok"})
     except Exception as e:
         return web.json_response({"status": "error", "message": str(e)}, status=500)
@@ -664,16 +787,13 @@ class FolderLoraLoaderPretty(FolderLoraLoader):
         out_name = format_lora_output_name(resolved_path, display_name, output_format=active_format, custom_regex=custom_regex)
 
         if strength_model == 0 and strength_clip == 0:
+            increment_lora_usage(resolved_path)
             return (model, clip, out_name)
 
         if not resolved_path:
             return (model, clip, out_name)
 
         lora_path = folder_paths.get_full_path("loras", resolved_path)
-        if strength_model == 0 and strength_clip == 0:
-            increment_lora_usage(resolved_path)
-            return (model, clip, out_name)
-
         if not lora_path or not os.path.exists(lora_path):
             return (model, clip, out_name)
             
@@ -688,13 +808,126 @@ def get_current_prompt_id():
     try:
         from server import PromptServer
         server = PromptServer.instance
-        if hasattr(server, "prompt_queue") and server.prompt_queue.currently_running:
-            for item in server.prompt_queue.currently_running.values():
+        if hasattr(server, "prompt_queue"):
+            queue = server.prompt_queue
+            mutex = getattr(queue, "mutex", None)
+            if mutex:
+                with mutex:
+                    items = list(queue.currently_running.values())
+            else:
+                items = list(queue.currently_running.values())
+            for item in items:
                 if isinstance(item, (tuple, list)) and len(item) > 1:
                     return str(item[1])
     except Exception:
         pass
     return None
+
+def _remember_lora_assignment(assigned, prompt_id, item, limit=50):
+    """Insert/refresh a prompt→LoRA mapping, keeping the most recent entries."""
+    if not prompt_id:
+        return
+    assigned.pop(prompt_id, None)
+    assigned[prompt_id] = item
+    while len(assigned) > limit:
+        assigned.pop(next(iter(assigned)))
+
+def select_a_lora(mode, unique_id, valid_choices, prompt_id=None):
+    """
+    Choose one LoRA for Sequential / Random / Random (No Replace), persisting
+    cycle position, pools and crash-recovery prompt assignments in one atomic
+    state update. Returns None when there is nothing to select.
+    """
+    valid_choices = [item for item in valid_choices if item and item != "[ NONE ]"]
+    if not valid_choices:
+        return None
+
+    choices_hash = hashlib.sha256(
+        json.dumps(sorted(valid_choices), ensure_ascii=False).encode("utf-8")
+    ).hexdigest()[:16]
+    prefix = {
+        "Random": "rand",
+        "Sequential": "seq",
+        "Random (No Replace)": "noreplace",
+    }.get(mode)
+    if not prefix:
+        return None
+
+    state_key = f"{prefix}_{unique_id}_{choices_hash}"
+
+    with _LORA_STATE_LOCK:
+        state = load_lora_cycle_state()
+        node_state = state.get(state_key)
+        if isinstance(node_state, dict):
+            raw_assigned = node_state.get("assigned", {})
+            assigned = dict(raw_assigned) if isinstance(raw_assigned, dict) else {}
+            raw_pool = node_state.get("pool", [])
+            pool = list(raw_pool) if isinstance(raw_pool, (list, tuple)) else []
+            last_selected = node_state.get("last")
+            try:
+                index = max(0, int(node_state.get("index", 0)))
+            except (TypeError, ValueError):
+                index = 0
+        elif isinstance(node_state, list):
+            # Legacy Random (No Replace) format stored a bare pool list.
+            assigned = {}
+            pool = list(node_state)
+            last_selected = None
+            index = 0
+        else:
+            assigned = {}
+            pool = []
+            last_selected = None
+            index = 0
+
+        if prompt_id and prompt_id in assigned:
+            # Retry/crash recovery: reproduce the exact same selection without
+            # advancing the cycle or consuming another pool entry.
+            selected = assigned[prompt_id]
+            if selected not in valid_choices:
+                selected = None
+        else:
+            selected = None
+
+        if selected is None:
+            if mode == "Sequential":
+                selected = valid_choices[index % len(valid_choices)]
+                index += 1
+            elif mode == "Random":
+                import random
+                selected = random.choice(valid_choices)
+            elif mode == "Random (No Replace)":
+                import random
+                pool = [x for x in pool if x in valid_choices]
+                if not pool:
+                    pool = list(valid_choices)
+                    # Avoid repeating the last item of the previous cycle
+                    # back-to-back while still visiting every item once.
+                    if len(pool) > 1 and last_selected in pool:
+                        random.shuffle(pool)
+                        if pool[0] == last_selected:
+                            swap_index = random.randrange(1, len(pool))
+                            pool[0], pool[swap_index] = pool[swap_index], pool[0]
+                    else:
+                        random.shuffle(pool)
+                selected = pool.pop(0)
+                last_selected = selected
+
+        if prompt_id and selected:
+            _remember_lora_assignment(assigned, prompt_id, selected)
+
+        new_entry = {
+            "assigned": assigned,
+            "last_updated": int(time.time()),
+        }
+        if mode == "Sequential":
+            new_entry["index"] = index
+        if mode == "Random (No Replace)":
+            new_entry["pool"] = pool
+            new_entry["last"] = last_selected
+        state[state_key] = new_entry
+        save_lora_cycle_state(state)
+        return selected
 
 class VisualLoraLoader(FolderLoraLoaderPretty):
     @classmethod
@@ -751,82 +984,14 @@ class VisualLoraLoader(FolderLoraLoaderPretty):
         current_pid = get_current_prompt_id()
         if _selection_mode in ["Random", "Sequential", "Random (No Replace)"] and len(loras_to_load) > 0:
             valid_choices = [item for item in loras_to_load if item != "[ NONE ]" and item]
-            if valid_choices:
-                if _selection_mode == "Random":
-                    import random
-                    state = load_lora_cycle_state()
-                    text_hash = hashlib.sha256(json.dumps(sorted(valid_choices)).encode('utf-8')).hexdigest()[:16]
-                    state_key = f"rand_{unique_id}_{text_hash}"
-                    node_state = state.get(state_key, {})
-                    assigned = node_state.get("assigned", {}) if isinstance(node_state, dict) else {}
-                    if current_pid and current_pid in assigned:
-                        selected_item = assigned[current_pid]
-                    else:
-                        selected_item = random.choice(valid_choices)
-                        if current_pid:
-                            assigned[current_pid] = selected_item
-                            state[state_key] = {"assigned": assigned}
-                            save_lora_cycle_state(state)
-                    loras_to_load = [selected_item]
-                elif _selection_mode == "Sequential":
-                    state = load_lora_cycle_state()
-                    text_hash = hashlib.sha256(json.dumps(sorted(valid_choices)).encode('utf-8')).hexdigest()[:16]
-                    state_key = f"seq_{unique_id}_{text_hash}"
-                    node_state = state.get(state_key, {})
-                    if isinstance(node_state, dict):
-                        idx = int(node_state.get("index", 0))
-                        assigned = node_state.get("assigned", {})
-                    else:
-                        idx = int(node_state) if isinstance(node_state, int) else 0
-                        assigned = {}
-
-                    if current_pid and current_pid in assigned:
-                        selected_item = assigned[current_pid]
-                    else:
-                        selected_item = valid_choices[idx % len(valid_choices)]
-                        if current_pid:
-                            assigned[current_pid] = selected_item
-                        state[state_key] = {
-                            "index": idx + 1,
-                            "assigned": assigned
-                        }
-                        save_lora_cycle_state(state)
-                    loras_to_load = [selected_item]
-                elif _selection_mode == "Random (No Replace)":
-                    state = load_lora_cycle_state()
-                    text_hash = hashlib.sha256(json.dumps(sorted(valid_choices)).encode('utf-8')).hexdigest()[:16]
-                    state_key = f"noreplace_{unique_id}_{text_hash}"
-                    node_state = state.get(state_key, {})
-                    if isinstance(node_state, dict):
-                        pool = node_state.get("pool", [])
-                        assigned = node_state.get("assigned", {})
-                    else:
-                        pool = node_state if isinstance(node_state, list) else []
-                        assigned = {}
-
-                    if current_pid and current_pid in assigned:
-                        selected_item = assigned[current_pid]
-                    else:
-                        pool = [x for x in pool if x in valid_choices]
-                        if not pool:
-                            import random
-                            pool = list(valid_choices)
-                            random.shuffle(pool)
-                        selected_item = pool.pop(0)
-                        if current_pid:
-                            assigned[current_pid] = selected_item
-                        state[state_key] = {
-                            "pool": pool,
-                            "assigned": assigned
-                        }
-                        save_lora_cycle_state(state)
-                    loras_to_load = [selected_item]
-            else:
-                loras_to_load = []
+            selected_item = select_a_lora(_selection_mode, unique_id, valid_choices, current_pid)
+            loras_to_load = [selected_item] if selected_item else []
 
         current_model = model
         current_clip = clip
         loaded_names = []
+        # Resolve the folder mapping once per run instead of once per selected LoRA.
+        lora_mapping = get_filtered_loras_mapping(folder, pretty=True)
 
         for item in loras_to_load:
             if item == "[ NONE ]" or not item:
@@ -836,8 +1001,7 @@ class VisualLoraLoader(FolderLoraLoaderPretty):
             if " - " in item:
                 display_name = item.split(" - ", 1)[1]
 
-            mapping = get_filtered_loras_mapping(folder, pretty=True)
-            resolved_path = mapping.get(item)
+            resolved_path = lora_mapping.get(item)
 
             if not resolved_path or resolved_path == "[ NONE ]":
                 all_loras = folder_paths.get_filename_list("loras")
