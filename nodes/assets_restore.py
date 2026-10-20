@@ -1,29 +1,14 @@
 import os
-import sys
 import json
 import time
 import uuid
-import hashlib
+import heapq
 import datetime
-import logging
 from PIL import Image
 
 import folder_paths
-from .utils import get_saturnnodes_user_dir
-
-USER_DIR = get_saturnnodes_user_dir()
-ENV_FILE = os.path.join(USER_DIR, ".env")
-
-def get_env_setting(key, default_val):
-    if os.path.exists(ENV_FILE):
-        try:
-            with open(ENV_FILE, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip().startswith(f"{key}="):
-                        return line.strip().split("=", 1)[1].strip()
-        except Exception:
-            pass
-    return default_val
+from .utils import get_env_setting
+from .generation_times import get_generation_time, get_generation_time_debug
 
 def is_assets_restore_enabled():
     val = get_env_setting("ENABLE_ASSETS_RESTORE", "true").lower()
@@ -36,83 +21,222 @@ def get_assets_restore_count():
     except Exception:
         return 64
 
+def is_recursive_assets_scan_enabled():
+    val = get_env_setting("RESTORE_ASSETS_RECURSIVE", "true").lower()
+    return val in ["true", "1", "yes"]
+
+def is_restored_generation_time_enabled():
+    val = get_env_setting("SHOW_RESTORED_GENERATION_TIME", "true").lower()
+    return val in ["true", "1", "yes"]
+
+def _decode_exif_text(raw):
+    """Decode an EXIF UserComment, including the standard 8-byte prefix."""
+    if not raw:
+        return ""
+    if isinstance(raw, bytes):
+        prefix, body = raw[:8], raw[8:]
+        if prefix.startswith(b"UNICODE"):
+            # The EXIF standard / piexif write UTF-16 big-endian here, not a
+            # BOM-prefixed native-endian string.
+            try:
+                return body.decode("utf-16-be", errors="ignore").strip("\x00").strip()
+            except Exception:
+                pass
+        if prefix.startswith(b"ASCII"):
+            try:
+                return body.decode("ascii", errors="ignore").strip("\x00").strip()
+            except Exception:
+                pass
+        if prefix.startswith(b"JIS"):
+            try:
+                return body.decode("shift_jis", errors="ignore").strip("\x00").strip()
+            except Exception:
+                pass
+        try:
+            return raw.decode("utf-8", errors="ignore").strip("\x00").strip()
+        except Exception:
+            return ""
+    return str(raw).strip()
+
+def parse_a1111_positive_prompt(parameters):
+    """Extract the positive prompt from an A1111/Forge `parameters` string."""
+    if not parameters:
+        return ""
+    text = str(parameters).replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not text:
+        return ""
+    negative_index = text.find("Negative prompt:")
+    if negative_index >= 0:
+        positive = text[:negative_index].strip()
+    else:
+        positive = text
+    # Drop the trailing generation-settings line (Steps: ..., Sampler: ...).
+    lines = positive.split("\n")
+    if lines:
+        last = lines[-1].strip()
+        if last.startswith("Steps:") or ("Sampler:" in last and "Steps:" in last):
+            lines = lines[:-1]
+    return "\n".join(lines).strip()
+
 class AssetsRestoreManager:
     def __init__(self):
         self._restored_on_launch = False
         self.last_debug_report = {}
+        self.restored_count = 0
 
     def extract_image_metadata(self, filepath):
-        """Extracts embedded prompt and workflow graph metadata from image (read-only)."""
+        """Extracts embedded prompt/workflow metadata from PNG, JPEG or WebP."""
         prompt_dict = {}
         workflow_dict = {}
         positive_prompt = ""
 
         try:
             with Image.open(filepath) as img:
-                if img.format == "PNG":
-                    prompt_raw = img.info.get("prompt")
-                    workflow_raw = img.info.get("workflow")
-                    parameters_raw = img.info.get("parameters")
+                prompt_raw = img.info.get("prompt")
+                workflow_raw = img.info.get("workflow")
+                parameters_raw = img.info.get("parameters")
 
-                    if prompt_raw:
+                # JPEG / WebP files written by ComfyUI or A1111 may carry the
+                # metadata in an EXIF UserComment instead of PNG text chunks.
+                if not parameters_raw:
+                    exif = None
+                    try:
+                        exif = img.getexif()
+                    except Exception:
+                        exif = None
+                    if not exif:
+                        raw_exif = img.info.get("exif")
+                        if raw_exif:
+                            try:
+                                exif = Image.Exif()
+                                exif.load(raw_exif)
+                            except Exception:
+                                exif = None
+                    if exif:
                         try:
-                            prompt_dict = json.loads(prompt_raw) if isinstance(prompt_raw, str) else prompt_raw
+                            parameters_raw = _decode_exif_text(exif.get(0x9286))
                         except Exception:
-                            pass
+                            parameters_raw = ""
 
-                    if workflow_raw:
-                        try:
-                            workflow_dict = json.loads(workflow_raw) if isinstance(workflow_raw, str) else workflow_raw
-                        except Exception:
-                            pass
+                if prompt_raw:
+                    try:
+                        parsed_prompt = json.loads(prompt_raw) if isinstance(prompt_raw, str) else prompt_raw
+                        if isinstance(parsed_prompt, dict):
+                            prompt_dict = parsed_prompt
+                    except Exception:
+                        pass
 
-                    if parameters_raw:
-                        positive_prompt = str(parameters_raw)
+                if workflow_raw:
+                    try:
+                        parsed_workflow = json.loads(workflow_raw) if isinstance(workflow_raw, str) else workflow_raw
+                        if isinstance(parsed_workflow, dict):
+                            workflow_dict = parsed_workflow
+                    except Exception:
+                        pass
+
+                if parameters_raw:
+                    positive_prompt = parse_a1111_positive_prompt(parameters_raw)
         except Exception:
             pass
 
         return prompt_dict, workflow_dict, positive_prompt
 
-    def scan_output_images(self, base_output_dir, limit=64):
-        """Scans output directory recursively (strictly read-only) and returns top `limit` newest images."""
+    def scan_output_images(self, base_output_dir, limit=64, recursive=True, stats=None):
+        """Return the newest `limit` images without keeping the full tree in memory."""
         if not os.path.exists(base_output_dir):
             return []
 
-        valid_extensions = {".png", ".jpg", ".jpeg", ".webp", ".PNG", ".JPG", ".JPEG", ".WEBP"}
-        found_images = []
-
+        valid_extensions = {".png", ".jpg", ".jpeg", ".webp"}
         norm_base = os.path.normpath(base_output_dir)
+        if stats is None:
+            stats = {}
 
-        for root, _, files in os.walk(norm_base):
-            for file in files:
-                _, ext = os.path.splitext(file)
-                if ext in valid_extensions:
+        def iter_images():
+            if recursive:
+                roots = os.walk(norm_base)
+            else:
+                try:
+                    roots = [(norm_base, [], os.listdir(norm_base))]
+                except OSError:
+                    roots = []
+            for root, _, files in roots:
+                for file in files:
+                    _, ext = os.path.splitext(file)
+                    if ext.lower() not in valid_extensions:
+                        continue
                     full_path = os.path.join(root, file)
                     try:
                         mtime = os.path.getmtime(full_path)
-                        rel_dir = os.path.relpath(root, norm_base)
-                        subfolder = "" if rel_dir == "." else rel_dir.replace("\\", "/")
-                        found_images.append({
-                            "filepath": full_path,
-                            "filename": file,
-                            "subfolder": subfolder,
-                            "mtime": mtime
-                        })
-                    except Exception:
-                        pass
+                    except OSError:
+                        continue
+                    stats["scanned"] = stats.get("scanned", 0) + 1
+                    rel_dir = os.path.relpath(root, norm_base)
+                    subfolder = "" if rel_dir == "." else rel_dir.replace("\\", "/")
+                    yield {
+                        "filepath": full_path,
+                        "filename": file,
+                        "subfolder": subfolder,
+                        "mtime": mtime,
+                    }
 
-        # Sort newest first, take limit, then reverse to chronological (oldest to newest)
-        found_images.sort(key=lambda x: x["mtime"], reverse=True)
-        top_images = found_images[:limit]
+        # Keep only the top-N candidates (bounded memory), then restore
+        # chronological order (oldest -> newest) for stable history numbering.
+        top_images = heapq.nlargest(max(1, int(limit)), iter_images(), key=lambda x: x["mtime"])
         top_images.reverse()
-
         return top_images
 
+    def _ingest_assets(self, prepared):
+        """Register restored files in ComfyUI's asset DB using a single session."""
+        if not prepared:
+            return 0
+        try:
+            import importlib
+            ingest_mod = importlib.import_module("app.assets.services.ingest")
+            register_file_in_place = getattr(ingest_mod, "register_file_in_place", None)
+            if not register_file_in_place:
+                return 0
+        except Exception:
+            return 0
+
+        registered = []
+        for entry in prepared:
+            try:
+                res = register_file_in_place(abs_path=entry["filepath"], name=entry["filename"], tags=["output"])
+                if res and hasattr(res, "ref") and res.ref and hasattr(res.ref, "id"):
+                    registered.append((res.ref.id, entry))
+            except Exception:
+                pass
+
+        if not registered:
+            return 0
+
+        try:
+            db_mod = importlib.import_module("app.database.db")
+            queries_mod = importlib.import_module("app.assets.database.queries")
+            init_db = getattr(db_mod, "init_db", None)
+            create_session = getattr(db_mod, "create_session", None)
+            set_reference_metadata = getattr(queries_mod, "set_reference_metadata", None)
+            if init_db and create_session and set_reference_metadata:
+                init_db()
+                with create_session() as session:
+                    for reference_id, entry in registered:
+                        set_reference_metadata(session, reference_id=reference_id, metadata={
+                            "jobId": entry["prompt_id"],
+                            "nodeId": entry["output_node_id"],
+                            "filename": entry["filename"],
+                            "subfolder": entry["subfolder"],
+                        })
+                    session.commit()
+        except Exception:
+            pass
+        return len(registered)
+
     def restore_on_launch(self, server, limit=None, force=False):
-        """Populates PromptQueue.history on ComfyUI startup with the latest generated images."""
+        """Populate PromptQueue.history with the newest generated images."""
         if self._restored_on_launch and not force:
             return 0
 
+        started_at = time.time()
         if limit is None:
             limit = get_assets_restore_count()
 
@@ -121,119 +245,136 @@ class AssetsRestoreManager:
             self._restored_on_launch = True
             return 0
 
+        recursive = is_recursive_assets_scan_enabled()
+        show_generation_time = is_restored_generation_time_enabled()
         base_output_dir = folder_paths.get_output_directory()
         output_exists = os.path.exists(base_output_dir)
+        scan_stats = {}
+        images = self.scan_output_images(
+            base_output_dir, limit=limit, recursive=recursive, stats=scan_stats
+        ) if output_exists else []
 
-        images = self.scan_output_images(base_output_dir, limit=limit) if output_exists else []
+        prompt_queue = getattr(server, "prompt_queue", None)
+        prepared = []
+        metadata_found = 0
+        generation_time_matches = 0
+
+        # Scan, metadata parsing and history-entry construction happen outside
+        # the queue mutex so the executor thread is never blocked on disk I/O.
+        for idx, item in enumerate(images, 1):
+            filepath = item["filepath"]
+            filename = item["filename"]
+            subfolder = item["subfolder"]
+
+            rel_key = f"{subfolder}/{filename}" if subfolder else filename
+            prompt_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"saturnnodes:{rel_key}"))
+
+            prompt_dict, workflow_dict, positive_prompt = self.extract_image_metadata(filepath)
+            if prompt_dict or workflow_dict or positive_prompt:
+                metadata_found += 1
+
+            output_node_id = None
+            if isinstance(prompt_dict, dict) and prompt_dict:
+                for nid, nval in prompt_dict.items():
+                    if isinstance(nval, dict) and "SaveImage" in str(nval.get("class_type", "")):
+                        output_node_id = str(nid)
+                        break
+                if not output_node_id:
+                    output_node_id = str(next(iter(prompt_dict.keys())))
+            if not output_node_id:
+                output_node_id = "0"
+
+            extra_pnginfo = {}
+            if isinstance(workflow_dict, dict) and workflow_dict:
+                extra_pnginfo["workflow"] = workflow_dict
+            if positive_prompt:
+                extra_pnginfo["positive_prompt"] = positive_prompt
+
+            mtime_ms = int(item["mtime"] * 1000)
+            duration = get_generation_time(filename, subfolder, item.get("mtime")) if show_generation_time else None
+            if duration is not None:
+                generation_time_matches += 1
+                execution_start_ms = max(0, mtime_ms - int(duration * 1000))
+                extra_pnginfo["saturnnodes_generation_time"] = round(duration, 3)
+            else:
+                execution_start_ms = mtime_ms
+
+            # Only emit an execution_success timestamp when a real duration is
+            # known. Two timestamps would make the stock UI report "0.00s" for
+            # older images; start-only preserves their mtime for sorting while
+            # leaving the duration blank.
+            status_messages = [["execution_start", {"timestamp": execution_start_ms}]]
+            if duration is not None:
+                status_messages.append(["execution_success", {"timestamp": mtime_ms}])
+
+            history_entry = {
+                "prompt": [
+                    idx,
+                    prompt_id,
+                    prompt_dict,
+                    {
+                        "create_time": mtime_ms,
+                        "extra_pnginfo": extra_pnginfo,
+                        "client_id": "saturnnodes_restored"
+                    },
+                    [output_node_id]
+                ],
+                "outputs": {
+                    output_node_id: {
+                        "images": [
+                            {
+                                "filename": filename,
+                                "subfolder": subfolder,
+                                "type": "output"
+                            }
+                        ]
+                    }
+                },
+                "status": {
+                    "status_str": "success",
+                    "completed": True,
+                    "messages": status_messages
+                }
+            }
+            if duration is not None:
+                history_entry["status"]["saturnnodes_duration"] = round(duration, 3)
+
+            prepared.append({
+                "prompt_id": prompt_id,
+                "history_entry": history_entry,
+                "filepath": filepath,
+                "filename": filename,
+                "subfolder": subfolder,
+                "output_node_id": output_node_id,
+            })
 
         restored_count = 0
-        prompt_queue = getattr(server, "prompt_queue", None)
-
         if prompt_queue is not None:
             with prompt_queue.mutex:
-                for idx, item in enumerate(images, 1):
-                    filepath = item["filepath"]
-                    filename = item["filename"]
-                    subfolder = item["subfolder"]
-
-                    rel_key = f"{subfolder}/{filename}" if subfolder else filename
-                    prompt_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"saturnnodes:{rel_key}"))
-
-                    prompt_dict, workflow_dict, positive_prompt = self.extract_image_metadata(filepath)
-                    output_node_id = None
-                    if prompt_dict:
-                        for nid, nval in prompt_dict.items():
-                            if isinstance(nval, dict) and "SaveImage" in nval.get("class_type", ""):
-                                output_node_id = str(nid)
-                                break
-                        if not output_node_id:
-                            output_node_id = str(next(iter(prompt_dict.keys())))
-                    if not output_node_id:
-                        output_node_id = "0"
-
-                    extra_pnginfo = {}
-                    if workflow_dict:
-                        extra_pnginfo["workflow"] = workflow_dict
-                    if positive_prompt:
-                        extra_pnginfo["positive_prompt"] = positive_prompt
-
-                    mtime_ms = int(item["mtime"] * 1000)
-                    history_entry = {
-                        "prompt": [
-                            idx,
-                            prompt_id,
-                            prompt_dict,
-                            {
-                                "create_time": mtime_ms,
-                                "extra_pnginfo": extra_pnginfo,
-                                "client_id": "saturnnodes_restored"
-                            },
-                            [output_node_id]
-                        ],
-                        "outputs": {
-                            output_node_id: {
-                                "images": [
-                                    {
-                                        "filename": filename,
-                                        "subfolder": subfolder,
-                                        "type": "output"
-                                    }
-                                ]
-                            }
-                        },
-                        "status": {
-                            "status_str": "success",
-                            "completed": True,
-                            "messages": [
-                                ["execution_start", {"timestamp": mtime_ms}],
-                                ["execution_success", {"timestamp": mtime_ms}]
-                            ]
-                        }
-                    }
-
-                    prompt_queue.history[prompt_id] = history_entry
+                for entry in prepared:
+                    prompt_queue.history[entry["prompt_id"]] = entry["history_entry"]
                     restored_count += 1
 
-                    # Ingest into modern ComfyUI asset database if --enable-assets is active
-                    try:
-                        import importlib
-                        ingest_mod = importlib.import_module("app.assets.services.ingest")
-                        register_file_in_place = getattr(ingest_mod, "register_file_in_place", None)
-                        if register_file_in_place:
-                            res = register_file_in_place(abs_path=filepath, name=filename, tags=["output"])
-                            if res and hasattr(res, "ref") and res.ref and hasattr(res.ref, "id"):
-                                try:
-                                    db_mod = importlib.import_module("app.database.db")
-                                    queries_mod = importlib.import_module("app.assets.database.queries")
-                                    init_db = getattr(db_mod, "init_db", None)
-                                    create_session = getattr(db_mod, "create_session", None)
-                                    set_reference_metadata = getattr(queries_mod, "set_reference_metadata", None)
-                                    if init_db and create_session and set_reference_metadata:
-                                        init_db()
-                                        with create_session() as session:
-                                            set_reference_metadata(session, reference_id=res.ref.id, metadata={
-                                                "jobId": prompt_id,
-                                                "nodeId": output_node_id,
-                                                "filename": filename,
-                                                "subfolder": subfolder
-                                            })
-                                            session.commit()
-                                except Exception:
-                                    pass
-                    except Exception:
-                        pass
-
+        registered_count = self._ingest_assets(prepared)
         self._restored_on_launch = True
+        self.restored_count = restored_count
 
         self.last_debug_report = {
             "timestamp": datetime.datetime.now().isoformat(),
             "status": "success",
             "enabled": enabled,
             "configured_limit": limit,
-            "total_scanned_images": len(images),
-            "restored_count": restored_count
+            "recursive": recursive,
+            "show_generation_time": show_generation_time,
+            "output_exists": output_exists,
+            "total_scanned_images": scan_stats.get("scanned", 0),
+            "restored_count": restored_count,
+            "metadata_found": metadata_found,
+            "generation_time_matches": generation_time_matches,
+            "generation_time_records": get_generation_time_debug().get("recorded_files", 0),
+            "asset_db_registered": registered_count,
+            "elapsed_ms": int((time.time() - started_at) * 1000),
         }
-        self.restored_count = restored_count
 
         if restored_count > 0:
             if server:
