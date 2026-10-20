@@ -107,6 +107,8 @@ Visual thumbnail browser for image folders with instant preview selection, indep
 - **`display_mode`** (`COMBO`, *Advanced*): `Scrollable` vs `Show All`.
 - **`sort_images_by`** (`COMBO`, *Advanced*): `Name (A-Z)`, `Name (Z-A)`, `Date Modified (Newest First)`, `Date Modified (Oldest First)`.
 
+Folder scans run off ComfyUI's event loop, thumbnails are cached on disk, and prompt metadata is extracted only for the newest `IMAGE_LOADER_METADATA_LIMIT` images (default `128`, configurable in Settings).
+
 #### Outputs
 - **`IMAGE`**: Selected image tensor.
 - **`positive_prompt`** (`STRING`): Extracted prompt metadata.
@@ -242,6 +244,7 @@ Deterministically iterates over multiline prompt text blocks per queue run with 
 
 #### Inputs & Widgets
 - **`pop_mode`** (`COMBO`): `Sequential (Loop on End)`, `Sequential (Stop on End)`, `Random (Keep)`, `Random (Cycle)`.
+- **`track_by`** (`COMBO`): `Text & Node` (default; the pointer is isolated per prompt text and splitter configuration) or `Node Only` (one pointer per graph node that survives prompt edits and splitter changes).
 - **`separator`** (`COMBO`): Split prompts by `>1 Empty Line`, `Newline`, `>2 Empty Lines`, or `Custom Regex`.
 - **`custom_regex`** (`STRING`): Custom regular expression delimiter (e.g. `\n---\n`). Automatically enabled when `separator` is set to `Custom Regex` and disabled otherwise.
 - **`text`** (`STRING`, Multiline): Multiline prompt text containing your queued blocks.
@@ -249,8 +252,11 @@ Deterministically iterates over multiline prompt text blocks per queue run with 
 
 #### Outputs
 - **`prompt`** (`STRING`): The selected prompt block for the current queue run.
-- **`remaining_text`** (`STRING`): All remaining prompt blocks joined by the delimiter.
-- **`remaining_count`** (`INT`): Count of remaining items in queue.
+- **`remaining_text`** (`STRING`): All remaining prompt blocks joined by the delimiter. For `Random (Keep)` this is empty because random selection does not consume an ordered queue.
+- **`remaining_count`** (`INT`): Count of remaining items in the current cycle (always `0` for `Random (Keep)`).
+- **`exhausted`** (`BOOLEAN`): `True` when `Sequential (Stop on End)` has reached the final prompt (subsequent runs repeat the last prompt and remain exhausted).
+
+Clicking `Reset Counter (0)` now also clears crash-recovery prompt assignments and random shuffle permutations for the node, so the next run starts from a clean state.
 </details>
 
 <details>
@@ -374,12 +380,13 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`Custom Node Title Color`** (`color`, *Default: `#6a3f20`*): Header / title bar color picker for SaturnNodes when custom colors are enabled.
 - **`Custom Node Body Color`** (`color`, *Default: `#472a15`*): Body background color picker for SaturnNodes when custom colors are enabled.
 - **`Civitai API Key`** (`text`): Optional key for Civitai SHA256 model preview search (`Authorization: Bearer <key>`).
-- **`Enable Civitai Auto-Scraping`** (`boolean`, *Default: true*): Automatically download model preview images from Civitai via SHA256 file hashes. (Note: Local SHA256 hash searching always works).
+- **`Enable Civitai Auto-Scraping`** (`boolean`, *Default: false*): Automatically download model preview images from Civitai via SHA256 file hashes. (Note: Local SHA256 hash searching always works).
 - **`TMDB Access Token`** (`text`): Optional key or v4 Read Access Token (`eyJ...`) for actor / media preview search.
 - **`Enable TMDB Auto-Scraping`** (`boolean`, *Default: false*): Automatically download media preview images from TMDB.
 - **`Enable LoRA Usage Tracking`** (`boolean`, *Default: true*): Toggle LoRA usage counting and visual rank badges (🔥, Gold, Silver, Bronze) in the picker.
 - **`Reset Failed Scrapes Cache`** (*Button: `🗑️ Clear Scrapes Cache`*): Clears failed scrape history so Civitai/TMDB can retry downloading missing preview images.
 - **`Disable Thumbnail Downscaling (Serve Raw)`** (`boolean`, *Default: false*): Serves full-resolution original preview images instead of generating downscaled WebP thumbnails (downscaled WebP thumbnails render faster in the picker and are recommended).
+- **`Image Loader Metadata Scan Limit`** (`number`, *Default: 128*, 0–2000): Number of newest images in a folder scanned for embedded prompts by the Visual Image Loader (`0` disables extraction).
 </details>
 
 <details>
@@ -411,6 +418,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 
 - **`Default State on Launch`** (`combo`, *Default: `Running`*): Sets whether the queue starts `Paused` or `Running` on boot.
 - **`Default Pause Action`** (`combo`, *Default: `Finish Active Prompt`*): Sets default pause behavior (`Finish Active Prompt` vs `Instant Resume Node`).
+- **`Persist Pause State Across Restarts`** (`boolean`, *Default: false*): Restores the last manual Pause/Continue state and pause mode on the next start, overriding the launch defaults.
 - **`Enable Top Toolbar Button`** (`boolean`, *Default: true*): Toggle top action bar Pause & Continue button group ON/OFF.
 - **`Toolbar Button Unpaused Color`** (`text`, *Default: `#16a34a`*): Hex color for the toolbar unpaused/running state.
 - **`Toolbar Button Paused Color`** (`text`, *Default: `#ea580c`*): Hex color for the toolbar paused state.
@@ -424,6 +432,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 
 - **`Enable Persistent Queue (Auto-Recovery)`** (`boolean`, *Default: true*): Automatically saves unfinished queue items and restores them after restart/crash.
 - **`Recovery Launch State`** (`combo`, *Default: `Match Default`*): Override launch state when restored queue items are recovered on startup (`Match Default`, `Force Paused`, `Force Running`).
+- **`Max Restore Retries`** (`number`, *Default: 0*, 0–10): How many additional launches may retry a queue item that failed to restore before it is dropped. `0` drops failures immediately.
 </details>
 
 <details>
@@ -431,6 +440,9 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 
 - **`Restore Assets on Launch`** (`boolean`, *Default: true*): Automatically restores your latest generated images into the Assets / History pane on startup.
 - **`Restored Assets Count`** (`number`, *Default: 64*): The number of newest images from the output folder to populate into the Assets pane.
+- **`Scan Output Subfolders Recursively`** (`boolean`, *Default: true*): Include images from nested output subfolders, not just the top-level output folder.
+- **`Show Generation Time on Restored Assets`** (`boolean`, *Default: true*): Uses SaturnNodes' recorded generation timings (from `generation_times.json`) for real execution times on restored history entries. Images generated before this version have no recorded time: their file mtime is still used for chronology, but no duration is shown.
+- **`Restore Now`** (*Button: `🖼️ Restore Now`*): Immediately rescan the output folder and add the newest assets without restarting ComfyUI.
 </details>
 
 <details>

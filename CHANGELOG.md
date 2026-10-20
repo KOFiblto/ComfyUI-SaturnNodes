@@ -5,13 +5,19 @@ All notable changes to `ComfyUI-SaturnNodes` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.6.1] - In Development
+## [2.6.2] - In Development
 
 ### Added
 - **Per-Resolution Dock Memory & Drag Resize Handles**: The Floating Latent Dock and the queue overlay now remember their size per resolution/monitor and expose on-screen drag resize handles.
 - **Visual LoRA Loader Maintenance Controls**: New `↺ Counter`, `🧹 Usage` and `🗑 Cache` reset buttons on the Visual LoRA Loader node (each with a confirmation prompt) to reset the per-node Sequential/Random LoRA cycle and prompt→LoRA assignments, clear usage badges, or delete cached thumbnails.
 - **ComfyUI Registry Packaging**: Complete registry metadata (`pyproject.toml` with `requires-comfyui`, classifiers and optional extras), a Saturn icon (`web/logo.png`), a `.comfyignore` manifest, and an automated `publish_action.yml` workflow.
 - **Curated GitHub Releases**: `release.yml` now publishes the matching `CHANGELOG.md` section as the GitHub Release body instead of raw auto-generated compare links.
+- **Real Generation Times on Restored Assets**: SaturnNodes now records prompt execution duration and output filenames in `generation_times.json`; restored history entries expose real start/success timestamps and the stock duration display when available. Older images keep their file mtime for sorting but show no fabricated `0.00s` duration.
+- **Prompt Iterator Tracking Modes & Exhaustion Output**: New `track_by` choice (`Text & Node` / `Node Only`) and `exhausted` boolean output for `Sequential (Stop on End)`.
+- **Persistent Pause State**: Optional `PERSIST_PAUSE_STATE` setting restores the last manual Pause/Continue state and pause mode after a restart.
+- **Queue Restore Retry Limit**: Optional `PERSISTENT_QUEUE_MAX_RETRIES` setting controls how many later launches may retry failed queue items (default `0`).
+- **Assets Restore Controls**: New recursive-folder scan toggle, generation-time display toggle, and a **Restore Now** settings button.
+- **Visual Image Loader Metadata Limit**: New `IMAGE_LOADER_METADATA_LIMIT` setting (default `128`) controls how many newest images are scanned for prompts.
 
 ### Changed
 - **Free-Form Dock Resize**: Dragging the Floating Latent Dock's corner now resizes width and height independently (no longer locked to the latent's aspect ratio) within sane 100–2000px bounds. The drag starts from the dock's current on-screen size (no jump to the larger saved settings box), shows the free-form box live, writes the dragged dimensions back into the `Floating Dock Max Width/Height` settings (now 1px-stepped sliders), and snaps the dock to the exact latent fit on release.
@@ -19,15 +25,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Compatibility Surface Reduction**: All remaining pre-rename compatibility layers were purged — duplicate legacy route handlers, frontend settings migration and legacy settings-ID lookups, legacy localStorage/storage keys, the legacy CSRF header fallback, the legacy user-directory auto-migration, and all superseded node class-name aliases. No backward-compatibility surface remains.
 - **Naming Consistency**: Unified `ComfyUI.SaturnNodes.*` frontend extension names, `saturnnodes-*` CSS prefixes, and `[SaturnNodes ...]` console log tags.
 - **Documentation Rebrand**: `WALKTHROUGH.md`, the README settings reference, `.env.example`, `AGENTS.md` and `SECURITY.md` were fully rebranded and reconciled with the real setting labels, widget names and environment variables.
-- **Registry Identity**: Package name set to `saturnnodes` (per registry naming best practices); version bumped to `2.6.1`.
+- **Registry Identity**: Package name set to `saturnnodes` (per registry naming best practices); version bumped to `2.6.2`.
 
 ### Fixed
 - **Publishing Compliance**: Removed `install.py` (no runtime `pip` execution, matching the documented "Zero Runtime Package Installs" claim) and corrected a stale README claim about legacy route aliases.
-- **Audit Remediation Hardening**: Full audit remediation pass — pause queue stall/deadlock fixes, restart verification hardening, atomic `.env` writes with proper error responses, debug endpoint guards, subgraph-safe lookups, runner pipe streaming, IPv4-mapped loopback handling and more (119 unit tests passing).
+- **Audit Remediation Hardening**: Full audit remediation pass — pause queue stall/deadlock fixes, restart verification hardening, atomic `.env` writes with proper error responses, debug endpoint guards, subgraph-safe lookups, runner pipe streaming, IPv4-mapped loopback handling and more (153 unit tests passing).
 - **Floating Latent Dock Resize Crash**: Fixed a `this.renderImage is not a function` error thrown while dragging the dock's resize handles or when the screen profile changed; the resize paths now invoke the dock's actual render routine.
 - **Queue Overlay Resize Lag**: Resizing the queue overlay no longer rewrites a stylesheet on every pointermove (which forced a full-document style recalculation, layout and paint churn on every frame); heights are now applied as scoped, rAF-throttled inline styles.
 - **Dock Drag Performance & Stuck Drags**: Dragging the dock no longer rebuilds the full-resolution canvas backing store (GPU texture/layer churn, ~74% GPU load during drags) on every pointermove — only CSS sizes change while dragging, with one full-quality redraw on release. Pointer capture plus `pointercancel`/window-blur guards fix drags that "never stopped" when the pointer was released outside the window.
 - **Prompt Iterator Reset Clarity**: The Prompt Queue Iterator's `Reset Counter (0)` button now confirms before resetting and explains that it resets the run pointer to the first prompt without wiping the queue state file (use Settings → `Reset All Queues` for a full wipe).
+- **Prompt Iterator Correctness & Concurrency**: Hard resets now clear crash-recovery assignments and shuffle permutations; state keys include splitter/mode configuration; `Random (Cycle)` remaining text follows the real shuffle order; `Random (Keep)` no longer reports a fake remaining ordered list; state reads use an mtime cache behind a lock; global state pruning keeps the most recently used entries.
+- **LoRA Loader State Growth & Performance**: Prompt→LoRA assignment maps and global cycle state are now bounded by recency; selection mapping is resolved once per run; usage counters are batched in memory and flushed atomically; No-Replace cycles avoid an immediate repeat while still visiting every LoRA; Civitai SHA256 hashes are cached by mtime/size; `TextLoraFinder` scans the prompt once instead of once per installed LoRA.
+- **Persistent Queue I/O Storm**: `persistent_queue.json` writes are debounced, compact and fsynced instead of rewriting the full file for every queued/removed item; batch metadata and recently-finished prompt IDs are capped to prevent unbounded growth; late batch syncs can no longer resurrect finished prompts.
+- **Assets Restore Blocking & Coverage**: Output scanning, image metadata parsing and asset DB registration now happen outside `prompt_queue.mutex`; restore uses a bounded top-N scan and a single DB session; JPEG/WebP EXIF metadata and A1111/Forge `parameters` prompts are supported; debug reports include elapsed time, scanned count, metadata hits and generation-time matches.
+- **Visual Image Loader Responsiveness**: Folder scans and thumbnail generation run off the asyncio event loop; thumbnails are cached on disk by path/mtime/size.
+- **Settings/.env Divergence**: `/saturnnodes/settings` now returns the complete effective settings surface, the UI seeds from backend values before registering defaults, and parsed `.env` values are cached with mtime invalidation and explicitly invalidated after saves.
 
 ### Removed
 - `install.py` — dependencies are declared in `pyproject.toml` / `requirements.txt` only, and ComfyUI Manager handles installation.

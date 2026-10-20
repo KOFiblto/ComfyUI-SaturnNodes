@@ -41,14 +41,16 @@ SaturnNodes automatically tracks which workflows are submitted together as a bat
 
 ### The Persistent Queue (Crash Recovery)
 You don't need to interact with this—it runs silently in the background!
-Every time you queue a prompt, SaturnNodes saves the entire queue state to your hard drive in real time. If your computer crashes, power goes out, or you accidentally close the terminal, ComfyUI will automatically restore your unfinished queue upon next boot (in a paused state, so it doesn't overwhelm your GPU before you're ready).
+Every time you queue a prompt, SaturnNodes saves the entire queue state to your hard drive in real time. If your computer crashes, power goes out, or you accidentally close the terminal, ComfyUI will automatically restore your unfinished queue upon next boot. The **Recovery Launch State** setting controls whether recovery uses your normal launch state (`Match Default`), always pauses (`Force Paused`), or always runs (`Force Running`); use `Force Paused` if you want to inspect the restored queue before it starts.
 
 ### Automatic Assets Pane & History Restore
 In standard ComfyUI, restarting your server wipes the in-memory execution history, leaving your sidebar Assets Pane / History tab completely blank on launch.
 - SaturnNodes automatically scans your `output` folder (read-only) on server startup and pre-populates the history with your latest **64 images** (or custom count).
+- Scans run without blocking ComfyUI's queue mutex, include nested output subfolders by default, and understand PNG, JPEG, WebP, ComfyUI graphs, and A1111/Forge `parameters` metadata.
 - All images are loaded in strict chronological order with embedded workflow and prompt graphs intact.
 - Features like **Copy Prompt** and **Copy Workflow** immediately work with restored images as if they were generated in your current session!
-- You can adjust the restored image count or toggle this feature in **ComfyUI Settings (⚙️)** under **`Restore Assets on Launch`** and **`Restored Assets Count`** (search for `SaturnNodes`).
+- New generations record their real execution duration in `generation_times.json`; restored images show that time when available. Older images still use their file mtime for ordering, but no invented duration is shown when none was recorded.
+- Use **`Restore Now`** in Settings to rescan immediately, or adjust **`Restored Assets Count`**, **`Scan Output Subfolders Recursively`**, and **`Show Generation Time on Restored Assets`** (search for `SaturnNodes`).
 
 ### Image Overlay Actions & Prompt Bookmarks
 Hovering over any image in the ComfyUI Assets / History pane or preview nodes provides powerful quick actions directly on the card:
@@ -94,7 +96,9 @@ Managing multi-prompt queues and setting the exact ComfyUI batch size has never 
    - If `Custom Regex` is selected, enter any custom delimiter pattern (such as `\n---\n`). The regex field is dynamically enabled only when Custom Regex is active.
 2. **`🪐 🔄 Prompt Queue Iterator`**: Connect the `STRING` output of the Prompt Counter into the Prompt Queue Iterator to sequentially pop and execute each prompt run-by-run.
    - Now supports `Custom Regex` in addition to empty line and newline separators.
-   - Includes live progress counter widget (`Run X / Y`), an index reset button (`Reset Counter (0)`, now with a confirmation explaining that it only restarts the run pointer — it does **not** empty the queue state file; use Settings → `🔄 Reset All Queues` for a full wipe), and direct state file access (`Open Queue File`).
+   - Choose **`Text & Node`** tracking to keep independent pointers per prompt text/splitter, or **`Node Only`** to keep one pointer per node while you edit prompts.
+   - `Sequential (Stop on End)` exposes an **`exhausted`** boolean so a workflow can stop after the last prompt.
+   - Includes live progress counter widget (`Run X / Y`), an index reset button (`Reset Counter (0)`, now with a confirmation explaining that it restarts the run pointer and clears crash-recovery assignments/shuffle state — it does **not** empty the queue state file; use Settings → `🔄 Reset All Queues` for a full wipe), and direct state file access (`Open Queue File`).
 
 ---
 
@@ -115,7 +119,8 @@ Several nodes across this suite (e.g. *Load Image From Folder*, *Recent Outputs*
 Click the standard ComfyUI Settings gear ⚙️ and search for `SaturnNodes` to access the suite's configurations. Here you can:
 - Safely enter and mask API Keys for Civitai and TMDB scraping.
 - Change the colors of the Pause Queue buttons via built-in color pickers.
-- Adjust the default boot behavior for the Persistent Queue (e.g., forcing ComfyUI to always boot in a Paused state).
+- Adjust the default boot behavior for the Persistent Queue (e.g., forcing ComfyUI to always boot in a Paused state), retry limits for failed queue restores, and whether the last manual pause state survives a restart.
+- Tune the Visual Image Loader metadata scan limit, restore nested output folders, show recorded generation times on restored assets, and trigger **Restore Now** without restarting.
 - Enable the floating Live Latent dock, drag-resize the queue overlay, and hide entire nodes from the Add Node menu under **Node Management**.
 
 > **Cross-Platform Note**: All of the visual nodes, pause features, and OS notifications are fully compatible with Windows, macOS, and Linux, and seamlessly adapt to both the modern ComfyUI V2 interface and the classic LiteGraph UI!

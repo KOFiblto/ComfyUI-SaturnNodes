@@ -51,6 +51,7 @@ ComfyUI-SaturnNodes/
 │   ├── assets_restore.py      # Startup output-folder history restoration
 │   ├── auto_watcher.py        # Automated folder watch image loaders
 │   ├── decision_node.py       # Inline pause/gate decision node & notifications
+│   ├── generation_times.py    # Prompt duration recording for restored asset history
 │   ├── image_loader.py        # Visual image browser & EXIF/PNG metadata parser
 │   ├── load_recent.py         # Recent outputs loader node
 │   ├── local_runner.py        # Confined local script execution node & authorization routes
@@ -238,6 +239,7 @@ STATE_FILE = os.path.join(USER_DIR, "your_state.json")
 - `ComfyUI/user/default/SaturnNodes/.env` — API keys and persistent settings
 - `ComfyUI/user/default/SaturnNodes/lora_usage.json` — LoRA selection counts and usage badges
 - `ComfyUI/user/default/SaturnNodes/image_prompts_cache.json` — Cached positive prompts extracted from images
+- `ComfyUI/user/default/SaturnNodes/generation_times.json` — Recorded prompt durations and output filenames for restored asset history
 - `ComfyUI/user/default/SaturnNodes/failed_scrapes.json` — Failed Civitai/TMDB scraping attempts cache
 - `ComfyUI/user/default/SaturnNodes/prompt_iterator_state.json` — Current iteration pointers and popped prompt queues
 - `ComfyUI/user/default/SaturnNodes/persistent_queue.json` — Real-time queue crash recovery state
