@@ -1,9 +1,19 @@
+import atexit
 import os
+import shutil
 import sys
+import tempfile
 import types
 from unittest.mock import MagicMock
 
 SATURNNODES_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Keep every module-level state file (persistent queue, LoRA usage, caches,
+# prompt iterator state, generation times) inside a disposable test directory.
+# This is critical when ComfyUI is running concurrently: tests must never write
+# to the live ComfyUI/user/default/SaturnNodes directory.
+TEST_USER_ROOT = tempfile.mkdtemp(prefix="saturnnodes_test_user_")
+atexit.register(shutil.rmtree, TEST_USER_ROOT, ignore_errors=True)
 
 # Ensure SaturnNodes root is prioritized at the very start of sys.path
 while SATURNNODES_ROOT in sys.path:
@@ -74,6 +84,11 @@ if "folder_paths" not in sys.modules:
     fp_mock.get_full_path = MagicMock(return_value="")
     fp_mock.base_path = SATURNNODES_ROOT
     sys.modules["folder_paths"] = fp_mock
+
+# Make get_saturnnodes_user_dir() resolve to the disposable test directory,
+# whether folder_paths is the lightweight mock or the real ComfyUI module.
+import folder_paths
+folder_paths.get_user_directory = MagicMock(return_value=TEST_USER_ROOT)
 
 if "server" not in sys.modules:
     server_mock = types.ModuleType("server")

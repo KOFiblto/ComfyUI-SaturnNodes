@@ -25,6 +25,16 @@ from nodes.utils import (
 )
 
 class TestUtils(unittest.TestCase):
+    def test_user_state_is_isolated_from_live_comfyui(self):
+        from nodes.utils import get_saturnnodes_user_dir
+
+        expected_root = os.path.normpath(test_helper.TEST_USER_ROOT)
+        actual = os.path.normpath(get_saturnnodes_user_dir())
+        self.assertEqual(os.path.commonpath([expected_root, actual]), expected_root)
+        self.assertNotEqual(actual, os.path.normpath(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "..", "..", "user", "default", "SaturnNodes")))
+
     def test_is_local_request(self):
         class DummyReq:
             def __init__(self, ip):
