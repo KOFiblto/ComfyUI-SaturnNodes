@@ -4,6 +4,9 @@ import torch
 import numpy as np
 from PIL import Image, ImageOps
 import io
+import asyncio
+import hashlib
+import threading
 import piexif
 import piexif.helper
 from aiohttp import web
@@ -14,7 +17,8 @@ from .utils import (
     is_local_request,
     is_safe_path,
     sanitize_image_loader_folder,
-    get_saturnnodes_user_dir
+    get_saturnnodes_user_dir,
+    get_env_setting
 )
 
 IMAGE_CATEGORY = "🪐 SaturnNodes/Loaders"
@@ -169,35 +173,31 @@ def save_prompts_cache(cache):
     except Exception as e:
         print(f"[SaturnNodes] Failed to save prompts cache: {e}")
 
-if hasattr(PromptServer, "instance") and PromptServer.instance is not None:
-    routes = PromptServer.instance.routes
-else:
-    routes = web.RouteTableDef()
-    print("[SaturnNodes] Notice: PromptServer instance not available during image_loader import; using standalone route table.")
+_PROMPTS_CACHE_LOCK = threading.RLock()
+IMAGE_THUMBNAILS_DIR = os.path.join(USER_DIR, "cache", "image_thumbs")
 
-@routes.get("/saturnnodes/image_loader/get_images")
-async def get_images_endpoint(request):
-    if not is_local_request(request):
-        return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+def get_image_metadata_scan_limit():
+    try:
+        limit = int(get_env_setting("IMAGE_LOADER_METADATA_LIMIT", "128"))
+        return max(0, min(2000, limit))
+    except Exception:
+        return 128
 
-    folder = request.query.get("folder", "")
-    if not folder:
-        folder = request.query.get("folder_path", "")
-        
-    resolved_folder = sanitize_image_loader_folder(folder)
-    
-    if not resolved_folder or not is_safe_path(resolved_folder) or not os.path.exists(resolved_folder):
-        return web.json_response({"names": [], "mapping": {}, "prompts": {}})
-        
-    image_extensions = {".png", ".jpg", ".jpeg", ".webp", ".PNG", ".JPG", ".JPEG", ".WEBP"}
+def scan_image_folder(resolved_folder, metadata_limit=None):
+    """Scan an image folder and read prompt metadata off the event-loop thread."""
+    if metadata_limit is None:
+        metadata_limit = get_image_metadata_scan_limit()
+
+    image_extensions = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
     raw_files = []
-    
     for root, dirs, files in os.walk(resolved_folder):
         for file in files:
             ext = os.path.splitext(file)[1]
-            if ext in image_extensions:
+            if ext.lower() in image_extensions:
                 full_path = os.path.normpath(os.path.join(root, file))
-                if not is_safe_path(full_path):
+                # The folder itself was already validated by the endpoint; just
+                # enforce that walked files stay inside it.
+                if not is_safe_path(full_path, [resolved_folder]):
                     continue
                 try:
                     mtime = os.path.getmtime(full_path)
@@ -212,44 +212,102 @@ async def get_images_endpoint(request):
     names = []
     mapping = {}
     prompts = {}
-    
-    cache = load_prompts_cache()
-    cache_modified = False
-    
-    # Extract prompt metadata for the most recent 128 images to keep cache small and fast
-    METADATA_LIMIT = 128
-    
-    for i, (rel_path, full_path, mtime) in enumerate(raw_files):
-        names.append(rel_path)
-        mapping[rel_path] = rel_path
-        
-        if i < METADATA_LIMIT:
+
+    with _PROMPTS_CACHE_LOCK:
+        cache = load_prompts_cache()
+        cache_modified = False
+
+        for i, (rel_path, full_path, mtime) in enumerate(raw_files):
+            names.append(rel_path)
+            mapping[rel_path] = rel_path
+
+            if i < metadata_limit:
+                try:
+                    cached_entry = cache.get(full_path)
+                    if cached_entry and cached_entry.get("mtime") == mtime:
+                        prompt_text = cached_entry.get("prompt", "")
+                        cache[full_path] = cache.pop(full_path)
+                    else:
+                        prompt_text, _, _ = extract_metadata_from_image(full_path)
+                        cache[full_path] = {
+                            "mtime": mtime,
+                            "prompt": prompt_text
+                        }
+                        cache_modified = True
+                except Exception:
+                    prompt_text = ""
+                prompts[rel_path] = prompt_text
+            else:
+                prompts[rel_path] = ""
+
+        # Prune cache to maximum 256 entries
+        if len(cache) > 256:
+            cache_keys = list(cache.keys())[-256:]
+            cache = {k: cache[k] for k in cache_keys}
+            cache_modified = True
+
+        if cache_modified:
+            save_prompts_cache(cache)
+
+    return names, mapping, prompts
+
+def get_or_create_image_thumbnail(img_path, mtime, max_size=256):
+    """Disk-cached WebP thumbnails for the visual image loader."""
+    try:
+        max_size = max(64, min(1024, int(max_size)))
+        cache_key = hashlib.md5(
+            f"{os.path.normcase(os.path.abspath(img_path))}_{mtime}_{max_size}".encode("utf-8")
+        ).hexdigest()
+        thumb_path = os.path.join(IMAGE_THUMBNAILS_DIR, f"thumb_{cache_key}.webp")
+        if os.path.exists(thumb_path) and os.path.getsize(thumb_path) > 0:
+            return thumb_path
+
+        with Image.open(img_path) as img:
+            img = ImageOps.exif_transpose(img)
+            if img.width <= max_size and img.height <= max_size:
+                return img_path
+            img = img.convert("RGB")
+            img.thumbnail((max_size, max_size), Image.Resampling.BICUBIC)
+            os.makedirs(IMAGE_THUMBNAILS_DIR, exist_ok=True)
+            # Unique temp names keep concurrent requests for the same image from
+            # overwriting each other's half-written WebP file.
+            temp_path = thumb_path + f".{threading.get_ident()}.tmp"
             try:
-                cached_entry = cache.get(full_path)
-                if cached_entry and cached_entry.get("mtime") == mtime:
-                    prompt_text = cached_entry.get("prompt", "")
-                    cache[full_path] = cache.pop(full_path)
-                else:
-                    prompt_text, _, _ = extract_metadata_from_image(full_path)
-                    cache[full_path] = {
-                        "mtime": mtime,
-                        "prompt": prompt_text
-                    }
-                    cache_modified = True
-            except Exception as e:
-                prompt_text = ""
-            prompts[rel_path] = prompt_text
-        else:
-            prompts[rel_path] = ""
+                img.save(temp_path, format="WEBP", quality=82, method=1)
+                os.replace(temp_path, thumb_path)
+            finally:
+                if os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                    except OSError:
+                        pass
+        return thumb_path
+    except Exception:
+        return img_path
 
-    # Prune cache to maximum 256 entries
-    if len(cache) > 256:
-        cache_keys = list(cache.keys())[-256:]
-        cache = {k: cache[k] for k in cache_keys}
-        cache_modified = True
+if hasattr(PromptServer, "instance") and PromptServer.instance is not None:
+    routes = PromptServer.instance.routes
+else:
+    routes = web.RouteTableDef()
+    print("[SaturnNodes] Notice: PromptServer instance not available during image_loader import; using standalone route table.")
 
-    if cache_modified:
-        save_prompts_cache(cache)
+@routes.get("/saturnnodes/image_loader/get_images")
+async def get_images_endpoint(request):
+    if not is_local_request(request):
+        return web.json_response({"error": "Forbidden: Local access only"}, status=403)
+
+    folder = request.query.get("folder", "")
+    if not folder:
+        folder = request.query.get("folder_path", "")
+
+    resolved_folder = sanitize_image_loader_folder(folder)
+
+    if not resolved_folder or not is_safe_path(resolved_folder) or not os.path.exists(resolved_folder):
+        return web.json_response({"names": [], "mapping": {}, "prompts": {}})
+
+    # Folder walks and metadata parsing are blocking disk I/O; keep them off
+    # ComfyUI's asyncio event loop.
+    names, mapping, prompts = await asyncio.to_thread(scan_image_folder, resolved_folder)
 
     return web.json_response({
         "names": names,
@@ -266,25 +324,29 @@ async def get_thumbnail_endpoint(request):
     if not folder:
         folder = request.query.get("folder_path", "")
     resolved_folder = sanitize_image_loader_folder(folder)
-    
+
     image_rel = request.query.get("image", "")
     if not image_rel:
         return web.Response(status=400)
-        
+
     full_path = os.path.normpath(os.path.join(resolved_folder, image_rel))
-    if not is_safe_path(full_path) or not os.path.exists(full_path) or not os.path.isfile(full_path):
+    if not is_safe_path(full_path, [resolved_folder]) or not os.path.exists(full_path) or not os.path.isfile(full_path):
         return web.Response(status=404)
 
     image_extensions = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
     if os.path.splitext(full_path)[1].lower() not in image_extensions:
         return web.Response(status=403)
-        
+
     try:
-        with Image.open(full_path) as img:
-            img.thumbnail((256, 256))
-            img_byte_arr = io.BytesIO()
-            img.convert("RGB").save(img_byte_arr, format='JPEG', quality=80)
-            return web.Response(body=img_byte_arr.getvalue(), content_type="image/jpeg")
+        thumb_size = int(request.query.get("size", 256))
+    except Exception:
+        thumb_size = 256
+    thumb_size = max(64, min(1024, thumb_size))
+
+    try:
+        mtime = os.path.getmtime(full_path)
+        serve_path = await asyncio.to_thread(get_or_create_image_thumbnail, full_path, mtime, thumb_size)
+        return web.FileResponse(serve_path)
     except Exception:
         return web.FileResponse(full_path)
 
@@ -297,13 +359,13 @@ async def get_full_image_endpoint(request):
     if not folder:
         folder = request.query.get("folder_path", "")
     resolved_folder = sanitize_image_loader_folder(folder)
-    
+
     image_rel = request.query.get("image", "")
     if not image_rel:
         return web.Response(status=400)
-        
+
     full_path = os.path.normpath(os.path.join(resolved_folder, image_rel))
-    if not is_safe_path(full_path) or not os.path.exists(full_path) or not os.path.isfile(full_path):
+    if not is_safe_path(full_path, [resolved_folder]) or not os.path.exists(full_path) or not os.path.isfile(full_path):
         return web.Response(status=404)
 
     image_extensions = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
