@@ -3,12 +3,14 @@ import sys
 import unittest
 import json
 import tempfile
+import threading
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_helper
 
-from nodes.queue_control import PersistentQueueManager
+from nodes.queue_control import PersistentQueueManager, PauseQueueManager
+import nodes.queue_control as queue_control
 
 # 36 Colors matching web/batch_queue.js
 BATCH_COLORS = [
@@ -162,6 +164,7 @@ class TestPersistentQueueBatchMetadata(unittest.TestCase):
         # Add item to persistent queue
         item_tuple = (0, "prompt_99", {"prompt": {}}, {}, {})
         mgr.add_item(item_tuple)
+        mgr.flush()
 
         # Verify batch_info is attached inside persistent_items
         saved_entry = [x for x in mgr.persistent_items if x["prompt_id"] == "prompt_99"][0]
@@ -179,6 +182,7 @@ class TestPersistentQueueBatchMetadata(unittest.TestCase):
         self.assertIn("p1", mgr.batch_meta)
 
         mgr.remove_item("p1")
+        mgr.flush()
         self.assertNotIn("p1", mgr.batch_meta)
         self.assertEqual(len(mgr.persistent_items), 0)
 
@@ -189,6 +193,138 @@ class TestPersistentQueueBatchMetadata(unittest.TestCase):
         mgr.wipe_all()
         self.assertEqual(len(mgr.batch_meta), 0)
         self.assertEqual(len(mgr.persistent_items), 0)
+
+
+class TestPersistentQueueHardening(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.temp_file = os.path.join(self.temp_dir.name, "test_persistent_queue.json")
+        self.patch_file = patch("nodes.queue_control.PERSISTENT_FILE", self.temp_file)
+        self.patch_user = patch("nodes.queue_control.USER_DIR", self.temp_dir.name)
+        self.patch_enabled = patch("nodes.queue_control.is_persistent_queue_enabled", return_value=True)
+        self.patch_file.start()
+        self.patch_user.start()
+        self.patch_enabled.start()
+
+    def tearDown(self):
+        self.patch_enabled.stop()
+        self.patch_user.stop()
+        self.patch_file.stop()
+        self.temp_dir.cleanup()
+
+    def test_finished_prompt_cannot_be_resynced(self):
+        mgr = PersistentQueueManager()
+        mgr.set_batch_info("p1", {"batchId": "b1"})
+        mgr.add_item((0, "p1", {}, {}, {}))
+        mgr.remove_item("p1")
+
+        # A late /saturnnodes/batch_queue/sync from another client must not
+        # resurrect metadata for a prompt that already finished.
+        mgr.set_batch_info("p1", {"batchId": "b1"})
+        self.assertNotIn("p1", mgr.batch_meta)
+
+    def test_batch_meta_is_capped_keeping_recent_entries(self):
+        mgr = PersistentQueueManager()
+        mgr.MAX_BATCH_META = 3
+        with patch("nodes.queue_control.time.time", side_effect=[1, 2, 3, 4, 5]):
+            for i in range(5):
+                mgr.set_batch_info(f"p{i}", {"batchId": f"b{i}"})
+
+        self.assertEqual(len(mgr.batch_meta), 3)
+        self.assertNotIn("p0", mgr.batch_meta)
+        self.assertNotIn("p1", mgr.batch_meta)
+        self.assertIn("p2", mgr.batch_meta)
+        self.assertIn("p4", mgr.batch_meta)
+
+    def test_saves_are_debounced_compact_and_flushable(self):
+        mgr = PersistentQueueManager()
+        mgr.add_item((0, "p1", {"prompt": {}}, {}, {}))
+        # The first write is deliberately deferred; memory is authoritative.
+        self.assertTrue(mgr._save_dirty)
+        mgr.flush()
+
+        self.assertFalse(mgr._save_dirty)
+        self.assertTrue(os.path.exists(self.temp_file))
+        with open(self.temp_file, "r", encoding="utf-8") as f:
+            raw = f.read()
+        # Compact JSON (no indentation/newlines) keeps the file small.
+        self.assertNotIn("\n", raw)
+        self.assertEqual(json.loads(raw)[0]["prompt_id"], "p1")
+        self.assertFalse(os.path.exists(self.temp_file + ".tmp"))
+
+    def test_restore_retry_setting_keeps_then_drops_failed_prompts(self):
+        mgr = PersistentQueueManager()
+        mgr.persistent_items = [{
+            "prompt_id": "p1",
+            "item": [0, "p1", {"prompt": {}}, {}],
+            "retries": 0,
+        }]
+
+        server = MagicMock()
+        server.prompt_queue.get_history.return_value = {}
+        server.prompt_queue.put.side_effect = RuntimeError("queue unavailable")
+        server.number = 0
+
+        def fake_setting(key, default):
+            return "1" if key == "PERSISTENT_QUEUE_MAX_RETRIES" else default
+
+        with patch("nodes.queue_control.PromptServer.instance", server), \
+             patch("nodes.queue_control.get_env_setting", side_effect=fake_setting):
+            mgr.restore_queue("test-client")
+            self.assertEqual(len(mgr.persistent_items), 1)
+            self.assertEqual(mgr.persistent_items[0]["retries"], 1)
+
+            mgr.has_claimed_once = False
+            mgr.restore_queue("test-client")
+            self.assertEqual(len(mgr.persistent_items), 0)
+            self.assertIn("p1", mgr.recently_finished)
+
+    def test_pause_state_persists_when_enabled(self):
+        def fake_setting(key, default):
+            if key == "PERSIST_PAUSE_STATE":
+                return "true"
+            return default
+
+        with patch("nodes.queue_control.get_env_setting", side_effect=fake_setting):
+            first = PauseQueueManager()
+            first.set_pause(True, "instantly")
+            second = PauseQueueManager()
+
+        self.assertTrue(second.paused)
+        self.assertEqual(second.mode, "instantly")
+        self.assertEqual(second.is_waiting, True)
+
+
+class TestPauseQueuePatchedGet(unittest.TestCase):
+    def test_finite_timeout_returns_instead_of_busy_spinning(self):
+        class FakeQueue:
+            def __init__(self):
+                self.currently_running = {}
+                self.mutex = threading.RLock()
+                self.calls = 0
+                self.last_timeout = object()
+
+            def get(self, timeout=None):
+                self.calls += 1
+                self.last_timeout = timeout
+                return None
+
+        queue = FakeQueue()
+        server = MagicMock()
+        server.prompt_queue = queue
+
+        def fake_setting(key, default):
+            return default
+
+        with patch("nodes.queue_control.get_env_setting", side_effect=fake_setting), \
+             patch.object(queue_control.PromptServer, "instance", server):
+            manager = PauseQueueManager()
+            manager.patch_all()
+            # ComfyUI main.py calls get(timeout=0.0) when a GC pass is due.
+            # The wrapper must return immediately (not spin forever).
+            self.assertIsNone(queue.get(timeout=0.0))
+            self.assertEqual(queue.calls, 1)
+            self.assertEqual(queue.last_timeout, 0.0)
 
 
 if __name__ == "__main__":

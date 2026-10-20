@@ -358,6 +358,16 @@ async function updateQueueBatchVisuals() {
         if (pid) elMap.set(pid, el);
     }
 
+    // Group visible prompts by batch once (O(n)) instead of filtering the whole
+    // visible list for every rendered card (O(n²)).
+    const batchGroups = new Map();
+    for (const pid of visiblePromptIds) {
+        const info = batchRegistry.get(pid);
+        if (!info || !info.batchId) continue;
+        if (!batchGroups.has(info.batchId)) batchGroups.set(info.batchId, []);
+        batchGroups.get(info.batchId).push(pid);
+    }
+
     // For every prompt on screen, calculate segment type based on visual screen order:
     // - Top-most card on screen for Batch A curves at the top (┌)
     // - Bottom-most card on screen for Batch A curves at the bottom (└)
@@ -376,11 +386,8 @@ async function updateQueueBatchVisuals() {
         const batchId = info.batchId;
         const color = info.color || BATCH_COLORS[0];
 
-        // Find all visible items of this batch in top-to-bottom visual order
-        const occurrencesOnScreen = visiblePromptIds.filter(p => {
-            const b = batchRegistry.get(p);
-            return b && b.batchId === batchId;
-        });
+        // All visible items of this batch in top-to-bottom visual order
+        const occurrencesOnScreen = batchGroups.get(batchId) || [];
 
         if (occurrencesOnScreen.length <= 1) {
             // Only 1 item of this batch currently visible on screen
@@ -449,11 +456,17 @@ function setupQueueHooks() {
         api.queuePrompt = async function(number, prompt, targets) {
             let promptToSend = prompt;
 
+            // Reserve the item index before the request is sent; concurrent
+            // submissions must not race on the post-response queue length.
+            if (!activeBatchContext) {
+                activeBatchContext = getNextBatch(1);
+            }
+            const itemIndex = activeBatchContext.prompts.length;
+
             // Batch Graph Snapshot Guard:
             // When queueing a batch with batchCount > 1, snapshot on iteration 0 in the background
             // so canvas edits (text, LoRA selection, widgets) don't bleed into subsequent items.
             if (isSnapshotGuardEnabled() && activeBatchContext && activeBatchContext.batchCount > 1) {
-                const itemIndex = activeBatchContext.prompts.length;
                 if (itemIndex === 0) {
                     try {
                         activeBatchContext.snapshotPrompt = JSON.parse(JSON.stringify(prompt));
@@ -465,14 +478,17 @@ function setupQueueHooks() {
                 }
             }
 
-            const res = await origApiQueuePrompt(number, promptToSend, targets);
+            let res;
+            try {
+                res = await origApiQueuePrompt(number, promptToSend, targets);
+            } catch (e) {
+                if (activeBatchContext && activeBatchContext.prompts.length === 0) {
+                    activeBatchContext = null;
+                }
+                throw e;
+            }
             if (res && res.prompt_id) {
                 const pid = String(res.prompt_id);
-                if (!activeBatchContext) {
-                    activeBatchContext = getNextBatch(1);
-                }
-
-                const itemIndex = activeBatchContext.prompts.length;
                 const batchInfo = {
                     prompt_id: pid,
                     batchId: activeBatchContext.batchId,

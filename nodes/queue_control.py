@@ -4,30 +4,20 @@ import secrets
 import time
 import threading
 import asyncio
+import atexit
 from aiohttp import web
 from server import PromptServer
 import nodes
 from .tray_icon import TrayIconManager, is_tray_icon_enabled
 from .assets_restore import assets_restore_manager, is_assets_restore_enabled, get_assets_restore_count
-from .utils import get_saturnnodes_user_dir, is_local_request, is_authenticated_local_request
+from .generation_times import patch_prompt_queue as patch_generation_times
+from .utils import get_saturnnodes_user_dir, is_local_request, is_authenticated_local_request, get_env_setting
 
 QUEUE_CATEGORY = "🪐 SaturnNodes/Queue"
 
 CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 USER_DIR = get_saturnnodes_user_dir()
 PERSISTENT_FILE = os.path.join(USER_DIR, "persistent_queue.json")
-ENV_FILE = os.path.join(USER_DIR, ".env")
-
-def get_env_setting(key, default_val):
-    if os.path.exists(ENV_FILE):
-        try:
-            with open(ENV_FILE, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip().startswith(f"{key}="):
-                        return line.strip().split("=", 1)[1].strip()
-        except Exception:
-            pass
-    return default_val
 
 def is_persistent_queue_enabled():
     val = get_env_setting("ENABLE_PERSISTENT_QUEUE", "true").lower()
@@ -41,9 +31,25 @@ class PauseQueueManager:
     def __init__(self):
         default_state = get_env_setting("DEFAULT_PAUSE_STATE", "Running")
         default_mode = get_env_setting("DEFAULT_PAUSE_MODE", "after_finish")
-        
-        self.paused = (default_state.lower() != "running")
-        self.mode = "instantly" if "instant" in default_mode.lower() else "after_finish"
+        self.persist_state = get_env_setting("PERSIST_PAUSE_STATE", "false").lower() in ["true", "1", "yes"]
+        self.state_file = os.path.join(USER_DIR, "pause_state.json")
+
+        paused = (default_state.lower() != "running")
+        mode = "instantly" if "instant" in default_mode.lower() else "after_finish"
+
+        if self.persist_state and os.path.exists(self.state_file):
+            try:
+                with open(self.state_file, "r", encoding="utf-8") as f:
+                    saved = json.load(f)
+                if isinstance(saved, dict):
+                    paused = bool(saved.get("paused", paused))
+                    saved_mode = str(saved.get("mode", mode))
+                    mode = "instantly" if "instant" in saved_mode.lower() else "after_finish"
+            except Exception:
+                pass
+
+        self.paused = paused
+        self.mode = mode
         self.is_waiting = self.paused
         self.event = threading.Event()
         if not self.paused:
@@ -51,6 +57,18 @@ class PauseQueueManager:
         else:
             self.event.clear()
         self._patched = False
+
+    def _persist_pause_state(self):
+        if not self.persist_state:
+            return
+        try:
+            os.makedirs(USER_DIR, exist_ok=True)
+            temp_file = self.state_file + ".tmp"
+            with open(temp_file, "w", encoding="utf-8") as f:
+                json.dump({"paused": bool(self.paused), "mode": self.mode}, f)
+            os.replace(temp_file, self.state_file)
+        except Exception:
+            pass
 
     def patch_all(self):
         if self._patched:
@@ -68,6 +86,8 @@ class PauseQueueManager:
         original_get = queue.get
 
         def patched_get(*args, **kwargs):
+            caller_timeout = args[0] if args else kwargs.get("timeout", None)
+            caller_blocks = caller_timeout is None
             while True:
                 # 1. If queue is paused, wait BEFORE popping any item from the queue!
                 # This guarantees that ComfyUI never sets currently_running, never sends
@@ -99,6 +119,14 @@ class PauseQueueManager:
                 if item is not None:
                     return item
 
+                # Honor a finite caller timeout. Returning None lets ComfyUI's main
+                # loop run its scheduled GC pass and avoids a busy spin when a
+                # timeout of 0.0 is requested.
+                if self.paused:
+                    continue
+                if not caller_blocks:
+                    return None
+
         queue.get = patched_get
 
         if hasattr(server, "send_sync") and callable(server.send_sync):
@@ -120,6 +148,7 @@ class PauseQueueManager:
                                     self.paused = False
                                     self.is_waiting = False
                                     self.event.set()
+                                    self._persist_pause_state()
                                     self.notify_clients()
                                     if hasattr(mm, "throw_exception_if_processing_interrupted"):
                                         mm.throw_exception_if_processing_interrupted()
@@ -178,6 +207,7 @@ class PauseQueueManager:
             print("[SaturnNodes PauseQueue] Continue pressed: Resuming execution.")
 
         self.notify_clients()
+        self._persist_pause_state()
 
         try:
             server = getattr(PromptServer, "instance", None)
@@ -205,6 +235,7 @@ class PauseQueueManager:
     def set_mode(self, mode):
         self.mode = mode
         print(f"[SaturnNodes PauseQueue] Selected pause mode: '{self.mode}'")
+        self._persist_pause_state()
         self.notify_clients()
 
     def notify_clients(self):
@@ -224,13 +255,21 @@ class PauseQueueManager:
             pass
 
 class PersistentQueueManager:
+    MAX_BATCH_META = 500
+    MAX_RECENTLY_FINISHED = 500
+    SAVE_DEBOUNCE_SECONDS = 0.25
+
     def __init__(self):
         self.lock = threading.RLock()
         self.persistent_items = []
         self.batch_meta = {}
+        self.batch_meta_updated = {}
+        self.recently_finished = {}
         self.is_restoring = False
         self._patched = False
         self.has_claimed_once = False
+        self._save_timer = None
+        self._save_dirty = False
         self.load_from_file()
 
     def load_from_file(self):
@@ -246,7 +285,9 @@ class PersistentQueueManager:
                             ]
                             for x in self.persistent_items:
                                 if "batch_info" in x and "prompt_id" in x:
-                                    self.batch_meta[str(x["prompt_id"])] = x["batch_info"]
+                                    pid = str(x["prompt_id"])
+                                    self.batch_meta[pid] = x["batch_info"]
+                                    self.batch_meta_updated[pid] = time.time()
                         else:
                             self.persistent_items = []
                 except Exception as e:
@@ -254,31 +295,93 @@ class PersistentQueueManager:
                     self.persistent_items = []
             else:
                 self.persistent_items = []
+            self._prune_batch_meta_locked()
+
+    def _prune_batch_meta_locked(self):
+        if len(self.batch_meta) <= self.MAX_BATCH_META:
+            return
+        active_ids = {str(x.get("prompt_id")) for x in self.persistent_items}
+        removable = sorted(
+            (pid for pid in self.batch_meta if pid not in active_ids),
+            key=lambda pid: self.batch_meta_updated.get(pid, 0),
+        )
+        for pid in removable:
+            if len(self.batch_meta) <= self.MAX_BATCH_META:
+                break
+            self.batch_meta.pop(pid, None)
+            self.batch_meta_updated.pop(pid, None)
+
+    def _mark_finished_locked(self, pid_str):
+        self.recently_finished.pop(pid_str, None)
+        self.recently_finished[pid_str] = time.time()
+        while len(self.recently_finished) > self.MAX_RECENTLY_FINISHED:
+            self.recently_finished.pop(next(iter(self.recently_finished)))
 
     def set_batch_info(self, prompt_id, batch_info):
         if not prompt_id:
             return
         pid_str = str(prompt_id)
         with self.lock:
+            # Late syncs from another client must not resurrect metadata for a
+            # prompt that already finished (the id is single-use).
+            if pid_str in self.recently_finished:
+                return
             self.batch_meta[pid_str] = batch_info
+            self.batch_meta_updated[pid_str] = time.time()
             for item in self.persistent_items:
                 if str(item.get("prompt_id")) == pid_str:
                     item["batch_info"] = batch_info
                     break
+            self._prune_batch_meta_locked()
         if is_persistent_queue_enabled():
             self.save_to_file()
 
-    def save_to_file(self):
+    def save_to_file(self, immediate=False):
         if not is_persistent_queue_enabled():
             return
         with self.lock:
-            try:
-                temp_file = PERSISTENT_FILE + ".tmp"
-                with open(temp_file, "w", encoding="utf-8") as f:
-                    json.dump(self.persistent_items, f, indent=2, default=str)
-                os.replace(temp_file, PERSISTENT_FILE)
-            except Exception as e:
-                print(f"[SaturnNodes PersistentQueue] Error saving persistent queue file: {e}")
+            self._save_dirty = True
+            if immediate:
+                self._write_locked()
+            else:
+                self._schedule_save_locked()
+
+    def _schedule_save_locked(self):
+        if self._save_timer is not None and self._save_timer.is_alive():
+            return
+        self._save_timer = threading.Timer(self.SAVE_DEBOUNCE_SECONDS, self._flush_timer)
+        self._save_timer.daemon = True
+        self._save_timer.start()
+
+    def _flush_timer(self):
+        with self.lock:
+            self._write_locked()
+
+    def _write_locked(self):
+        if not self._save_dirty:
+            return
+        if not is_persistent_queue_enabled():
+            self._save_dirty = False
+            return
+        try:
+            os.makedirs(USER_DIR, exist_ok=True)
+            temp_file = PERSISTENT_FILE + ".tmp"
+            with open(temp_file, "w", encoding="utf-8") as f:
+                json.dump(self.persistent_items, f, separators=(",", ":"), default=str)
+                f.flush()
+                try:
+                    os.fsync(f.fileno())
+                except OSError:
+                    pass
+            os.replace(temp_file, PERSISTENT_FILE)
+            self._save_dirty = False
+        except Exception as e:
+            print(f"[SaturnNodes PersistentQueue] Error saving persistent queue file: {e}")
+
+    def flush(self):
+        """Force any pending debounced write (used on shutdown)."""
+        with self.lock:
+            self._write_locked()
 
     def add_item(self, item_tuple):
         if self.is_restoring or not is_persistent_queue_enabled():
@@ -297,6 +400,7 @@ class PersistentQueueManager:
                 if pid_str in self.batch_meta:
                     entry["batch_info"] = self.batch_meta[pid_str]
                 with self.lock:
+                    self.recently_finished.pop(pid_str, None)
                     self.persistent_items = [x for x in self.persistent_items if str(x.get("prompt_id")) != pid_str]
                     self.persistent_items.append(entry)
                 self.save_to_file()
@@ -312,6 +416,8 @@ class PersistentQueueManager:
             initial_count = len(self.persistent_items)
             self.persistent_items = [x for x in self.persistent_items if str(x.get("prompt_id")) != pid_str]
             self.batch_meta.pop(pid_str, None)
+            self.batch_meta_updated.pop(pid_str, None)
+            self._mark_finished_locked(pid_str)
             changed = len(self.persistent_items) != initial_count
         if changed and is_persistent_queue_enabled():
             self.save_to_file()
@@ -321,8 +427,9 @@ class PersistentQueueManager:
         with self.lock:
             self.persistent_items = []
             self.batch_meta = {}
+            self.batch_meta_updated = {}
         if is_persistent_queue_enabled():
-            self.save_to_file()
+            self.save_to_file(immediate=True)
         print("[SaturnNodes PersistentQueue] Cleared all saved queue items.")
 
     def patch_server(self):
@@ -431,6 +538,11 @@ class PersistentQueueManager:
             pause_manager.set_pause(False)
 
         print(f"[SaturnNodes PersistentQueue] Restoring {len(self.persistent_items)} saved queue item(s) to client '{active_client_id}'...")
+        try:
+            max_retries = int(get_env_setting("PERSISTENT_QUEUE_MAX_RETRIES", "0"))
+        except (TypeError, ValueError):
+            max_retries = 0
+        max_retries = max(0, min(10, max_retries))
         self.is_restoring = True
         max_number = 0
         restored_count = 0
@@ -461,9 +573,19 @@ class PersistentQueueManager:
                         max_number = max(max_number, int(item_list[0]))
 
                     server.prompt_queue.put(tuple(item_list))
+                    entry["retries"] = 0
                     restored_count += 1
                 except Exception as e:
-                    print(f"[SaturnNodes PersistentQueue] Error restoring prompt {entry.get('prompt_id')}: {e}")
+                    pid = entry.get("prompt_id")
+                    retries = int(entry.get("retries", 0)) + 1
+                    if retries > max_retries:
+                        print(f"[SaturnNodes PersistentQueue] Error restoring prompt {pid}: {e}. Dropping after {retries} attempt(s).")
+                        if pid:
+                            self.remove_item(pid)
+                    else:
+                        print(f"[SaturnNodes PersistentQueue] Error restoring prompt {pid}: {e}. Retry {retries}/{max_retries} on next launch.")
+                        entry["retries"] = retries
+                        self.save_to_file(immediate=True)
         finally:
             self.is_restoring = False
             self.has_claimed_once = True
@@ -479,7 +601,7 @@ class PersistentQueueManager:
                     if isinstance(entry.get("item"), list) and len(entry["item"]) > 3:
                         if isinstance(entry["item"][3], dict):
                             entry["item"][3]["client_id"] = active_client_id
-                self.save_to_file()
+                self.save_to_file(immediate=True)
 
         # Broadcast updated queue state to client UI
         try:
@@ -670,12 +792,14 @@ def _consume_power_ticket(ticket, expected_action=None):
 pause_manager = PauseQueueManager()
 persistent_manager = PersistentQueueManager()
 persistent_queue_manager = persistent_manager
+atexit.register(persistent_manager.flush)
 tray_manager = TrayIconManager(pause_manager)
 power_manager = PowerControlManager(pause_manager)
 
 def setup_queue_control_routes(server):
     pause_manager.patch_all()
     persistent_manager.patch_server()
+    patch_generation_times(server)
     power_manager.start_watcher()
 
     if is_tray_icon_enabled():
@@ -805,8 +929,17 @@ def setup_queue_control_routes(server):
         except Exception:
             data = {}
         limit = data.get("limit")
+        if limit is not None:
+            try:
+                limit = max(1, min(1000, int(limit)))
+            except (TypeError, ValueError):
+                limit = None
         force = bool(data.get("force", False))
-        count = assets_restore_manager.restore_on_launch(server, limit=limit, force=force)
+        # Scanning the output tree and parsing metadata is blocking disk I/O;
+        # keep the aiohttp event loop responsive for the Restore Now button.
+        count = await asyncio.to_thread(
+            assets_restore_manager.restore_on_launch, server, limit=limit, force=force
+        )
         return web.json_response({"success": True, "restored": count, "debug": assets_restore_manager.last_debug_report})
 
     @routes.get("/saturnnodes/assets/debug")
