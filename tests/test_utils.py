@@ -1,6 +1,10 @@
 import os
 import sys
+import time
+import shutil
+import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_helper
@@ -15,7 +19,9 @@ from nodes.utils import (
     sanitize_image_loader_folder,
     get_csrf_token,
     is_same_origin_or_direct,
-    is_authenticated_local_request
+    is_authenticated_local_request,
+    get_env_setting,
+    invalidate_env_settings_cache
 )
 
 class TestUtils(unittest.TestCase):
@@ -203,6 +209,37 @@ class TestUtils(unittest.TestCase):
             res_norm = os.path.abspath(os.path.realpath(res))
             is_confined = (os.path.commonpath([inp, res_norm]) == inp) or (os.path.commonpath([out, res_norm]) == out)
             self.assertTrue(is_confined, f"Image folder '{bad}' escaped confinement: '{res_norm}'")
+
+    def test_get_env_setting_cache_and_invalidation(self):
+        temp_dir = tempfile.mkdtemp()
+        env_file = os.path.join(temp_dir, ".env")
+        try:
+            with open(env_file, "w", encoding="utf-8") as f:
+                f.write("# comment\nA=1\nB=\nMALFORMED_LINE\nC=hello world\n")
+
+            with patch("nodes.utils.get_saturnnodes_user_dir", return_value=temp_dir):
+                invalidate_env_settings_cache()
+                self.assertEqual(get_env_setting("A", "fallback"), "1")
+                self.assertEqual(get_env_setting("B", "fallback"), "")
+                self.assertEqual(get_env_setting("C", "fallback"), "hello world")
+                self.assertEqual(get_env_setting("MISSING", "fallback"), "fallback")
+
+                # Cached value is returned until mtime changes.
+                with open(env_file, "w", encoding="utf-8") as f:
+                    f.write("A=2\n")
+                future = time.time() + 5
+                os.utime(env_file, (future, future))
+                self.assertEqual(get_env_setting("A", "fallback"), "2")
+                self.assertEqual(get_env_setting("B", "fallback"), "fallback")
+
+                # Explicit invalidation forces a re-read even with a forced mtime.
+                with open(env_file, "w", encoding="utf-8") as f:
+                    f.write("A=3\n")
+                invalidate_env_settings_cache()
+                self.assertEqual(get_env_setting("A", "fallback"), "3")
+        finally:
+            invalidate_env_settings_cache()
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
 if __name__ == "__main__":
     unittest.main()

@@ -15,6 +15,55 @@ async function postSaturnNodesSettings(bodyObj) {
     }
 }
 
+let _backendSettings = null;
+const BACKEND_SETTING_MAP = {
+    "SaturnNodes.🖼️ Visual Loaders.01_CivitaiApiKey": "civitai_api_key",
+    "SaturnNodes.🖼️ Visual Loaders.02_EnableCivitaiScraping": "enable_civitai_scraping",
+    "SaturnNodes.🖼️ Visual Loaders.03_TMDBApiKey": "tmdb_api_key",
+    "SaturnNodes.🖼️ Visual Loaders.04_EnableTMDBScraping": "enable_tmdb_scraping",
+    "SaturnNodes.🖼️ Visual Loaders.05_EnableLoraUsage": "enable_lora_usage",
+    "SaturnNodes.🖼️ Visual Loaders.08_ImageMetadataScanLimit": "image_loader_metadata_limit",
+    "SaturnNodes.⏸️ Pause Controls.01_DefaultStateOnLaunch": "default_pause_state",
+    "SaturnNodes.⏸️ Pause Controls.02_DefaultPauseAction": "default_pause_mode",
+    "SaturnNodes.⏸️ Pause Controls.02b_PersistPauseState": "persist_pause_state",
+    "SaturnNodes.⏸️ Pause Controls.06_EnableTrayIcon": "enable_tray_icon",
+    "SaturnNodes.⏸️ Pause Controls.07_AllowProcessManagement": "enable_process_management",
+    "SaturnNodes.🔄 Prompt Iterator.01_ClearOnLaunch": "clear_prompt_iterator_on_launch",
+    "SaturnNodes.💾 Persistent Queue.01_EnablePersistentQueue": "enable_persistent_queue",
+    "SaturnNodes.💾 Persistent Queue.02_RecoveryLaunchState": "persistent_queue_restored_state",
+    "SaturnNodes.💾 Persistent Queue.03_MaxRestoreRetries": "persistent_queue_max_retries",
+    "SaturnNodes.🖼️ Assets Restore.01_RestoreAssetsOnLaunch": "enable_assets_restore",
+    "SaturnNodes.🖼️ Assets Restore.02_RestoredAssetsCount": "restore_assets_count",
+    "SaturnNodes.🖼️ Assets Restore.03_RestoreAssetsRecursive": "restore_assets_recursive",
+    "SaturnNodes.🖼️ Assets Restore.04_ShowRestoredGenerationTime": "show_restored_generation_time",
+    "SaturnNodes.🛡️ Security.01_AllowLocalFileExecution": "enable_local_file_execution"
+};
+
+async function fetchBackendSettings() {
+    try {
+        const res = await authenticatedFetch("/saturnnodes/settings");
+        if (res && res.ok) {
+            _backendSettings = await res.json();
+        }
+    } catch (e) {
+        console.warn("[SaturnNodes Settings] Failed to load backend .env settings:", e);
+    }
+}
+
+function getBackendInitialSetting(saturnId) {
+    if (!_backendSettings) return undefined;
+    const backendKey = BACKEND_SETTING_MAP[saturnId];
+    if (!backendKey || !(backendKey in _backendSettings)) return undefined;
+    const value = _backendSettings[backendKey];
+    if (backendKey === "default_pause_state") {
+        return String(value).toLowerCase() === "paused" ? "Paused" : "Running";
+    }
+    if (backendKey === "default_pause_mode") {
+        return String(value).toLowerCase().includes("instant") ? "Instant Resume Node" : "Finish Active Prompt";
+    }
+    return value;
+}
+
 let _disabledNodesCache = null;
 let _nodesInfoCache = null;
 async function fetchDisabledNodes() {
@@ -716,7 +765,12 @@ function renderSettingButton(label, workingText, successText, onClickHandler) {
 }
 
 function getInitialSetting(saturnId, defaultVal) {
-    // 1. Check ComfyUI settings API (getSettingValue / get)
+    // 1. The backend .env is the source of truth when it defines the value;
+    //    this keeps the settings UI and the server in sync after manual edits.
+    const backendValue = getBackendInitialSetting(saturnId);
+    if (backendValue !== undefined && backendValue !== null) return backendValue;
+
+    // 2. Check ComfyUI settings API (getSettingValue / get)
     if (typeof app.ui?.settings?.getSettingValue === "function") {
         try {
             const val = app.ui.settings.getSettingValue(saturnId);
@@ -730,7 +784,7 @@ function getInitialSetting(saturnId, defaultVal) {
         } catch (_) {}
     }
 
-    // 2. Check localStorage
+    // 3. Check localStorage
     if (typeof localStorage !== "undefined") {
         const val = localStorage.getItem(`Comfy.Settings.${saturnId}`);
         if (val !== null && val !== undefined) {
@@ -743,6 +797,9 @@ function getInitialSetting(saturnId, defaultVal) {
 app.registerExtension({
     name: "ComfyUI.SaturnNodes.Settings",
     async setup() {
+        // Load .env-backed settings before registering defaults so the UI and
+        // backend never disagree about effective values.
+        await fetchBackendSettings();
 
         // =========================================================================
         // GROUP: 🖼️ Visual Loaders
@@ -821,7 +878,7 @@ app.registerExtension({
             id: "SaturnNodes.🖼️ Visual Loaders.02_EnableCivitaiScraping",
             name: "Enable Civitai Auto-Scraping",
             type: "boolean",
-            defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.02_EnableCivitaiScraping", true),
+            defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.02_EnableCivitaiScraping", false),
             tooltip: "Toggles automated downloading of preview thumbnails for new LoRAs from Civitai via SHA256 file hashes. Note: SHA256 hash searching will always work regardless of this setting when matching local models.",
             onChange(value) {
                 postSaturnNodesSettings({ enable_civitai_scraping: value ? "true" : "false" });
@@ -915,6 +972,19 @@ app.registerExtension({
                         localStorage.setItem("Comfy.Settings.SaturnNodes.🖼️ Visual Loaders.07_BypassThumbnailDownscaling", JSON.stringify(Boolean(value)));
                     } catch (_) {}
                 }
+            }
+        });
+
+        // 3.8 Visual Image Loader Metadata Scan Limit
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.🖼️ Visual Loaders.08_ImageMetadataScanLimit",
+            name: "Image Loader Metadata Scan Limit",
+            type: "number",
+            defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.08_ImageMetadataScanLimit", 128),
+            tooltip: "How many of the newest images in a folder are scanned for embedded prompts in the Visual Image Loader (0 disables metadata extraction, max 2000).",
+            onChange(value) {
+                const limit = Math.max(0, Math.min(2000, parseInt(value, 10) || 0));
+                postSaturnNodesSettings({ image_loader_metadata_limit: limit });
             }
         });
 
@@ -1118,6 +1188,18 @@ app.registerExtension({
             onChange(value) {
                 const modeKey = (value === "Instant Resume Node" || value === "Pause (Instant)") ? "instantly" : "after_finish";
                 postSaturnNodesSettings({ default_pause_mode: modeKey });
+            }
+        });
+
+        // 4.2b Persist Manual Pause State Across Restarts
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.⏸️ Pause Controls.02b_PersistPauseState",
+            name: "Persist Pause State Across Restarts",
+            type: "boolean",
+            defaultValue: getInitialSetting("SaturnNodes.⏸️ Pause Controls.02b_PersistPauseState", false),
+            tooltip: "When enabled, the last manual Pause/Continue state and pause mode are restored on the next ComfyUI start (overrides the launch defaults above).",
+            onChange(value) {
+                postSaturnNodesSettings({ persist_pause_state: value ? "true" : "false" });
             }
         });
 
@@ -1449,6 +1531,19 @@ app.registerExtension({
             }
         });
 
+        // 5.3 Max Restore Attempts for Failed Queue Items
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.💾 Persistent Queue.03_MaxRestoreRetries",
+            name: "Max Restore Retries",
+            type: "number",
+            defaultValue: getInitialSetting("SaturnNodes.💾 Persistent Queue.03_MaxRestoreRetries", 0),
+            tooltip: "How many times a queue item that fails to restore may be retried on later launches before it is dropped (0 = drop immediately, max 10).",
+            onChange(value) {
+                const retries = Math.max(0, Math.min(10, parseInt(value, 10) || 0));
+                postSaturnNodesSettings({ persistent_queue_max_retries: retries });
+            }
+        });
+
         // =========================================================================
         // GROUP: 🖼️ Assets Restore
         // =========================================================================
@@ -1475,6 +1570,65 @@ app.registerExtension({
             onChange(value) {
                 const count = parseInt(value, 10) || 64;
                 postSaturnNodesSettings({ restore_assets_count: count });
+            }
+        });
+
+        // 6.3 Scan Output Subfolders Recursively
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.🖼️ Assets Restore.03_RestoreAssetsRecursive",
+            name: "Scan Output Subfolders Recursively",
+            type: "boolean",
+            defaultValue: getInitialSetting("SaturnNodes.🖼️ Assets Restore.03_RestoreAssetsRecursive", true),
+            tooltip: "When enabled, restored assets include images in nested output subfolders, not just the top-level output folder.",
+            onChange(value) {
+                postSaturnNodesSettings({ restore_assets_recursive: value ? "true" : "false" });
+            }
+        });
+
+        // 6.4 Show Generation Time on Restored Assets
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.🖼️ Assets Restore.04_ShowRestoredGenerationTime",
+            name: "Show Generation Time on Restored Assets",
+            type: "boolean",
+            defaultValue: getInitialSetting("SaturnNodes.🖼️ Assets Restore.04_ShowRestoredGenerationTime", true),
+            tooltip: "Uses SaturnNodes' generation-time records to show real execution times on restored history entries. Older images keep their file mtime for ordering but show no duration when none was recorded.",
+            onChange(value) {
+                postSaturnNodesSettings({ show_restored_generation_time: value ? "true" : "false" });
+            }
+        });
+
+        // 6.5 Restore Assets Now Button
+        const handleRestoreAssetsNow = async () => {
+            const approved = confirm("🪐 Restore assets now?\n\nThis scans the output folder and adds the newest images to the Assets / History pane without restarting ComfyUI.");
+            if (!approved) return null;
+            const resp = await authenticatedFetch("/saturnnodes/assets/restore", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ force: true })
+            });
+            if (!resp || !resp.ok) throw new Error("Restore request failed");
+            return await resp.json();
+        };
+
+        const renderRestoreAssetsNowBtn = renderSettingButton("🖼️ Restore Now", "⏳ Restoring...", "✅ Restored!", async () => {
+            const result = await handleRestoreAssetsNow();
+            if (result) {
+                const debug = result.debug || {};
+                alert(`✅ Restored ${result.restored || 0} asset(s).\n\nScanned: ${debug.total_scanned_images ?? 0}\nElapsed: ${debug.elapsed_ms ?? 0} ms`);
+            }
+        });
+
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.🖼️ Assets Restore.05_RestoreNow",
+            name: "Restore Assets Now",
+            type: renderRestoreAssetsNowBtn,
+            render: renderRestoreAssetsNowBtn,
+            defaultValue: "🖼️ Restore Now",
+            tooltip: "Immediately scan the output folder and restore the newest images into the Assets / History pane.",
+            attrs: {
+                readOnly: true,
+                style: "display: flex; justify-content: flex-end; width: 100%; border: none !important; background: transparent !important; padding: 0 !important; box-shadow: none !important;",
+                onClick: handleRestoreAssetsNow
             }
         });
 
@@ -1682,7 +1836,7 @@ function setupSettingsFooterObserver() {
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 16px;">🪐</span>
                 <span style="font-weight: 600; color: #e4e4e7;">ComfyUI-SaturnNodes</span>
-                <span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(180, 140, 95, 0.18); color: #decbb2; border: 1px solid rgba(180, 140, 95, 0.35);">v2.6.1 (dev)</span>
+                <span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(180, 140, 95, 0.18); color: #decbb2; border: 1px solid rgba(180, 140, 95, 0.35);">v2.6.2 (dev)</span>
             </div>
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <a href="https://github.com/KOFiblto/ComfyUI-SaturnNodes" target="_blank" rel="noopener noreferrer" style="color: #decbb2; text-decoration: underline; text-decoration-color: rgba(222, 203, 178, 0.4); text-underline-offset: 3px; font-weight: 500; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); transition: all 0.2s ease;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(255,255,255,0.12)'; this.style.borderColor='rgba(255,255,255,0.25)';" onmouseout="this.style.color='#decbb2'; this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='rgba(255,255,255,0.12)';">

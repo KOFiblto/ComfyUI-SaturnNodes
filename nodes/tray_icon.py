@@ -3,21 +3,10 @@ import sys
 import threading
 import webbrowser
 from PIL import Image, ImageDraw
-from .utils import get_saturnnodes_user_dir
+from .utils import get_saturnnodes_user_dir, get_env_setting
 
 USER_DIR = get_saturnnodes_user_dir()
 ENV_FILE = os.path.join(USER_DIR, ".env")
-
-def get_env_setting(key, default_val):
-    if os.path.exists(ENV_FILE):
-        try:
-            with open(ENV_FILE, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip().startswith(f"{key}="):
-                        return line.strip().split("=", 1)[1].strip()
-        except Exception:
-            pass
-    return default_val
 
 def is_tray_icon_enabled():
     val = get_env_setting("ENABLE_TRAY_ICON", "false").lower()

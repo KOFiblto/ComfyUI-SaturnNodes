@@ -4,10 +4,11 @@ import subprocess
 from aiohttp import web
 from server import PromptServer
 
-__version__ = "2.6.1"
+__version__ = "2.6.2"
 
 from .nodes.queue_control import (
     setup_queue_control_routes,
+    pause_manager,
     tray_manager,
     persistent_queue_manager,
     is_persistent_queue_enabled
@@ -290,49 +291,42 @@ async def get_image_prompt_endpoint(request):
     except Exception as e:
         return web.json_response({"success": False, "error": str(e)}, status=500)
 
+def _env_bool(key, default=False):
+    return str(get_env_setting(key, "true" if default else "false")).lower() in ["true", "1", "yes"]
+
+def _env_int(key, default):
+    try:
+        return int(get_env_setting(key, str(default)))
+    except (TypeError, ValueError):
+        return default
+
 @routes.get("/saturnnodes/settings")
 async def get_settings(request):
     if not is_local_request(request):
         return web.json_response({"error": "Forbidden: Local access only"}, status=403)
-    civitai_key = os.getenv("CIVITAI_API_KEY", "")
-    tmdb_key = os.getenv("TMDB_API_KEY", "")
-    enable_tray = os.getenv("ENABLE_TRAY_ICON", "false").lower() in ["true", "1", "yes"]
-    enable_assets_restore = os.getenv("ENABLE_ASSETS_RESTORE", "true").lower() in ["true", "1", "yes"]
-    restore_assets_count = int(os.getenv("RESTORE_ASSETS_COUNT", "64"))
-    enable_process_management = os.getenv("ALLOW_PROCESS_MANAGEMENT", "false").lower() in ["true", "1", "yes"]
-    enable_local_file_execution = os.getenv("ENABLE_LOCAL_FILE_EXECUTION", "false").lower() in ["true", "1", "yes"]
-    if os.path.exists(ENV_FILE):
-        try:
-            with open(ENV_FILE, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith("CIVITAI_API_KEY="):
-                        civitai_key = line.split("=", 1)[1].strip()
-                    elif line.startswith("TMDB_API_KEY="):
-                        tmdb_key = line.split("=", 1)[1].strip()
-                    elif line.startswith("ENABLE_TRAY_ICON="):
-                        enable_tray = line.split("=", 1)[1].strip().lower() in ["true", "1", "yes"]
-                    elif line.startswith("ENABLE_ASSETS_RESTORE="):
-                        enable_assets_restore = line.split("=", 1)[1].strip().lower() in ["true", "1", "yes"]
-                    elif line.startswith("RESTORE_ASSETS_COUNT="):
-                        try:
-                            restore_assets_count = int(line.split("=", 1)[1].strip())
-                        except Exception:
-                            pass
-                    elif line.startswith("ALLOW_PROCESS_MANAGEMENT="):
-                        enable_process_management = line.split("=", 1)[1].strip().lower() in ["true", "1", "yes"]
-                    elif line.startswith("ENABLE_LOCAL_FILE_EXECUTION="):
-                        enable_local_file_execution = line.split("=", 1)[1].strip().lower() in ["true", "1", "yes"]
-        except Exception:
-            pass
+    # Return the full settings surface (not just API keys) so the settings UI,
+    # debug export and .env never disagree about the effective values.
     return web.json_response({
-        "civitai_api_key": civitai_key,
-        "tmdb_api_key": tmdb_key,
-        "enable_tray_icon": enable_tray,
-        "enable_assets_restore": enable_assets_restore,
-        "restore_assets_count": restore_assets_count,
-        "enable_process_management": enable_process_management,
-        "enable_local_file_execution": enable_local_file_execution
+        "civitai_api_key": get_env_setting("CIVITAI_API_KEY", ""),
+        "tmdb_api_key": get_env_setting("TMDB_API_KEY", ""),
+        "enable_civitai_scraping": _env_bool("ENABLE_CIVITAI_SCRAPING", False),
+        "enable_tmdb_scraping": _env_bool("ENABLE_TMDB_SCRAPING", False),
+        "enable_lora_usage": _env_bool("ENABLE_LORA_USAGE", True),
+        "enable_persistent_queue": _env_bool("ENABLE_PERSISTENT_QUEUE", True),
+        "persistent_queue_restored_state": get_env_setting("PERSISTENT_QUEUE_RESTORED_STATE", "Match Default"),
+        "persistent_queue_max_retries": _env_int("PERSISTENT_QUEUE_MAX_RETRIES", 0),
+        "persist_pause_state": _env_bool("PERSIST_PAUSE_STATE", False),
+        "default_pause_state": get_env_setting("DEFAULT_PAUSE_STATE", "Running"),
+        "default_pause_mode": get_env_setting("DEFAULT_PAUSE_MODE", "after_finish"),
+        "enable_tray_icon": _env_bool("ENABLE_TRAY_ICON", False),
+        "enable_assets_restore": _env_bool("ENABLE_ASSETS_RESTORE", True),
+        "restore_assets_count": _env_int("RESTORE_ASSETS_COUNT", 64),
+        "restore_assets_recursive": _env_bool("RESTORE_ASSETS_RECURSIVE", True),
+        "show_restored_generation_time": _env_bool("SHOW_RESTORED_GENERATION_TIME", True),
+        "image_loader_metadata_limit": _env_int("IMAGE_LOADER_METADATA_LIMIT", 128),
+        "enable_process_management": _env_bool("ALLOW_PROCESS_MANAGEMENT", False),
+        "enable_local_file_execution": _env_bool("ENABLE_LOCAL_FILE_EXECUTION", False),
+        "clear_prompt_iterator_on_launch": _env_bool("CLEAR_PROMPT_ITERATOR_ON_LAUNCH", False)
     })
 
 def _clean_env_val(v):
@@ -361,6 +355,11 @@ async def save_settings(request):
         restored_state = _clean_env_val(data.get("persistent_queue_restored_state"))
         enable_process_management = _clean_env_val(data.get("enable_process_management"))
         enable_local_file_execution = _clean_env_val(data.get("enable_local_file_execution"))
+        persistent_queue_max_retries = _clean_env_val(data.get("persistent_queue_max_retries"))
+        persist_pause_state = _clean_env_val(data.get("persist_pause_state"))
+        restore_assets_recursive = _clean_env_val(data.get("restore_assets_recursive"))
+        show_restored_generation_time = _clean_env_val(data.get("show_restored_generation_time"))
+        image_loader_metadata_limit = _clean_env_val(data.get("image_loader_metadata_limit"))
 
         lines = []
         if os.path.exists(ENV_FILE):
@@ -386,6 +385,11 @@ async def save_settings(request):
         has_restored_state = False
         has_process_mgmt = False
         has_local_file_exec = False
+        has_pq_retries = False
+        has_persist_pause = False
+        has_restore_recursive = False
+        has_show_generation_time = False
+        has_image_metadata_limit = False
 
         for line in lines:
             if line.strip().startswith("CIVITAI_API_KEY=") and civitai_key is not None:
@@ -433,6 +437,21 @@ async def save_settings(request):
             elif line.strip().startswith("ENABLE_LOCAL_FILE_EXECUTION=") and enable_local_file_execution is not None:
                 new_lines.append(f"ENABLE_LOCAL_FILE_EXECUTION={enable_local_file_execution}\n")
                 has_local_file_exec = True
+            elif line.strip().startswith("PERSISTENT_QUEUE_MAX_RETRIES=") and persistent_queue_max_retries is not None:
+                new_lines.append(f"PERSISTENT_QUEUE_MAX_RETRIES={persistent_queue_max_retries}\n")
+                has_pq_retries = True
+            elif line.strip().startswith("PERSIST_PAUSE_STATE=") and persist_pause_state is not None:
+                new_lines.append(f"PERSIST_PAUSE_STATE={persist_pause_state}\n")
+                has_persist_pause = True
+            elif line.strip().startswith("RESTORE_ASSETS_RECURSIVE=") and restore_assets_recursive is not None:
+                new_lines.append(f"RESTORE_ASSETS_RECURSIVE={restore_assets_recursive}\n")
+                has_restore_recursive = True
+            elif line.strip().startswith("SHOW_RESTORED_GENERATION_TIME=") and show_restored_generation_time is not None:
+                new_lines.append(f"SHOW_RESTORED_GENERATION_TIME={show_restored_generation_time}\n")
+                has_show_generation_time = True
+            elif line.strip().startswith("IMAGE_LOADER_METADATA_LIMIT=") and image_loader_metadata_limit is not None:
+                new_lines.append(f"IMAGE_LOADER_METADATA_LIMIT={image_loader_metadata_limit}\n")
+                has_image_metadata_limit = True
             elif line.strip().startswith("ALLOW_ANY_SCRIPT_PATH="):
                 # Deprecated and removed for security; drop from .env
                 continue
@@ -469,6 +488,16 @@ async def save_settings(request):
             new_lines.append(f"ALLOW_PROCESS_MANAGEMENT={enable_process_management}\n")
         if not has_local_file_exec and enable_local_file_execution is not None:
             new_lines.append(f"ENABLE_LOCAL_FILE_EXECUTION={enable_local_file_execution}\n")
+        if not has_pq_retries and persistent_queue_max_retries is not None:
+            new_lines.append(f"PERSISTENT_QUEUE_MAX_RETRIES={persistent_queue_max_retries}\n")
+        if not has_persist_pause and persist_pause_state is not None:
+            new_lines.append(f"PERSIST_PAUSE_STATE={persist_pause_state}\n")
+        if not has_restore_recursive and restore_assets_recursive is not None:
+            new_lines.append(f"RESTORE_ASSETS_RECURSIVE={restore_assets_recursive}\n")
+        if not has_show_generation_time and show_restored_generation_time is not None:
+            new_lines.append(f"SHOW_RESTORED_GENERATION_TIME={show_restored_generation_time}\n")
+        if not has_image_metadata_limit and image_loader_metadata_limit is not None:
+            new_lines.append(f"IMAGE_LOADER_METADATA_LIMIT={image_loader_metadata_limit}\n")
 
         temp_env = ENV_FILE + ".tmp"
         with open(temp_env, "w", encoding="utf-8") as f:
@@ -497,6 +526,29 @@ async def save_settings(request):
             os.environ["RESTORE_ASSETS_COUNT"] = str(restore_assets_count)
         if clear_prompt_iterator_on_launch is not None:
             os.environ["CLEAR_PROMPT_ITERATOR_ON_LAUNCH"] = str(clear_prompt_iterator_on_launch)
+        if persistent_queue_max_retries is not None:
+            os.environ["PERSISTENT_QUEUE_MAX_RETRIES"] = str(persistent_queue_max_retries)
+        if persist_pause_state is not None:
+            os.environ["PERSIST_PAUSE_STATE"] = str(persist_pause_state)
+            pause_manager.persist_state = str(persist_pause_state).lower() in ["true", "1", "yes"]
+            if pause_manager.persist_state:
+                pause_manager._persist_pause_state()
+            else:
+                try:
+                    if os.path.exists(pause_manager.state_file):
+                        os.remove(pause_manager.state_file)
+                except OSError:
+                    pass
+        if restore_assets_recursive is not None:
+            os.environ["RESTORE_ASSETS_RECURSIVE"] = str(restore_assets_recursive)
+        if show_restored_generation_time is not None:
+            os.environ["SHOW_RESTORED_GENERATION_TIME"] = str(show_restored_generation_time)
+        if image_loader_metadata_limit is not None:
+            os.environ["IMAGE_LOADER_METADATA_LIMIT"] = str(image_loader_metadata_limit)
+
+        # Drop the parsed .env cache immediately so all modules see the new values.
+        from .nodes.utils import invalidate_env_settings_cache
+        invalidate_env_settings_cache()
 
     except Exception as e:
         print(f"[SaturnNodes] Error saving settings to .env: {e}")
@@ -604,14 +656,19 @@ async def export_debug_profile(request):
                 "enable_persistent_queue": get_env_setting("ENABLE_PERSISTENT_QUEUE", "true"),
                 "default_pause_state": get_env_setting("DEFAULT_PAUSE_STATE", "Running"),
                 "default_pause_mode": get_env_setting("DEFAULT_PAUSE_MODE", "after_finish"),
-                "enable_civitai_scraping": get_env_setting("ENABLE_CIVITAI_SCRAPING", "true"),
-                "enable_tmdb_scraping": get_env_setting("ENABLE_TMDB_SCRAPING", "true"),
+                "enable_civitai_scraping": get_env_setting("ENABLE_CIVITAI_SCRAPING", "false"),
+                "enable_tmdb_scraping": get_env_setting("ENABLE_TMDB_SCRAPING", "false"),
                 "enable_lora_usage": get_env_setting("ENABLE_LORA_USAGE", "true"),
                 "enable_tray_icon": get_env_setting("ENABLE_TRAY_ICON", "false"),
                 "enable_assets_restore": get_env_setting("ENABLE_ASSETS_RESTORE", "true"),
                 "restore_assets_count": get_env_setting("RESTORE_ASSETS_COUNT", "64"),
+                "restore_assets_recursive": get_env_setting("RESTORE_ASSETS_RECURSIVE", "true"),
+                "show_restored_generation_time": get_env_setting("SHOW_RESTORED_GENERATION_TIME", "true"),
+                "image_loader_metadata_limit": get_env_setting("IMAGE_LOADER_METADATA_LIMIT", "128"),
                 "clear_prompt_iterator_on_launch": get_env_setting("CLEAR_PROMPT_ITERATOR_ON_LAUNCH", "false"),
                 "persistent_queue_restored_state": get_env_setting("PERSISTENT_QUEUE_RESTORED_STATE", "Match Default"),
+                "persistent_queue_max_retries": get_env_setting("PERSISTENT_QUEUE_MAX_RETRIES", "0"),
+                "persist_pause_state": get_env_setting("PERSIST_PAUSE_STATE", "false"),
                 "allow_process_management": get_env_setting("ALLOW_PROCESS_MANAGEMENT", "false"),
                 "enable_local_file_execution": get_env_setting("ENABLE_LOCAL_FILE_EXECUTION", "false"),
                 "civitai_api_key_configured": bool(civitai_key and civitai_key.strip()),

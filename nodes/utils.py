@@ -1,6 +1,7 @@
 import os
 import re
 import secrets
+import threading
 from urllib.parse import urlparse
 import folder_paths
 
@@ -216,21 +217,51 @@ def sanitize_image_loader_folder(folder_input, default_to_output=True):
 
     return default_dir
 
+_ENV_CACHE_LOCK = threading.RLock()
+_ENV_CACHE = None
+_ENV_CACHE_MTIME = None
+
+def invalidate_env_settings_cache():
+    """Force the next get_env_setting() call to re-read the .env file."""
+    global _ENV_CACHE, _ENV_CACHE_MTIME
+    with _ENV_CACHE_LOCK:
+        _ENV_CACHE = None
+        _ENV_CACHE_MTIME = None
+
 def get_env_setting(key, default_val):
     """
     Reads a key setting from ComfyUI/user/default/SaturnNodes/.env safely.
+    Parsed values are cached until the file mtime changes.
     """
+    global _ENV_CACHE, _ENV_CACHE_MTIME
     user_dir = get_saturnnodes_user_dir()
     env_file = os.path.join(user_dir, ".env")
-    if os.path.exists(env_file):
-        try:
-            with open(env_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip().startswith(f"{key}="):
-                        return line.strip().split("=", 1)[1].strip()
-        except Exception:
-            pass
-    return default_val
+
+    mtime = None
+    try:
+        if os.path.exists(env_file):
+            mtime = os.stat(env_file).st_mtime_ns
+    except OSError:
+        mtime = None
+
+    with _ENV_CACHE_LOCK:
+        if _ENV_CACHE is None or mtime != _ENV_CACHE_MTIME:
+            parsed = {}
+            if mtime is not None:
+                try:
+                    with open(env_file, "r", encoding="utf-8") as f:
+                        for line in f:
+                            stripped = line.strip()
+                            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                                continue
+                            k, v = stripped.split("=", 1)
+                            parsed[k.strip()] = v.strip()
+                except Exception:
+                    parsed = {}
+            _ENV_CACHE = parsed
+            _ENV_CACHE_MTIME = mtime
+
+        return _ENV_CACHE.get(key, default_val)
 
 def parse_pretty_name(filepath):
     if not filepath or filepath in ["[ NONE ]", "[ RANDOM ]"]:
