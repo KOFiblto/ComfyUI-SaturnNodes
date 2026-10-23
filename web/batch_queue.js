@@ -182,6 +182,12 @@ function renderBatchLineOnElement(element, segmentType, color) {
         element.appendChild(wrap);
     }
 
+    // Avoid rewriting the SVG on every status/executing refresh when the
+    // visible segment and batch color have not changed.
+    const signature = `${segmentType}|${color}`;
+    if (wrap.dataset.saturnnodesBatchSignature === signature && wrap.innerHTML) return;
+    wrap.dataset.saturnnodesBatchSignature = signature;
+
     const dPath = buildSvgPath(segmentType);
     wrap.innerHTML = `
         <svg class="saturnnodes-batch-line-svg" viewBox="0 0 10 48" preserveAspectRatio="none">
@@ -335,6 +341,29 @@ async function loadBatchFromServer() {
             }
         }
     } catch (e) {}
+}
+
+// Queue cards are virtualized/reused by the Vue queue.  A card can keep the
+// same DOM element when it moves from pending -> running or when the next batch
+// starts, so the old batch line must be repainted after Vue has updated its
+// data-job-id.  A single delayed update can race the async /jobs refresh; poll
+// briefly after each queue event and let the MutationObserver below catch the
+// actual attribute update as well.
+let batchVisualRefreshToken = 0;
+
+function scheduleBatchVisualRefresh(durationMs = 1200) {
+    const token = ++batchVisualRefreshToken;
+    const deadline = Date.now() + durationMs;
+
+    const refresh = () => {
+        if (token !== batchVisualRefreshToken) return;
+        updateQueueBatchVisuals();
+        if (Date.now() < deadline) {
+            setTimeout(refresh, 200);
+        }
+    };
+
+    refresh();
 }
 
 // Refresh visual lines in DOM for both v1 and v2
@@ -511,7 +540,7 @@ function setupQueueHooks() {
                     activeBatchContext = null;
                 }
 
-                setTimeout(updateQueueBatchVisuals, 100);
+                scheduleBatchVisualRefresh(600);
             }
             return res;
         };
@@ -523,22 +552,23 @@ app.registerExtension({
     async setup() {
         injectBatchStyles();
         setupQueueHooks();
-        loadBatchFromServer();
+        loadBatchFromServer().then(() => scheduleBatchVisualRefresh(1200));
 
         // Listen for queue changes
         if (api && api.addEventListener) {
-            api.addEventListener("status", () => {
-                setTimeout(updateQueueBatchVisuals, 100);
-            });
-            api.addEventListener("execution_start", () => {
-                setTimeout(updateQueueBatchVisuals, 80);
-            });
-            api.addEventListener("executing", () => {
-                setTimeout(updateQueueBatchVisuals, 150);
-            });
+            const refreshAfterQueueEvent = () => scheduleBatchVisualRefresh();
+            api.addEventListener("status", refreshAfterQueueEvent);
+            api.addEventListener("execution_start", refreshAfterQueueEvent);
+            api.addEventListener("executing", refreshAfterQueueEvent);
+            api.addEventListener("execution_success", refreshAfterQueueEvent);
+            api.addEventListener("execution_error", refreshAfterQueueEvent);
+            api.addEventListener("execution_interrupted", refreshAfterQueueEvent);
         }
 
-        // Set up MutationObserver on body to detect queue sidebar rendering
+        // Set up MutationObserver on body to detect queue sidebar rendering.
+        // `attributes` is essential: Vue reuses a running card and only updates
+        // its data-job-id when the next batch item starts. Without watching that
+        // attribute, the old batch line can remain painted on the reused card.
         let debounceTimer = null;
         const observer = new MutationObserver((mutations) => {
             let shouldUpdate = false;
@@ -557,11 +587,15 @@ app.registerExtension({
             }
         });
 
-        observer.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["data-job-id"],
+        });
 
-        // Initial check after load
-        setTimeout(updateQueueBatchVisuals, 800);
-        setTimeout(updateQueueBatchVisuals, 2000);
+        // Initial checks after load, including the async /jobs hydration.
+        scheduleBatchVisualRefresh(2500);
     }
 });
 
