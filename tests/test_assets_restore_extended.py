@@ -229,6 +229,30 @@ class TestAssetsRestoreExtended(unittest.TestCase):
                 name,
             )
 
+    def test_restore_recovers_from_corrupt_image(self):
+        path = os.path.join(self.output_dir, "broken.png")
+        with open(path, "wb") as handle:
+            handle.write(b"this is not a PNG")
+        os.utime(path, (1_700_000_000, 1_700_000_000))
+
+        manager = AssetsRestoreManager()
+        queue = self._fake_queue()
+        server = self._server(queue)
+
+        with patch("nodes.assets_restore.folder_paths.get_output_directory", return_value=self.output_dir), \
+             patch("nodes.assets_restore.is_assets_restore_enabled", return_value=True), \
+             patch("nodes.assets_restore.is_recursive_assets_scan_enabled", return_value=True), \
+             patch("nodes.assets_restore.get_generation_time", return_value=None), \
+             patch.object(manager, "_ingest_assets", return_value=0):
+            restored = manager.restore_on_launch(server, force=True)
+
+        self.assertEqual(restored, 1)
+        entry = next(iter(queue.history.values()))
+        self.assertEqual(entry["prompt"][2], {}, "corrupt metadata must fall back to an empty prompt")
+        self.assertEqual(entry["outputs"]["0"]["images"][0]["filename"], "broken.png")
+        self.assertEqual(entry["status"]["status_str"], "success")
+        self.assertEqual(entry["status"]["messages"], [["execution_start", {"timestamp": 1_700_000_000_000}]])
+
     def test_restore_handles_missing_mutex_and_bad_history(self):
         self._make_png("image.png", 1_700_000_000)
         manager = AssetsRestoreManager()

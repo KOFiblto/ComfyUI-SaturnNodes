@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.6.3] - In Development
 
 ### Added
-- **Restore Regression Test Matrix**: 63 new deterministic Python tests and 3 new Node fake-DOM tests covering DOM injection, cross-day timestamps, equal-mtime ordering, restore limits, batches, cancellation, retries, corrupt state, and recovery. The existing `test_batch_queue_dom.mjs` is now run by the suite as well.
+- **Restore Regression Test Matrix**: 64 new deterministic Python tests and 3 new Node fake-DOM tests covering DOM injection, cross-day timestamps, equal-mtime ordering, restore limits, corrupt images, batches, cancellation, retries, corrupt state, and recovery. The existing `test_batch_queue_dom.mjs` is now run by the suite as well.
 
 ### Changed
 - **Deterministic Restore Ordering**: Output scanning and the Visual Image Loader now tie-break equal modification times by relative path, so bulk-copied or archive-extracted files always restore in the same order and receive stable history numbering.
