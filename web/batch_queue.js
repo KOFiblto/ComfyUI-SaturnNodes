@@ -468,7 +468,10 @@ async function updateQueueBatchVisuals() {
         const batchId = info.batchId;
         const color = normalizeBatchColor(info.color);
         const batchCount = Math.max(1, Number(info.batchCount) || 1);
-        const itemIndex = Number.isInteger(info.itemIndex) ? info.itemIndex : 0;
+        const rawItemIndex = Number.isInteger(info.itemIndex) ? info.itemIndex : 0;
+        // Corrupt metadata must not produce a "middle" segment for an index
+        // outside the batch (e.g. -1 or 99 in a 3-item batch).
+        const itemIndex = Math.min(Math.max(0, rawItemIndex), batchCount - 1);
 
         // All visible items of this batch in top-to-bottom visual order
         const occurrencesOnScreen = batchGroups.get(batchId) || [];

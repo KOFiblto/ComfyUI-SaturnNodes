@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Restore Robustness**: Missing queue mutexes, non-dict histories, history-read failures, malformed retry counters, and invalid restore limits are handled without aborting recovery.
 - **EXIF / A1111 Metadata**: EXIF UserComments with BOM/NUL padding and byte-valued A1111 `parameters` now decode to clean prompt text.
 - **Batch Color Injection**: Batch colors from `localStorage`/the server are restricted to plain hex values before entering SVG markup; invalid colors fall back to the palette.
-- **Batch Counter & Metadata Corruption**: Negative persisted batch counters clamp into the palette range, metadata pruning uses `queuedAt` recency, unknown segment types normalize safely, and older server snapshots can no longer overwrite newer local batch metadata.
+- **Batch Counter & Metadata Corruption**: Negative persisted batch counters clamp into the palette range, metadata pruning uses `queuedAt` recency, unknown segment types normalize safely, out-of-range item indexes clamp to the batch bounds, and older server snapshots can no longer overwrite newer local batch metadata.
 - **Concurrent Batch Item Indexes**: Concurrent submissions reserve unique `itemIndex` values through a captured batch context and `inFlight` counter, so two prompts can no longer claim the same index or clear the batch early.
 - **Recent Output Loading**: `Load Recent Outputs` clamps invalid `amount`/`index` values, tie-breaks equal mtimes by path, and closes image handles after loading.
 

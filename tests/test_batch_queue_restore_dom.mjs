@@ -92,6 +92,8 @@ seeded.push(info("evil-a", "batch-evil", '#fff" onload="alert(1)', 0, 2, 1000));
 seeded.push(info("evil-b", "batch-evil", "</style><script>alert(1)</script>", 1, 2, 1001));
 seeded.push(info("bad-count", "batch-bad", "#123456", "not-an-int", -5, 1002));
 seeded.push(info("evil-c", "batch-evil-c", '#fff" onload="alert(1)', 0, 1, 1003));
+seeded.push(info("low-index", "batch-low-index", "#123456", -5, 3, 1004));
+seeded.push(info("high-index", "batch-high-index", "#123456", 99, 3, 1005));
 storage.set("saturnnodes_batch_queue_meta", JSON.stringify(seeded));
 storage.set("saturnnodes_batch_counter", "-12");
 
@@ -204,6 +206,8 @@ function makeRow(promptId) {
 const evilA = makeRow("evil-a");
 const evilB = makeRow("evil-b");
 const badCount = makeRow("bad-count");
+const lowIndex = makeRow("low-index");
+const highIndex = makeRow("high-index");
 const duplicateEvilA = makeRow("evil-a");
 
 await batchTest.updateQueueBatchVisuals();
@@ -241,6 +245,22 @@ assert.match(
     "negative batchCount and non-integer itemIndex must clamp to a single segment"
 );
 
+const lowIndexLine = lowIndex.querySelector(".saturnnodes-batch-line-wrap");
+assert.ok(lowIndexLine, "negative itemIndex must still render a line");
+assert.match(
+    lowIndexLine.innerHTML,
+    /M 9,6 Q 2,6 2,16 L 2,48/,
+    "a negative itemIndex must clamp to the first segment"
+);
+
+const highIndexLine = highIndex.querySelector(".saturnnodes-batch-line-wrap");
+assert.ok(highIndexLine, "out-of-range itemIndex must still render a line");
+assert.match(
+    highIndexLine.innerHTML,
+    /M 2,0 L 2,32 Q 2,42 9,42/,
+    "an out-of-range itemIndex must clamp to the last segment"
+);
+
 // Direct sanitizer checks.
 assert.equal(batchTest.normalizeBatchColor("#ABC"), "#ABC");
 assert.equal(batchTest.normalizeBatchColor("#ABCD"), "#ABCD");
@@ -252,6 +272,7 @@ assert.equal(batchTest.normalizeBatchColor("#1234567"), "#10b981");
 assert.equal(batchTest.normalizeBatchColor("red"), "#10b981");
 assert.equal(batchTest.normalizeBatchColor("url(javascript:alert(1))"), "#10b981");
 assert.equal(batchTest.normalizeSegmentType("bogus"), "single");
+assert.equal(batchTest.normalizeSegmentType('"><script>alert(1)</script>'), "single");
 assert.equal(batchTest.buildSvgPath("bogus"), batchTest.buildSvgPath("single"));
 
 // ---------------------------------------------------------------------------

@@ -148,12 +148,14 @@ class TestGenerationTimesExtended(unittest.TestCase):
                 "neg.png": {"duration": -4, "completed": 1},
                 "text.png": {"duration": "fast", "completed": 1},
                 "ok.png": {"duration": "1.5", "completed": 1},
+                "nan-completed.png": {"duration": 2.0, "completed": float("nan")},
             },
         })
 
         data = generation_times._load_data()
-        self.assertEqual(set(data["entries"]), {"ok.png"})
+        self.assertEqual(set(data["entries"]), {"ok.png", "nan-completed.png"})
         self.assertEqual(data["entries"]["ok.png"]["duration"], 1.5)
+        self.assertEqual(data["entries"]["nan-completed.png"]["completed"], 0)
 
         # A corrupt entry must not make every future save fail under
         # allow_nan=False. The valid entry and the new one must persist.
@@ -162,8 +164,12 @@ class TestGenerationTimesExtended(unittest.TestCase):
         )
         with open(generation_times.GENERATION_TIMES_FILE, "r", encoding="utf-8") as handle:
             payload = json.load(handle)
-        self.assertEqual(set(payload["entries"]), {"ok.png", "new.png"})
+        self.assertEqual(
+            set(payload["entries"]),
+            {"ok.png", "nan-completed.png", "new.png"},
+        )
         self.assertEqual(payload["entries"]["new.png"]["duration"], 3.0)
+        self.assertEqual(payload["entries"]["nan-completed.png"]["completed"], 0)
 
     def test_save_retries_windows_replace_lock_and_cleans_temp_file(self):
         real_replace = os.replace

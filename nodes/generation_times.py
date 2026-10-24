@@ -58,6 +58,11 @@ def _sanitize_data(data):
                 continue
             cleaned = dict(entry)
             cleaned["duration"] = duration
+            try:
+                completed = int(entry.get("completed", 0))
+            except (TypeError, ValueError, OverflowError):
+                completed = 0
+            cleaned["completed"] = completed if completed >= 0 else 0
             entries[key] = cleaned
     payload["entries"] = entries
     return payload
