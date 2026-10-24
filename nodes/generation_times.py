@@ -9,6 +9,7 @@ restored history entries can show a real execution time.
 
 import os
 import json
+import math
 import time
 import threading
 from .utils import get_saturnnodes_user_dir
@@ -28,9 +29,10 @@ def _entry_timestamp(entry):
     if not isinstance(entry, dict):
         return 0
     try:
-        return int(entry.get("completed", 0))
-    except (TypeError, ValueError):
+        value = int(entry.get("completed", 0))
+    except (TypeError, ValueError, OverflowError):
         return 0
+    return value if value >= 0 else 0
 
 
 def _load_data():
@@ -52,6 +54,7 @@ def _load_data():
                     loaded = json.load(f)
                 if isinstance(loaded, dict) and isinstance(loaded.get("entries"), dict):
                     data = loaded
+                    data.setdefault("version", 1)
             except Exception:
                 pass
         _DATA = data
@@ -61,23 +64,40 @@ def _load_data():
 
 def _save_data(data):
     global _DATA_MTIME
+    temp_file = None
     try:
         os.makedirs(USER_DIR, exist_ok=True)
-        temp_file = GENERATION_TIMES_FILE + ".tmp"
+        # Unique temp names keep a stale temp file from a crashed process (or a
+        # second ComfyUI instance) from being clobbered mid-write.
+        temp_file = f"{GENERATION_TIMES_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"
         with open(temp_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, separators=(",", ":"), ensure_ascii=False)
+            json.dump(data, f, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
             f.flush()
             try:
                 os.fsync(f.fileno())
             except OSError:
                 pass
-        os.replace(temp_file, GENERATION_TIMES_FILE)
+        for attempt in range(3):
+            try:
+                os.replace(temp_file, GENERATION_TIMES_FILE)
+                temp_file = None
+                break
+            except PermissionError:
+                if attempt == 2:
+                    raise
+                time.sleep(0.05)
         try:
             _DATA_MTIME = os.stat(GENERATION_TIMES_FILE).st_mtime_ns
         except OSError:
             _DATA_MTIME = None
     except Exception as e:
         print(f"[SaturnNodes] Error saving generation times: {e}")
+    finally:
+        if temp_file and os.path.exists(temp_file):
+            try:
+                os.remove(temp_file)
+            except OSError:
+                pass
 
 
 def _normalize_ref(filename, subfolder=""):
@@ -90,9 +110,9 @@ def record_generation_time(prompt_id, duration, files, status="success"):
     """Store one prompt's wall-clock duration keyed by every output file."""
     try:
         duration = round(float(duration), 3)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return
-    if duration < 0 or not files:
+    if not math.isfinite(duration) or duration < 0 or not files:
         return
 
     completed_ms = int(time.time() * 1000)
@@ -156,9 +176,12 @@ def get_generation_time(filename, subfolder="", file_mtime=None):
                 entry = matches[0][1]
         if isinstance(entry, dict):
             try:
-                return float(entry.get("duration"))
-            except (TypeError, ValueError):
+                duration = float(entry.get("duration"))
+            except (TypeError, ValueError, OverflowError):
                 return None
+            if math.isfinite(duration) and duration >= 0:
+                return duration
+        return None
     return None
 
 

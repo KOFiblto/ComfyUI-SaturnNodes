@@ -1,9 +1,11 @@
 import os
 import json
+import math
 import time
 import uuid
 import heapq
 import datetime
+import threading
 from PIL import Image
 
 import folder_paths
@@ -29,6 +31,13 @@ def is_restored_generation_time_enabled():
     val = get_env_setting("SHOW_RESTORED_GENERATION_TIME", "true").lower()
     return val in ["true", "1", "yes"]
 
+def _strip_exif_text(text):
+    """Strip NUL padding, a UTF BOM and surrounding whitespace from EXIF text."""
+    value = str(text or "").replace("\x00", "").strip()
+    if value.startswith("\ufeff"):
+        value = value[1:].strip()
+    return value
+
 def _decode_exif_text(raw):
     """Decode an EXIF UserComment, including the standard 8-byte prefix."""
     if not raw:
@@ -39,29 +48,31 @@ def _decode_exif_text(raw):
             # The EXIF standard / piexif write UTF-16 big-endian here, not a
             # BOM-prefixed native-endian string.
             try:
-                return body.decode("utf-16-be", errors="ignore").strip("\x00").strip()
+                return _strip_exif_text(body.decode("utf-16-be", errors="ignore"))
             except Exception:
                 pass
         if prefix.startswith(b"ASCII"):
             try:
-                return body.decode("ascii", errors="ignore").strip("\x00").strip()
+                return _strip_exif_text(body.decode("ascii", errors="ignore"))
             except Exception:
                 pass
         if prefix.startswith(b"JIS"):
             try:
-                return body.decode("shift_jis", errors="ignore").strip("\x00").strip()
+                return _strip_exif_text(body.decode("shift_jis", errors="ignore"))
             except Exception:
                 pass
         try:
-            return raw.decode("utf-8", errors="ignore").strip("\x00").strip()
+            return _strip_exif_text(raw.decode("utf-8", errors="ignore"))
         except Exception:
             return ""
-    return str(raw).strip()
+    return _strip_exif_text(raw)
 
 def parse_a1111_positive_prompt(parameters):
     """Extract the positive prompt from an A1111/Forge `parameters` string."""
     if not parameters:
         return ""
+    if isinstance(parameters, bytes):
+        parameters = _decode_exif_text(parameters)
     text = str(parameters).replace("\r\n", "\n").replace("\r", "\n").strip()
     if not text:
         return ""
@@ -81,6 +92,7 @@ def parse_a1111_positive_prompt(parameters):
 class AssetsRestoreManager:
     def __init__(self):
         self._restored_on_launch = False
+        self._restore_lock = threading.RLock()
         self.last_debug_report = {}
         self.restored_count = 0
 
@@ -179,10 +191,26 @@ class AssetsRestoreManager:
                         "mtime": mtime,
                     }
 
-        # Keep only the top-N candidates (bounded memory), then restore
-        # chronological order (oldest -> newest) for stable history numbering.
-        top_images = heapq.nlargest(max(1, int(limit)), iter_images(), key=lambda x: x["mtime"])
-        top_images.reverse()
+        try:
+            safe_limit = max(1, int(limit))
+        except (TypeError, ValueError):
+            safe_limit = 64
+
+        # Keep only the top-N candidates (bounded memory). Include the
+        # normalized relative path in the key so equal mtimes (bulk copies,
+        # archive extraction, FAT timestamp granularity) always resolve to the
+        # same files and the same order on every scan.
+        def sort_key(item):
+            return (
+                item["mtime"],
+                item["subfolder"],
+                item["filename"],
+            )
+
+        top_images = heapq.nlargest(safe_limit, iter_images(), key=sort_key)
+        # Restore chronological order (oldest -> newest) for stable history
+        # numbering. Equal timestamps sort by subfolder/filename ascending.
+        top_images.sort(key=sort_key)
         return top_images
 
     def _ingest_assets(self, prepared):
@@ -232,13 +260,26 @@ class AssetsRestoreManager:
         return len(registered)
 
     def restore_on_launch(self, server, limit=None, force=False):
-        """Populate PromptQueue.history with the newest generated images."""
+        """Populate PromptQueue.history with the newest generated images.
+
+        Serialized because the Restore Now endpoint can be triggered from
+        several browser tabs while the startup restore is still running.
+        """
+        with self._restore_lock:
+            return self._restore_on_launch(server, limit=limit, force=force)
+
+    def _restore_on_launch(self, server, limit=None, force=False):
         if self._restored_on_launch and not force:
             return 0
 
         started_at = time.time()
         if limit is None:
             limit = get_assets_restore_count()
+        else:
+            try:
+                limit = max(1, min(1000, int(limit)))
+            except (TypeError, ValueError):
+                limit = get_assets_restore_count()
 
         enabled = is_assets_restore_enabled()
         if not enabled:
@@ -290,8 +331,20 @@ class AssetsRestoreManager:
             if positive_prompt:
                 extra_pnginfo["positive_prompt"] = positive_prompt
 
-            mtime_ms = int(item["mtime"] * 1000)
+            try:
+                mtime_ms = max(0, int(float(item.get("mtime", 0)) * 1000))
+            except (TypeError, ValueError, OverflowError):
+                mtime_ms = 0
+
             duration = get_generation_time(filename, subfolder, item.get("mtime")) if show_generation_time else None
+            if duration is not None:
+                try:
+                    duration = float(duration)
+                except (TypeError, ValueError, OverflowError):
+                    duration = None
+                if duration is not None and (not math.isfinite(duration) or duration < 0):
+                    duration = None
+
             if duration is not None:
                 generation_time_matches += 1
                 execution_start_ms = max(0, mtime_ms - int(duration * 1000))
@@ -350,12 +403,28 @@ class AssetsRestoreManager:
 
         restored_count = 0
         if prompt_queue is not None:
-            with prompt_queue.mutex:
+            mutex = getattr(prompt_queue, "mutex", None)
+            if mutex is None:
+                mutex = threading.RLock()
+            with mutex:
+                history = getattr(prompt_queue, "history", None)
+                if not isinstance(history, dict):
+                    history = {}
+                    try:
+                        prompt_queue.history = history
+                    except Exception:
+                        pass
                 for entry in prepared:
-                    prompt_queue.history[entry["prompt_id"]] = entry["history_entry"]
+                    history[entry["prompt_id"]] = entry["history_entry"]
                     restored_count += 1
 
-        registered_count = self._ingest_assets(prepared)
+        # Asset DB ingestion is best-effort: a broken/absent app.assets must
+        # never prevent the restored history from being usable.
+        try:
+            registered_count = self._ingest_assets(prepared)
+        except Exception as e:
+            print(f"[SaturnNodes] Asset DB ingestion failed after restore: {e}")
+            registered_count = 0
         self._restored_on_launch = True
         self.restored_count = restored_count
 

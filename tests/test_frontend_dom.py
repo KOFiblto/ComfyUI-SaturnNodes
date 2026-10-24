@@ -7,9 +7,13 @@ import unittest
 DOM_TESTS = [
     "test_power_popup_dom.mjs",
     "test_copy_prompt_dom.mjs",
+    "test_copy_prompt_restore_dom.mjs",
     "test_floating_dock_dom.mjs",
     "test_widget_guards_dom.mjs",
     "test_queue_height_dom.mjs",
+    "test_batch_queue_dom.mjs",
+    "test_batch_queue_restore_dom.mjs",
+    "test_persistent_queue_claim_dom.mjs",
 ]
 
 

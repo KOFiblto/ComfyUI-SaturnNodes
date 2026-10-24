@@ -67,7 +67,9 @@ function loadStorage() {
         }
         const savedCounter = localStorage.getItem(BATCH_COUNTER_KEY);
         if (savedCounter) {
-            batchCounter = parseInt(savedCounter, 10) || 0;
+            // A negative or corrupted counter would index outside BATCH_COLORS
+            // and render an undefined stroke color.
+            batchCounter = Math.max(0, parseInt(savedCounter, 10) || 0);
         }
     } catch (e) {
         console.warn("[SaturnNodes BatchQueue] Failed to load batch storage:", e);
@@ -76,9 +78,19 @@ function loadStorage() {
 
 function saveStorage() {
     try {
-        // Prune entries to last 250 items to keep localStorage small
+        // Prune entries to the 250 most recently queued items. Map insertion
+        // order is not a reliable recency order when metadata for an existing
+        // prompt is updated in place.
         const allEntries = Array.from(batchRegistry.values());
-        const pruned = allEntries.slice(-250);
+        const pruned = allEntries
+            .map((entry, index) => ({ entry, index }))
+            .sort((a, b) => {
+                const aTime = Number(a.entry && a.entry.queuedAt) || 0;
+                const bTime = Number(b.entry && b.entry.queuedAt) || 0;
+                return aTime - bTime || a.index - b.index;
+            })
+            .slice(-250)
+            .map(item => item.entry);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(pruned));
         localStorage.setItem(BATCH_COUNTER_KEY, String(batchCounter));
     } catch (e) {
@@ -151,6 +163,24 @@ function injectBatchStyles() {
     document.head.appendChild(style);
 }
 
+// Batch metadata comes from localStorage and the server, so never trust its
+// color string as HTML/SVG markup. Only plain hex colors are accepted.
+const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{3,8}$/;
+
+function normalizeBatchColor(color, fallback = BATCH_COLORS[0]) {
+    if (typeof color === "string") {
+        const trimmed = color.trim();
+        if (HEX_COLOR_PATTERN.test(trimmed)) return trimmed;
+    }
+    return fallback;
+}
+
+function normalizeSegmentType(segmentType) {
+    return ["single", "first", "middle", "last"].includes(segmentType)
+        ? segmentType
+        : "single";
+}
+
 // Build 1D SVG line path according to segment type:
 // 'single': bracket (rounded top & bottom curving right to card)
 // 'first': rounded top curving right, straight all the way down
@@ -182,16 +212,19 @@ function renderBatchLineOnElement(element, segmentType, color) {
         element.appendChild(wrap);
     }
 
+    const safeSegment = normalizeSegmentType(segmentType);
+    const safeColor = normalizeBatchColor(color);
+
     // Avoid rewriting the SVG on every status/executing refresh when the
     // visible segment and batch color have not changed.
-    const signature = `${segmentType}|${color}`;
+    const signature = `${safeSegment}|${safeColor}`;
     if (wrap.dataset.saturnnodesBatchSignature === signature && wrap.innerHTML) return;
     wrap.dataset.saturnnodesBatchSignature = signature;
 
-    const dPath = buildSvgPath(segmentType);
+    const dPath = buildSvgPath(safeSegment);
     wrap.innerHTML = `
         <svg class="saturnnodes-batch-line-svg" viewBox="0 0 10 48" preserveAspectRatio="none">
-            <path d="${dPath}" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            <path d="${dPath}" stroke="${safeColor}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" />
         </svg>
     `;
 }
@@ -333,9 +366,15 @@ async function loadBatchFromServer() {
             const data = await res.json();
             if (data && typeof data === "object") {
                 for (const [pid, info] of Object.entries(data)) {
-                    if (pid && info) {
-                        batchRegistry.set(String(pid), info);
+                    if (!pid || !info || typeof info !== "object") continue;
+                    const key = String(pid);
+                    const existing = batchRegistry.get(key);
+                    // Never let an older server snapshot overwrite newer local
+                    // metadata for the same prompt.
+                    if (existing && (Number(existing.queuedAt) || 0) > (Number(info.queuedAt) || 0)) {
+                        continue;
                     }
+                    batchRegistry.set(key, info);
                 }
                 saveStorage();
             }
@@ -426,20 +465,22 @@ async function updateQueueBatchVisuals() {
         }
 
         const batchId = info.batchId;
-        const color = info.color || BATCH_COLORS[0];
+        const color = normalizeBatchColor(info.color);
+        const batchCount = Math.max(1, Number(info.batchCount) || 1);
+        const itemIndex = Number.isInteger(info.itemIndex) ? info.itemIndex : 0;
 
         // All visible items of this batch in top-to-bottom visual order
         const occurrencesOnScreen = batchGroups.get(batchId) || [];
 
         if (occurrencesOnScreen.length <= 1) {
             // Only 1 item of this batch currently visible on screen
-            if ((info.batchCount || 1) === 1) {
+            if (batchCount === 1) {
                 renderBatchLineOnElement(el, "single", color);
             } else {
                 // Batch originally had multiple items, but only 1 is currently visible/unexecuted
-                if (info.itemIndex === 0) {
+                if (itemIndex === 0) {
                     renderBatchLineOnElement(el, "first", color);
-                } else if (info.itemIndex === (info.batchCount - 1)) {
+                } else if (itemIndex === (batchCount - 1)) {
                     renderBatchLineOnElement(el, "last", color);
                 } else {
                     renderBatchLineOnElement(el, "middle", color);
@@ -468,6 +509,8 @@ let batchSubmissionQueue = Promise.resolve();
 
 // Hook queuePrompt to track batch execution and guard multi-item batches
 function setupQueueHooks() {
+    if (setupQueueHooks._installed) return;
+    setupQueueHooks._installed = true;
     loadStorage();
 
     // 1. Hook app.queuePrompt to know when a batch is initiated
@@ -503,20 +546,31 @@ function setupQueueHooks() {
             if (!activeBatchContext) {
                 activeBatchContext = getNextBatch(1);
             }
-            const itemIndex = activeBatchContext.prompts.length;
+            // Capture this request's context. A concurrent request may finish
+            // the batch and clear the global reference while we are awaiting
+            // the server.
+            const batchContext = activeBatchContext;
+            if (!Number.isInteger(batchContext.nextItemIndex)) {
+                batchContext.nextItemIndex = 0;
+            }
+            if (!Number.isInteger(batchContext.inFlight)) {
+                batchContext.inFlight = 0;
+            }
+            const itemIndex = batchContext.nextItemIndex++;
+            batchContext.inFlight++;
 
             // Batch Graph Snapshot Guard:
             // When queueing a batch with batchCount > 1, snapshot on iteration 0 in the background
             // so canvas edits (text, LoRA selection, widgets) don't bleed into subsequent items.
-            if (isSnapshotGuardEnabled() && activeBatchContext && activeBatchContext.batchCount > 1) {
+            if (isSnapshotGuardEnabled() && batchContext.batchCount > 1) {
                 if (itemIndex === 0) {
                     try {
-                        activeBatchContext.snapshotPrompt = JSON.parse(JSON.stringify(prompt));
+                        batchContext.snapshotPrompt = JSON.parse(JSON.stringify(prompt));
                     } catch (e) {
                         console.warn("[SaturnNodes BatchQueue] Failed to snapshot prompt:", e);
                     }
-                } else if (activeBatchContext.snapshotPrompt) {
-                    promptToSend = mergeDynamicSeeds(activeBatchContext.snapshotPrompt, prompt);
+                } else if (batchContext.snapshotPrompt) {
+                    promptToSend = mergeDynamicSeeds(batchContext.snapshotPrompt, prompt);
                 }
             }
 
@@ -524,32 +578,38 @@ function setupQueueHooks() {
             try {
                 res = await origApiQueuePrompt(number, promptToSend, targets);
             } catch (e) {
-                if (activeBatchContext && activeBatchContext.prompts.length === 0) {
+                batchContext.inFlight--;
+                if (activeBatchContext === batchContext &&
+                    batchContext.nextItemIndex >= batchContext.batchCount &&
+                    batchContext.inFlight === 0) {
                     activeBatchContext = null;
                 }
                 throw e;
             }
+            batchContext.inFlight--;
             if (res && res.prompt_id) {
                 const pid = String(res.prompt_id);
                 const batchInfo = {
                     prompt_id: pid,
-                    batchId: activeBatchContext.batchId,
-                    batchNumber: activeBatchContext.batchNumber,
-                    batchCount: activeBatchContext.batchCount,
+                    batchId: batchContext.batchId,
+                    batchNumber: batchContext.batchNumber,
+                    batchCount: batchContext.batchCount,
                     itemIndex: itemIndex,
-                    color: activeBatchContext.color,
-                    colorIndex: activeBatchContext.colorIndex,
+                    color: batchContext.color,
+                    colorIndex: batchContext.colorIndex,
                     isQueueFront: number < 0,
                     queuedAt: Date.now()
                 };
 
-                activeBatchContext.prompts.push(pid);
+                batchContext.prompts.push(pid);
                 batchRegistry.set(pid, batchInfo);
                 saveStorage();
                 syncBatchToServer(pid, batchInfo);
 
                 // If this batch completed its expected prompt count, clear context
-                if (activeBatchContext.prompts.length >= activeBatchContext.batchCount) {
+                if (activeBatchContext === batchContext &&
+                    batchContext.nextItemIndex >= batchContext.batchCount &&
+                    batchContext.inFlight === 0) {
                     activeBatchContext = null;
                 }
 
