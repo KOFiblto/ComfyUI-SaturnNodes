@@ -12,6 +12,7 @@ let currentPowerState = {
 };
 
 let activePopup = null;
+let activePopupCleanup = null;
 
 function injectStyles() {
     if (document.getElementById(STYLE_ID)) return;
@@ -296,6 +297,15 @@ function checkProcessManagementEnabled() {
 }
 
 function closePowerPopup() {
+    // Document-level listeners must die with the popup they belong to.
+    // Otherwise an old outside-click handler can close a popup that was
+    // reopened after this one was dismissed by a menu item.
+    if (activePopupCleanup) {
+        try {
+            activePopupCleanup();
+        } catch (_) {}
+        activePopupCleanup = null;
+    }
     if (activePopup) {
         activePopup.remove();
         activePopup = null;
@@ -307,9 +317,13 @@ async function powerFetch(endpointSuffix, options = {}) {
 }
 
 function showPowerSidePopup(anchorElement) {
-    if (activePopup) {
+    if (activePopup && activePopup.isConnected) {
         closePowerPopup();
         return;
+    }
+    if (activePopup) {
+        // Detached popup left over from a DOM swap: clean it up before opening.
+        closePowerPopup();
     }
 
     const popup = document.createElement("div");
@@ -607,18 +621,22 @@ function showPowerSidePopup(anchorElement) {
     const outsideListener = (e) => {
         if (popup && !popup.contains(e.target) && !anchorElement.contains(e.target)) {
             closePowerPopup();
-            document.removeEventListener("pointerdown", outsideListener);
-            document.removeEventListener("keydown", keyListener);
         }
     };
     const keyListener = (e) => {
         if (e.key === "Escape") {
             closePowerPopup();
-            document.removeEventListener("pointerdown", outsideListener);
-            document.removeEventListener("keydown", keyListener);
         }
     };
+    const removePopupListeners = () => {
+        document.removeEventListener("pointerdown", outsideListener);
+        document.removeEventListener("keydown", keyListener);
+    };
+    activePopupCleanup = removePopupListeners;
+
     setTimeout(() => {
+        // The popup may have been closed (or replaced) before the timer fires.
+        if (activePopup !== popup) return;
         document.addEventListener("pointerdown", outsideListener);
         document.addEventListener("keydown", keyListener);
     }, 10);

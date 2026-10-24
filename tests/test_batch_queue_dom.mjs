@@ -51,11 +51,21 @@ class FakeElement {
     }
 
     matches(selector) {
-        if (selector === '[data-job-id]') return this.attributes.has("data-job-id");
-        if (selector === '[data-testid="job-assets-list"]') {
-            return this.getAttribute("data-testid") === "job-assets-list";
-        }
-        return false;
+        return String(selector).split(",").some(rawPart => {
+            const part = rawPart.trim();
+            if (part === "[data-job-id]") return this.attributes.has("data-job-id");
+            if (part === '[data-testid="job-assets-list"]') {
+                return this.getAttribute("data-testid") === "job-assets-list";
+            }
+            if (part === ".comfy-table") {
+                return this.className.split(/\s+/).includes("comfy-table");
+            }
+            if (part === "tr") return this.tagName === "TR";
+            if (part === ".comfy-table tr[data-job-id]") {
+                return this.tagName === "TR" && this.attributes.has("data-job-id");
+            }
+            return false;
+        });
     }
 
     closest(selector) {
@@ -128,6 +138,9 @@ pendingCard.setAttribute("data-job-id", "pid-b");
 queueRoot.appendChild(activeCard);
 queueRoot.appendChild(pendingCard);
 
+// Legacy v1 rows are inserted separately by the test.
+const v1Rows = [];
+
 const document = {
     body: new FakeElement("body"),
     head: new FakeElement("head"),
@@ -146,6 +159,9 @@ const document = {
         return new FakeElement(tagName);
     },
     querySelectorAll(selector) {
+        if (selector.includes(".comfy-table")) {
+            return [activeCard, pendingCard, ...v1Rows];
+        }
         if (selector.includes("[data-job-id]")) {
             return [activeCard, pendingCard];
         }
@@ -196,6 +212,7 @@ storage.set(
         batchInfo("pid-a", oldBatch, "#4ade80", 0, 1),
         batchInfo("pid-b", newBatch, "#fbbf24", 1, 2),
         batchInfo("pid-c", newBatch, "#fbbf24", 0, 2),
+        batchInfo("pid-d", newBatch, "#fbbf24", 1, 2),
     ])
 );
 
@@ -290,5 +307,57 @@ assert.doesNotMatch(
 const pendingLine = pendingCard.querySelector(".saturnnodes-batch-line-wrap");
 assert.ok(pendingLine, "pending card must have a batch line");
 assert.match(pendingLine.innerHTML, /#fbbf24/, "pending item must use the new batch color");
+
+// 4. Legacy v1: a table can be inserted with its rows already built, so the
+//    mutation target is the new parent and the table only appears in addedNodes.
+const table = new FakeElement("table");
+table.className = "comfy-table";
+const v1Row = new FakeElement("tr");
+v1Row.setAttribute("data-job-id", "pid-d");
+table.appendChild(v1Row);
+const tableWrapper = new FakeElement("div");
+document.body.appendChild(tableWrapper);
+tableWrapper.appendChild(table);
+v1Rows.push(v1Row);
+
+observer.callback([{
+    type: "childList",
+    target: tableWrapper,
+    addedNodes: [table],
+    removedNodes: [],
+}]);
+advance(100);
+
+const v1Line = v1Row.querySelector(".saturnnodes-batch-line-wrap");
+assert.ok(v1Line, "a v1 table inserted with rows must get a batch line");
+assert.match(v1Line.innerHTML, /#fbbf24/, "v1 row must use the batch color");
+
+// 5. Duplicate data-job-id rows must not skew batch grouping or paint twice.
+const duplicateRow = new FakeElement("tr");
+duplicateRow.setAttribute("data-job-id", "pid-b");
+// Simulate a line left over from an earlier render on the duplicate.
+const staleDuplicateLine = new FakeElement("div");
+staleDuplicateLine.className = "saturnnodes-batch-line-wrap";
+duplicateRow.appendChild(staleDuplicateLine);
+table.appendChild(duplicateRow);
+v1Rows.push(duplicateRow);
+
+observer.callback([{
+    type: "childList",
+    target: table,
+    addedNodes: [duplicateRow],
+    removedNodes: [],
+}]);
+advance(100);
+
+assert.equal(
+    duplicateRow.querySelector(".saturnnodes-batch-line-wrap"),
+    null,
+    "duplicate job row must be ignored"
+);
+assert.ok(
+    pendingCard.querySelector(".saturnnodes-batch-line-wrap"),
+    "the first occurrence of the job id keeps its batch line"
+);
 
 console.log("batch queue DOM regression test passed");

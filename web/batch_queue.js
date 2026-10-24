@@ -377,14 +377,27 @@ async function updateQueueBatchVisuals() {
     const elements = Array.from(document.querySelectorAll('[data-testid="job-assets-list"] [data-job-id], .comfy-table tr[data-job-id]'));
     if (!elements.length) return;
 
-    // Elements are strictly in visual screen order from top to bottom
-    const visiblePromptIds = elements.map(el => el.getAttribute("data-job-id")).filter(Boolean);
-
-    // Build map of promptId -> element for visible items
+    // Elements are strictly in visual screen order from top to bottom.
+    // Dedupe by prompt id: a duplicate row would otherwise skew the batch
+    // grouping counts and make the line segments disagree with the list.
+    const visiblePromptIds = [];
     const elMap = new Map();
+    const duplicateElements = [];
     for (const el of elements) {
         const pid = el.getAttribute("data-job-id");
-        if (pid) elMap.set(pid, el);
+        if (!pid) continue;
+        if (elMap.has(pid)) {
+            // A duplicate row must not keep a batch line painted by an earlier
+            // render either; only the first visible occurrence is authoritative.
+            duplicateElements.push(el);
+            continue;
+        }
+        visiblePromptIds.push(pid);
+        elMap.set(pid, el);
+    }
+    if (!visiblePromptIds.length) return;
+    for (const el of duplicateElements) {
+        removeBatchLineFromElement(el);
     }
 
     // Group visible prompts by batch once (O(n)) instead of filtering the whole
@@ -569,16 +582,35 @@ app.registerExtension({
         // `attributes` is essential: Vue reuses a running card and only updates
         // its data-job-id when the next batch item starts. Without watching that
         // attribute, the old batch line can remain painted on the reused card.
+        // `addedNodes` is inspected because a legacy .comfy-table can be
+        // inserted with its rows already built, producing no later mutation
+        // inside the table.
+        const QUEUE_MUTATION_SELECTOR =
+            '[data-testid="job-assets-list"], .comfy-table, [data-job-id]';
+        const mutationTouchesQueue = (m) => {
+            if (m.target && m.target.nodeType === 1) {
+                if (m.target.closest?.(QUEUE_MUTATION_SELECTOR) ||
+                    m.target.matches?.(QUEUE_MUTATION_SELECTOR)) {
+                    return true;
+                }
+            }
+            for (const node of m.addedNodes || []) {
+                if (node.nodeType !== 1) continue;
+                if (node.matches?.(QUEUE_MUTATION_SELECTOR) ||
+                    node.querySelector?.(QUEUE_MUTATION_SELECTOR)) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
         let debounceTimer = null;
         const observer = new MutationObserver((mutations) => {
             let shouldUpdate = false;
             for (const m of mutations) {
-                if (m.target && m.target.nodeType === 1) {
-                    if (m.target.closest?.('[data-testid="job-assets-list"], .comfy-table') ||
-                        m.target.matches?.('[data-testid="job-assets-list"], [data-job-id]')) {
-                        shouldUpdate = true;
-                        break;
-                    }
+                if (mutationTouchesQueue(m)) {
+                    shouldUpdate = true;
+                    break;
                 }
             }
             if (shouldUpdate) {

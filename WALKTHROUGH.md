@@ -43,6 +43,8 @@ SaturnNodes automatically tracks which workflows are submitted together as a bat
 You don't need to interact with this—it runs silently in the background!
 Every time you queue a prompt, SaturnNodes saves the entire queue state to your hard drive in real time. If your computer crashes, power goes out, or you accidentally close the terminal, ComfyUI will automatically restore your unfinished queue upon next boot. The **Recovery Launch State** setting controls whether recovery uses your normal launch state (`Match Default`), always pauses (`Force Paused`), or always runs (`Force Running`); use `Force Paused` if you want to inspect the restored queue before it starts.
 
+The queue file is versioned. Older queue files are upgraded automatically, and if you downgrade to an older SaturnNodes version, a queue file written by a newer version is left read-only instead of being overwritten.
+
 ### Automatic Assets Pane & History Restore
 In standard ComfyUI, restarting your server wipes the in-memory execution history, leaving your sidebar Assets Pane / History tab completely blank on launch.
 - SaturnNodes automatically scans your `output` folder (read-only) on server startup and pre-populates the history with your latest **64 images** (or custom count).

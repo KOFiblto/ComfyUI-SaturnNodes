@@ -19,6 +19,11 @@ CURRENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 USER_DIR = get_saturnnodes_user_dir()
 PERSISTENT_FILE = os.path.join(USER_DIR, "persistent_queue.json")
 
+# Versioned envelope for persistent_queue.json. Bump this when the persisted
+# entry shape changes and add a migration branch in
+# PersistentQueueManager._normalize_persisted_payload().
+PERSISTENT_QUEUE_SCHEMA_VERSION = 1
+
 def is_persistent_queue_enabled():
     val = get_env_setting("ENABLE_PERSISTENT_QUEUE", "true").lower()
     return val in ["true", "1", "yes"]
@@ -270,30 +275,78 @@ class PersistentQueueManager:
         self.has_claimed_once = False
         self._save_timer = None
         self._save_dirty = False
+        # Set when persistent_queue.json was written by a newer SaturnNodes.
+        # In that case the file is read-only for this process so a downgrade
+        # cannot destroy a queue whose entry shape we do not understand.
+        self._read_only_newer_schema = False
         self.load_from_file()
+
+    @staticmethod
+    def _normalize_persisted_payload(data):
+        """Return ``(items, needs_rewrite, is_foreign)`` for persisted payloads.
+
+        - v1 files (pre-2.6.2) are a bare list and are migrated on load.
+        - Current files are ``{"schema_version": 1, "items": [...]}``.
+        - A file written by a newer SaturnNodes is reported as foreign so the
+          caller can keep it read-only instead of destroying a queue it cannot
+          understand.
+        """
+        def is_valid_item(x):
+            return (
+                isinstance(x, dict)
+                and "prompt_id" in x
+                and isinstance(x.get("item"), (list, tuple))
+            )
+
+        if isinstance(data, dict):
+            version = data.get("schema_version")
+            items = data.get("items")
+            if not isinstance(items, list):
+                return [], False, False
+            if isinstance(version, int) and version > PERSISTENT_QUEUE_SCHEMA_VERSION:
+                print(
+                    "[SaturnNodes PersistentQueue] persistent_queue.json was written by a newer "
+                    f"SaturnNodes (schema {version} > {PERSISTENT_QUEUE_SCHEMA_VERSION}); "
+                    "leaving it untouched."
+                )
+                return [], False, True
+            return (
+                [x for x in items if is_valid_item(x)],
+                version != PERSISTENT_QUEUE_SCHEMA_VERSION,
+                False,
+            )
+
+        if isinstance(data, list):
+            # Legacy bare-list format.
+            return [x for x in data if is_valid_item(x)], True, False
+
+        return [], False, False
 
     def load_from_file(self):
         with self.lock:
-            if os.path.exists(PERSISTENT_FILE):
-                try:
-                    with open(PERSISTENT_FILE, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                        if isinstance(data, list):
-                            self.persistent_items = [
-                                x for x in data
-                                if isinstance(x, dict) and "prompt_id" in x and isinstance(x.get("item"), (list, tuple))
-                            ]
-                            for x in self.persistent_items:
-                                if "batch_info" in x and "prompt_id" in x:
-                                    pid = str(x["prompt_id"])
-                                    self.batch_meta[pid] = x["batch_info"]
-                                    self.batch_meta_updated[pid] = time.time()
-                        else:
-                            self.persistent_items = []
-                except Exception as e:
-                    print(f"[SaturnNodes PersistentQueue] Error loading persistent queue file: {e}")
-                    self.persistent_items = []
-            else:
+            if not os.path.exists(PERSISTENT_FILE):
+                self.persistent_items = []
+                self._prune_batch_meta_locked()
+                return
+            try:
+                with open(PERSISTENT_FILE, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                items, needs_rewrite, is_foreign = self._normalize_persisted_payload(data)
+                self._read_only_newer_schema = is_foreign
+                self.persistent_items = items
+                for x in self.persistent_items:
+                    if "batch_info" in x and "prompt_id" in x:
+                        pid = str(x["prompt_id"])
+                        self.batch_meta[pid] = x["batch_info"]
+                        self.batch_meta_updated[pid] = time.time()
+                if needs_rewrite:
+                    # Rewrite once so the legacy bare-list shape is not read
+                    # forever. _write_locked() is a no-op while persistence is
+                    # disabled, in which case the migration is retried later.
+                    self._save_dirty = True
+                    self._write_locked()
+            except Exception as e:
+                print(f"[SaturnNodes PersistentQueue] Error loading persistent queue file: {e}")
                 self.persistent_items = []
             self._prune_batch_meta_locked()
 
@@ -360,20 +413,37 @@ class PersistentQueueManager:
     def _write_locked(self):
         if not self._save_dirty:
             return
+        if self._read_only_newer_schema:
+            # Never overwrite a queue file produced by a newer SaturnNodes.
+            self._save_dirty = False
+            return
         if not is_persistent_queue_enabled():
             self._save_dirty = False
             return
         try:
             os.makedirs(USER_DIR, exist_ok=True)
             temp_file = PERSISTENT_FILE + ".tmp"
+            payload = {
+                "schema_version": PERSISTENT_QUEUE_SCHEMA_VERSION,
+                "items": self.persistent_items,
+            }
             with open(temp_file, "w", encoding="utf-8") as f:
-                json.dump(self.persistent_items, f, separators=(",", ":"), default=str)
+                json.dump(payload, f, separators=(",", ":"), default=str)
                 f.flush()
                 try:
                     os.fsync(f.fileno())
                 except OSError:
                     pass
-            os.replace(temp_file, PERSISTENT_FILE)
+            # Windows can transiently lock the destination (antivirus, indexer,
+            # backup). Retry briefly instead of dropping the save.
+            for attempt in range(3):
+                try:
+                    os.replace(temp_file, PERSISTENT_FILE)
+                    break
+                except PermissionError:
+                    if attempt == 2:
+                        raise
+                    time.sleep(0.05)
             self._save_dirty = False
         except Exception as e:
             print(f"[SaturnNodes PersistentQueue] Error saving persistent queue file: {e}")
@@ -404,7 +474,13 @@ class PersistentQueueManager:
                     self.persistent_items = [x for x in self.persistent_items if str(x.get("prompt_id")) != pid_str]
                     self.persistent_items.append(entry)
                 self.save_to_file()
-                print(f"[SaturnNodes PersistentQueue] Persisted prompt {pid_str} to disk.")
+                if self._read_only_newer_schema:
+                    print(
+                        f"[SaturnNodes PersistentQueue] Queue file uses a newer schema; "
+                        f"prompt {pid_str} kept in memory only."
+                    )
+                else:
+                    print(f"[SaturnNodes PersistentQueue] Persisted prompt {pid_str} to disk.")
         except Exception as e:
             print(f"[SaturnNodes PersistentQueue] Error formatting queue item for persistence: {e}")
 

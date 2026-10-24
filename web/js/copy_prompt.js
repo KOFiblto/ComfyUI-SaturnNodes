@@ -358,6 +358,20 @@ app.registerExtension({
 
 // 2. Active Interaction Tracking & Image URL Resolution
 let lastInteractedAssetCard = null;
+let lastInteractedAssetKey = null;
+
+const ASSET_CARD_SELECTOR =
+    "div[data-virtual-grid-item], [data-asset-id], .asset-card, [data-testid='asset-card'], [data-node-id], .lg-node, .comfy-image-preview, .group";
+
+function assetIdentityKey(card) {
+    if (!card) return null;
+    const assetId = card.getAttribute?.("data-asset-id")
+        || card.closest?.("[data-asset-id]")?.getAttribute?.("data-asset-id");
+    if (assetId) return `asset:${assetId}`;
+    const img = card.querySelector?.("img");
+    if (img && img.src) return `src:${img.src}`;
+    return null;
+}
 
 function isQueueItemElement(el) {
     if (!el || typeof el.closest !== "function") return false;
@@ -370,12 +384,30 @@ function isQueueItemElement(el) {
 
 function registerAssetInteraction(target) {
     if (!target) return;
-    const card = target.closest?.(
-        "div[data-virtual-grid-item], [data-asset-id], .asset-card, [data-testid='asset-card'], [data-node-id], .lg-node, .comfy-image-preview, .group"
-    );
+    const card = target.closest?.(ASSET_CARD_SELECTOR);
     if (card && !isQueueItemElement(card)) {
         lastInteractedAssetCard = card;
+        lastInteractedAssetKey = assetIdentityKey(card);
     }
+}
+
+// The virtual grid recycles card elements. A stored card can therefore be
+// detached, or now display a different asset than the one the user clicked.
+function getLiveInteractedCard() {
+    const card = lastInteractedAssetCard;
+    if (!card) return null;
+    if (card.isConnected === false) {
+        lastInteractedAssetCard = null;
+        lastInteractedAssetKey = null;
+        return null;
+    }
+    const key = assetIdentityKey(card);
+    if (lastInteractedAssetKey && key && key !== lastInteractedAssetKey) {
+        lastInteractedAssetCard = null;
+        lastInteractedAssetKey = null;
+        return null;
+    }
+    return card;
 }
 
 document.addEventListener("pointerdown", (e) => registerAssetInteraction(e.target), true);
@@ -384,8 +416,9 @@ document.addEventListener("contextmenu", (e) => registerAssetInteraction(e.targe
 
 function getActiveImageSrc() {
     // 1. From last clicked / right-clicked / interacted asset card
-    if (lastInteractedAssetCard) {
-        const img = lastInteractedAssetCard.querySelector("img");
+    const interactedCard = getLiveInteractedCard();
+    if (interactedCard) {
+        const img = interactedCard.querySelector("img");
         if (img && img.src) return img.src;
     }
     // 2. From currently selected asset card in DOM
@@ -464,7 +497,11 @@ function injectCopyPromptNextToDownload(downloadBtn) {
             copyBtn.onclick = async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const activeImg = card.querySelector("img") || img;
+                // Resolve the card/image at click time: the grid may have
+                // recycled this card for another asset since injection.
+                const liveCard = copyBtn.closest(ASSET_CARD_SELECTOR) || card;
+                const activeImg = liveCard.querySelector("img") || img;
+                if (!activeImg || !activeImg.src) return;
                 const success = await copyImagePrompt(activeImg.src);
                 if (hasModernIcons) {
                     copyBtn.innerHTML = success
@@ -503,7 +540,8 @@ function injectCopyPromptNextToDownload(downloadBtn) {
             inspectBtn.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                const target = card.querySelector(".aspect-square, [class*='aspect-square'], img") || img;
+                const liveCard = inspectBtn.closest(ASSET_CARD_SELECTOR) || card;
+                const target = liveCard.querySelector(".aspect-square, [class*='aspect-square'], img") || img;
                 if (target) {
                     target.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, view: window }));
                 }
@@ -609,7 +647,7 @@ function injectContextMenuCopy(contextMenu) {
 
 // 5. Fallback Hook for Older Frontend Action Bars
 function injectHoverCopyAction(overlayBar) {
-    if (!overlayBar || overlayBar.querySelector(".saturnnodes-hover-copy")) return;
+    if (!overlayBar) return;
     if (!isCopyEnabled("SaturnNodes.📋 Prompt Actions.01_EnableAssetsCopyPromptButton")) return;
 
     if (isQueueItemElement(overlayBar)) return;
@@ -626,9 +664,7 @@ function injectHoverCopyAction(overlayBar) {
         overlayBar.querySelector('button[aria-label*="zoom" i]')?.parentElement ||
         overlayBar;
 
-    const parentCard = overlayBar.closest(
-        "div[data-virtual-grid-item], .asset-card, [data-testid='asset-card'], [data-node-id], .lg-node, .comfy-image-preview"
-    );
+    const parentCard = overlayBar.closest(ASSET_CARD_SELECTOR);
     if (!parentCard) return;
     if (isQueueItemElement(parentCard)) return;
 
@@ -636,18 +672,31 @@ function injectHoverCopyAction(overlayBar) {
     if (!img || !img.src) return;
     if (img.classList.contains("size-8") || img.closest(".size-8, .size-10, .h-12")) return;
 
+    // Older action bars keep injected children when they are reused for the
+    // next asset. Drop a button that is bound to a previous asset instead of
+    // leaving it to copy the old image.
+    const assetKey = assetIdentityKey(parentCard) || "";
+    const existingBtn = overlayBar.querySelector(".saturnnodes-hover-copy");
+    if (existingBtn && existingBtn.dataset.saturnnodesAssetKey === assetKey) return;
+    if (existingBtn) existingBtn.remove();
+
     const copyBtn = document.createElement("button");
     copyBtn.className =
         "saturnnodes-hover-btn saturnnodes-hover-copy relative inline-flex items-center justify-center cursor-pointer touch-manipulation appearance-none border-none text-xs font-medium font-inter transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-white text-gray-700 hover:bg-gray-100 size-8 p-0 rounded-none pointer-events-auto border-r border-gray-200 shrink-0";
     copyBtn.title = "Copy Prompt";
     copyBtn.setAttribute("aria-label", "Copy Prompt");
     copyBtn.setAttribute("data-pd-tooltip", "true");
+    copyBtn.dataset.saturnnodesAssetKey = assetKey;
     copyBtn.innerHTML = "<span class='text-sm pointer-events-none'>📋</span>";
 
     copyBtn.onclick = async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        const success = await copyImagePrompt(img.src);
+        // Re-resolve at click time: the overlay may now belong to another asset.
+        const liveCard = copyBtn.closest(ASSET_CARD_SELECTOR) || parentCard;
+        const liveImg = liveCard.querySelector("img") || img;
+        if (!liveImg || !liveImg.src) return;
+        const success = await copyImagePrompt(liveImg.src);
         if (success) {
             copyBtn.innerHTML = "<span class='text-sm pointer-events-none'>✅</span>";
             setTimeout(() => (copyBtn.innerHTML = "<span class='text-sm pointer-events-none'>📋</span>"), 2000);

@@ -1,5 +1,6 @@
 import { app } from "/scripts/app.js";
 import { isSaturnColorsEnabled } from "../saturnnodes_colors.js";
+import { resolveLiveWidgetElement } from "./live_dom.js";
 
 function countPromptsInText(text, separator, customRegex) {
     if (!text || !text.trim()) return 0;
@@ -104,10 +105,18 @@ app.registerExtension({
 
             function updatePromptBadgeColor() {
                 const enabled = isSaturnColorsEnabled();
-                if (node._promptBadgeSpan) {
-                    node._promptBadgeSpan.style.color = enabled ? "#f59e0b" : "var(--text-muted, #a1a1aa)";
+                const badgeEl = resolveLiveWidgetElement(
+                    node._promptBadgeEl,
+                    node.id,
+                    "prompt_count_preview"
+                );
+                if (badgeEl) node._promptBadgeEl = badgeEl;
+                const badgeSpan = badgeEl?.querySelector?.("span") || node._promptBadgeSpan;
+                if (badgeSpan) node._promptBadgeSpan = badgeSpan;
+
+                if (badgeSpan) {
+                    badgeSpan.style.color = enabled ? "#f59e0b" : "var(--text-muted, #a1a1aa)";
                 }
-                const badgeEl = node._promptBadgeEl;
                 if (badgeEl) {
                     badgeEl.style.background = enabled
                         ? "rgba(180, 140, 95, 0.12)"
@@ -126,8 +135,16 @@ app.registerExtension({
                 const count = countPromptsInText(text, sep, regex);
                 node._promptCount = count;
                 const label = `${count} Prompt${count === 1 ? "" : "s"}`;
-                if (node._promptBadgeSpan) {
-                    node._promptBadgeSpan.textContent = label;
+                const liveBadgeEl = resolveLiveWidgetElement(
+                    node._promptBadgeEl,
+                    node.id,
+                    "prompt_count_preview"
+                );
+                if (liveBadgeEl) node._promptBadgeEl = liveBadgeEl;
+                const liveBadgeSpan = liveBadgeEl?.querySelector?.("span") || node._promptBadgeSpan;
+                if (liveBadgeSpan) {
+                    node._promptBadgeSpan = liveBadgeSpan;
+                    liveBadgeSpan.textContent = label;
                 }
                 if (countWidget) {
                     countWidget.value = label;

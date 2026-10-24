@@ -2,6 +2,7 @@ import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { isSaturnColorsEnabled } from "../saturnnodes_colors.js";
 import { authenticatedFetch } from "./auth_helper.js";
+import { resolveLiveWidgetElement } from "./live_dom.js";
 
 // Hash folder name to get a consistent color for the border
 function getFolderBorderColor(folderName) {
@@ -1270,10 +1271,18 @@ app.registerExtension({
 
             const updateLoraBadgeColor = () => {
                 const enabled = isSaturnColorsEnabled();
-                if (node._loraBadgeSpan) {
-                    node._loraBadgeSpan.style.color = enabled ? "#f59e0b" : "var(--text-muted, #a1a1aa)";
+                const badgeEl = resolveLiveWidgetElement(
+                    node._loraBadgeEl,
+                    node.id,
+                    "lora_count_preview"
+                );
+                if (badgeEl) node._loraBadgeEl = badgeEl;
+                const badgeSpan = badgeEl?.querySelector?.("span") || node._loraBadgeSpan;
+                if (badgeSpan) node._loraBadgeSpan = badgeSpan;
+
+                if (badgeSpan) {
+                    badgeSpan.style.color = enabled ? "#f59e0b" : "var(--text-muted, #a1a1aa)";
                 }
-                const badgeEl = node._loraBadgeEl;
                 if (badgeEl) {
                     badgeEl.style.background = enabled
                         ? "rgba(180, 140, 95, 0.12)"
@@ -1314,8 +1323,16 @@ app.registerExtension({
                 const count = getSelectedLoras().length;
                 node._selectedLoraCount = count;
                 const label = `${count} LoRA${count === 1 ? "" : "s"} Selected`;
-                if (node._loraBadgeSpan) {
-                    node._loraBadgeSpan.textContent = label;
+                const liveBadgeEl = resolveLiveWidgetElement(
+                    node._loraBadgeEl,
+                    node.id,
+                    "lora_count_preview"
+                );
+                if (liveBadgeEl) node._loraBadgeEl = liveBadgeEl;
+                const liveBadgeSpan = liveBadgeEl?.querySelector?.("span") || node._loraBadgeSpan;
+                if (liveBadgeSpan) {
+                    node._loraBadgeSpan = liveBadgeSpan;
+                    liveBadgeSpan.textContent = label;
                 }
                 if (loraCountWidget) {
                     loraCountWidget.value = label;

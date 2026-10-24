@@ -1,6 +1,7 @@
 import { app } from "/scripts/app.js";
 import { api } from "/scripts/api.js";
 import { PreviewManager } from "./js/preview_manager.js";
+import { resolveLiveElement } from "./js/live_dom.js";
 
 // Global CSS injection to guarantee zero-expansion in Vue Node 2.0 and LiteGraph
 if (typeof document !== "undefined") {
@@ -370,9 +371,28 @@ app.registerExtension({
                 }
                 
                 if (this.previewImgElement && this.previewFallbackText && img && img.src) {
-                    this.previewFallbackText.style.display = "none";
-                    this.previewImgElement.src = img.src;
-                    this.previewImgElement.style.display = "block";
+                    // The Vue node renderer can remount the DOM widget while the
+                    // node object keeps its cached element references. Resolve the
+                    // element that is actually mounted for this node before writing.
+                    const liveImg = resolveLiveElement(this.previewImgElement, () => {
+                        if (this.id === undefined || this.id === null) return null;
+                        return document.querySelector(
+                            `[data-node-id="${this.id}"] .saturnnodes-live-preview-img, ` +
+                            `[data-widgets-grid-node-id="${this.id}"] .saturnnodes-live-preview-img`
+                        );
+                    });
+                    if (liveImg) this.previewImgElement = liveImg;
+
+                    const liveFallback = resolveLiveElement(this.previewFallbackText, () =>
+                        liveImg?.parentElement?.querySelector?.(".saturnnodes-live-preview-fallback")
+                    );
+                    if (liveFallback) this.previewFallbackText = liveFallback;
+
+                    if (liveFallback) liveFallback.style.display = "none";
+                    if (liveImg) {
+                        liveImg.src = img.src;
+                        liveImg.style.display = "block";
+                    }
                 }
                 
                 if (app.graph && typeof app.graph.setDirtyCanvas === "function") {

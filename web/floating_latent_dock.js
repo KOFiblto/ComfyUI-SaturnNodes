@@ -1035,8 +1035,13 @@ class FloatingLatentDock {
         // Safety clamp: bottomGap must never push dock beyond upper half of screen
         bottomGap = Math.max(54, Math.min(bottomGap, Math.round(window.innerHeight * 0.75)));
 
-        this.dockEl.style.bottom = `${bottomGap}px`;
-        this.dockEl.style.right = "8px";
+        const nextBottom = `${bottomGap}px`;
+        if (this.dockEl.style.bottom !== nextBottom) {
+            this.dockEl.style.bottom = nextBottom;
+        }
+        if (this.dockEl.style.right !== "8px") {
+            this.dockEl.style.right = "8px";
+        }
     }
 
     requestPositionUpdate() {
@@ -1053,38 +1058,67 @@ class FloatingLatentDock {
         // Track window resize (debounced via rAF)
         window.addEventListener("resize", () => this.requestPositionUpdate(), { passive: true });
 
-        // Observe DOM structural changes only (minimap toggle / toolbar mount) without watching every subtree attribute
-        const observer = new MutationObserver(() => {
-            this.requestPositionUpdate();
+        // The minimap and canvas toolbar mount/unmount deep inside the app
+        // shell. A shallow body observer never sees those mutations, so the
+        // dock kept a stale bottom offset and could overlap the minimap while
+        // idle. Inspect added/removed subtrees for layout-relevant nodes.
+        const LAYOUT_SELECTOR =
+            ".minimap-main-container, .litegraph-minimap, [role='toolbar'], " +
+            ".graph-canvas-menu, .canvas-toolbar, .side-bar";
+        const isLayoutNode = (node) => {
+            if (!node || node.nodeType !== 1) return false;
+            if (node.matches?.(LAYOUT_SELECTOR)) return true;
+            return !!node.querySelector?.(LAYOUT_SELECTOR);
+        };
+
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type !== "childList") continue;
+                for (const node of mutation.addedNodes || []) {
+                    if (isLayoutNode(node)) {
+                        this.requestPositionUpdate();
+                        return;
+                    }
+                }
+                for (const node of mutation.removedNodes || []) {
+                    if (isLayoutNode(node)) {
+                        this.requestPositionUpdate();
+                        return;
+                    }
+                }
+            }
         });
 
         observer.observe(document.body, {
             childList: true,
-            subtree: false
+            subtree: true
         });
     }
 
     injectToolbarButtonLoop() {
         const tryInject = () => {
-            if (this.btnEl && document.body.contains(this.btnEl)) return;
+            if (!this.btnEl || !document.body.contains(this.btnEl)) {
+                const toolbar = document.querySelector(
+                    '[role="toolbar"][aria-label*="canvasToolbar" i], [role="toolbar"][aria-label*="Canvas Toolbar" i], .graph-canvas-menu, .canvas-toolbar'
+                );
+                if (toolbar) {
+                    this.createToolbarButton();
 
-            const toolbar = document.querySelector(
-                '[role="toolbar"][aria-label*="canvasToolbar" i], [role="toolbar"][aria-label*="Canvas Toolbar" i], .graph-canvas-menu, .canvas-toolbar'
-            );
-            if (!toolbar) return;
+                    // Find Minimap button or FitView button in the toolbar to place alongside it
+                    const minimapBtn = toolbar.querySelector('button[aria-label*="minimap" i], button[aria-label*="Minimap" i]');
+                    if (minimapBtn && minimapBtn.parentElement === toolbar) {
+                        toolbar.insertBefore(this.btnEl, minimapBtn.nextSibling);
+                    } else {
+                        toolbar.appendChild(this.btnEl);
+                    }
 
-            this.createToolbarButton();
-
-            // Find Minimap button or FitView button in the toolbar to place alongside it
-            const minimapBtn = toolbar.querySelector('button[aria-label*="minimap" i], button[aria-label*="Minimap" i]');
-            if (minimapBtn && minimapBtn.parentElement === toolbar) {
-                toolbar.insertBefore(this.btnEl, minimapBtn.nextSibling);
-            } else {
-                toolbar.appendChild(this.btnEl);
+                    this.updateVisibility();
+                }
             }
 
-            this.updateVisibility();
-            this.updatePosition();
+            // Catch layout-only toggles (class/style changes) that produce no
+            // childList mutation. rAF-debounced and a no-op while hidden.
+            this.requestPositionUpdate();
         };
 
         tryInject();

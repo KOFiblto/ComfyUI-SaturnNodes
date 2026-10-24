@@ -794,6 +794,27 @@ function getInitialSetting(saturnId, defaultVal) {
     return defaultVal;
 }
 
+/**
+ * Re-apply the saved queue height to lists that mounted after setup.
+ *
+ * The legacy v1 queue can mount or recreate its `.comfy-list` independently
+ * of the overlay, so `attachQueueResizeHandle()` (which early-returns once the
+ * handle exists) is not enough to keep the height budget applied.
+ *
+ * @returns {boolean} true when the apply callback ran for a fresh list.
+ */
+function reapplyQueueHeightToMountedLists(overlay, heightPx, applyFn) {
+    if (!overlay || !heightPx || heightPx <= 0 || typeof applyFn !== "function") return false;
+    const lists = overlay.querySelectorAll?.(".comfy-list") || [];
+    const marker = String(heightPx);
+    for (const listEl of lists) {
+        if (listEl.dataset?.saturnQueueHeight === marker) continue;
+        applyFn(heightPx);
+        return true;
+    }
+    return false;
+}
+
 app.registerExtension({
     name: "ComfyUI.SaturnNodes.Settings",
     async setup() {
@@ -1363,6 +1384,11 @@ app.registerExtension({
                 } else {
                     listEl.style.removeProperty("max-height");
                 }
+                // Marker lets the overlay observer detect lists that mounted
+                // after this pass without rewriting styles on every mutation.
+                if (listEl.dataset) {
+                    listEl.dataset.saturnQueueHeight = String(saturnQueueHeightPx);
+                }
             }
         };
 
@@ -1463,6 +1489,11 @@ app.registerExtension({
             const overlay = document.querySelector('[data-testid="queue-progress-overlay"]');
             if (overlay) {
                 attachQueueResizeHandle(overlay);
+                reapplyQueueHeightToMountedLists(
+                    overlay,
+                    saturnQueueHeightPx,
+                    applyQueueOverlayHeight
+                );
             }
         });
         queueOverlayObserver.observe(document.body, { childList: true, subtree: true });
@@ -1836,7 +1867,7 @@ function setupSettingsFooterObserver() {
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 16px;">🪐</span>
                 <span style="font-weight: 600; color: #e4e4e7;">ComfyUI-SaturnNodes</span>
-                <span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(180, 140, 95, 0.18); color: #decbb2; border: 1px solid rgba(180, 140, 95, 0.35);">v2.6.2 (dev)</span>
+                <span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(180, 140, 95, 0.18); color: #decbb2; border: 1px solid rgba(180, 140, 95, 0.35);">v2.6.2</span>
             </div>
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <a href="https://github.com/KOFiblto/ComfyUI-SaturnNodes" target="_blank" rel="noopener noreferrer" style="color: #decbb2; text-decoration: underline; text-decoration-color: rgba(222, 203, 178, 0.4); text-underline-offset: 3px; font-weight: 500; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); transition: all 0.2s ease;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(255,255,255,0.12)'; this.style.borderColor='rgba(255,255,255,0.25)';" onmouseout="this.style.color='#decbb2'; this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='rgba(255,255,255,0.12)';">

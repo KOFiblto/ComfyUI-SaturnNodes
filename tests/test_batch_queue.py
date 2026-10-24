@@ -223,6 +223,10 @@ class TestPersistentQueueHardening(unittest.TestCase):
         mgr.set_batch_info("p1", {"batchId": "b1"})
         self.assertNotIn("p1", mgr.batch_meta)
 
+        # Flush so the debounce timer cannot fire after tearDown restores the
+        # real PERSISTENT_FILE (it would write into the live user directory).
+        mgr.flush()
+
     def test_batch_meta_is_capped_keeping_recent_entries(self):
         mgr = PersistentQueueManager()
         mgr.MAX_BATCH_META = 3
@@ -249,7 +253,9 @@ class TestPersistentQueueHardening(unittest.TestCase):
             raw = f.read()
         # Compact JSON (no indentation/newlines) keeps the file small.
         self.assertNotIn("\n", raw)
-        self.assertEqual(json.loads(raw)[0]["prompt_id"], "p1")
+        payload = json.loads(raw)
+        self.assertEqual(payload["schema_version"], queue_control.PERSISTENT_QUEUE_SCHEMA_VERSION)
+        self.assertEqual(payload["items"][0]["prompt_id"], "p1")
         self.assertFalse(os.path.exists(self.temp_file + ".tmp"))
 
     def test_restore_retry_setting_keeps_then_drops_failed_prompts(self):
