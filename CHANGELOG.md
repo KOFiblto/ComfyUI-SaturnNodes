@@ -5,7 +5,7 @@ All notable changes to `ComfyUI-SaturnNodes` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.6.2] - In Development
+## [2.6.2] - 2026-10-24 [Stable]
 
 ### Added
 - **Per-Resolution Dock Memory & Drag Resize Handles**: The Floating Latent Dock and the queue overlay now remember their size per resolution/monitor and expose on-screen drag resize handles.
