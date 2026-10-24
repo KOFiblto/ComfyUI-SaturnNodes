@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Batch Counter & Metadata Corruption**: Negative persisted batch counters clamp into the palette range, metadata pruning uses `queuedAt` recency, unknown segment types normalize safely, out-of-range item indexes clamp to the batch bounds, and older server snapshots can no longer overwrite newer local batch metadata.
 - **Concurrent Batch Item Indexes**: Concurrent submissions reserve unique `itemIndex` values through a captured batch context and `inFlight` counter, so two prompts can no longer claim the same index or clear the batch early.
 - **Recent Output Loading**: `Load Recent Outputs` clamps invalid `amount`/`index` values, tie-breaks equal mtimes by path, and closes image handles after loading.
+- **Registry Publisher ID**: `PublisherId` now matches the registry's case-sensitive publisher id `kofiblto` (the previous `KOFiblto` resolved to 404 on `api.comfy.org`), and the publish workflow fails fast with a readable message when `REGISTRY_ACCESS_TOKEN` is missing instead of running a full install first.
 
 ---
 

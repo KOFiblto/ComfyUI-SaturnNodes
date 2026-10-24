@@ -21,7 +21,7 @@ Repository = "https://github.com/KOFiblto/ComfyUI-SaturnNodes"
 Documentation = "https://github.com/KOFiblto/ComfyUI-SaturnNodes#readme"
 
 [tool.comfy]
-PublisherId = "KOFiblto"
+PublisherId = "kofiblto"
 DisplayName = "ComfyUI-SaturnNodes"
 Icon = "https://raw.githubusercontent.com/KOFiblto/ComfyUI-SaturnNodes/main/web/logo.png"
 requires-comfyui = ">=0.3.0"
