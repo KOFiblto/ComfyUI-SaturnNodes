@@ -243,8 +243,12 @@ assert.match(
 
 // Direct sanitizer checks.
 assert.equal(batchTest.normalizeBatchColor("#ABC"), "#ABC");
+assert.equal(batchTest.normalizeBatchColor("#ABCD"), "#ABCD");
+assert.equal(batchTest.normalizeBatchColor("#123456"), "#123456");
 assert.equal(batchTest.normalizeBatchColor("#12345678"), "#12345678");
 assert.equal(batchTest.normalizeBatchColor(" #10b981 "), "#10b981");
+assert.equal(batchTest.normalizeBatchColor("#12345"), "#10b981");
+assert.equal(batchTest.normalizeBatchColor("#1234567"), "#10b981");
 assert.equal(batchTest.normalizeBatchColor("red"), "#10b981");
 assert.equal(batchTest.normalizeBatchColor("url(javascript:alert(1))"), "#10b981");
 assert.equal(batchTest.normalizeSegmentType("bogus"), "single");

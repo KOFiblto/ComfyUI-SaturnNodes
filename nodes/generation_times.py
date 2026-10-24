@@ -35,6 +35,34 @@ def _entry_timestamp(entry):
     return value if value >= 0 else 0
 
 
+def _sanitize_data(data):
+    """Return a JSON-safe copy of the duration store.
+
+    Hand-edited or partially written files can contain non-finite, negative or
+    non-numeric durations. Dropping them here keeps one corrupt entry from
+    making every future save fail under ``allow_nan=False``.
+    """
+    payload = dict(data) if isinstance(data, dict) else {}
+    payload.setdefault("version", 1)
+    entries = {}
+    raw_entries = payload.get("entries")
+    if isinstance(raw_entries, dict):
+        for key, entry in raw_entries.items():
+            if not isinstance(entry, dict):
+                continue
+            try:
+                duration = float(entry.get("duration"))
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if not math.isfinite(duration) or duration < 0:
+                continue
+            cleaned = dict(entry)
+            cleaned["duration"] = duration
+            entries[key] = cleaned
+    payload["entries"] = entries
+    return payload
+
+
 def _load_data():
     global _DATA, _DATA_MTIME
     with _LOCK:
@@ -53,8 +81,7 @@ def _load_data():
                 with open(GENERATION_TIMES_FILE, "r", encoding="utf-8") as f:
                     loaded = json.load(f)
                 if isinstance(loaded, dict) and isinstance(loaded.get("entries"), dict):
-                    data = loaded
-                    data.setdefault("version", 1)
+                    data = _sanitize_data(loaded)
             except Exception:
                 pass
         _DATA = data
@@ -67,6 +94,7 @@ def _save_data(data):
     temp_file = None
     try:
         os.makedirs(USER_DIR, exist_ok=True)
+        data = _sanitize_data(data)
         # Unique temp names keep a stale temp file from a crashed process (or a
         # second ComfyUI instance) from being clobbered mid-write.
         temp_file = f"{GENERATION_TIMES_FILE}.{os.getpid()}.{threading.get_ident()}.tmp"

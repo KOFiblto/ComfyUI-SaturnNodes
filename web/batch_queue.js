@@ -164,8 +164,9 @@ function injectBatchStyles() {
 }
 
 // Batch metadata comes from localStorage and the server, so never trust its
-// color string as HTML/SVG markup. Only plain hex colors are accepted.
-const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{3,8}$/;
+// color string as HTML/SVG markup. Only complete 3/4/6/8-digit hex colors are
+// accepted (5 and 7-digit values are not valid CSS colors).
+const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
 function normalizeBatchColor(color, fallback = BATCH_COLORS[0]) {
     if (typeof color === "string") {

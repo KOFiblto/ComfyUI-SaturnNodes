@@ -175,6 +175,60 @@ class TestAssetsRestoreExtended(unittest.TestCase):
             "the restore lock must prevent overlapping restore/ingest runs",
         )
 
+    def test_restore_preserves_cross_day_timestamps_and_durations(self):
+        day = 86_400
+        base = 1_700_000_000
+        specs = [
+            ("day-one.png", base, 1.5),
+            ("day-two.png", base + day, 2.0),
+            ("day-three.png", base + 2 * day, 3.25),
+        ]
+        durations = {}
+        for name, mtime, duration in specs:
+            self._make_png(name, mtime)
+            durations[name] = duration
+
+        manager = AssetsRestoreManager()
+        queue = self._fake_queue()
+        server = self._server(queue)
+
+        with patch("nodes.assets_restore.folder_paths.get_output_directory", return_value=self.output_dir), \
+             patch("nodes.assets_restore.is_assets_restore_enabled", return_value=True), \
+             patch("nodes.assets_restore.is_recursive_assets_scan_enabled", return_value=True), \
+             patch(
+                 "nodes.assets_restore.get_generation_time",
+                 side_effect=lambda fn, sf="", mt=None: durations.get(fn),
+             ), \
+             patch.object(manager, "_ingest_assets", return_value=0):
+            restored = manager.restore_on_launch(server, force=True)
+
+        self.assertEqual(restored, 3)
+        entries = list(queue.history.values())
+        self.assertEqual(
+            [entry["prompt"][0] for entry in entries],
+            [1, 2, 3],
+            "restored history must be numbered oldest to newest across days",
+        )
+
+        for entry, (name, mtime, duration) in zip(entries, specs):
+            mtime_ms = int(mtime * 1000)
+            duration_ms = int(duration * 1000)
+            self.assertEqual(entry["prompt"][3]["create_time"], mtime_ms, name)
+            messages = entry["status"]["messages"]
+            self.assertEqual([message[0] for message in messages], ["execution_start", "execution_success"])
+            self.assertEqual(messages[0][1]["timestamp"], mtime_ms - duration_ms, name)
+            self.assertEqual(messages[1][1]["timestamp"], mtime_ms, name)
+            self.assertEqual(entry["status"]["saturnnodes_duration"], duration, name)
+            self.assertEqual(
+                entry["prompt"][3]["extra_pnginfo"]["saturnnodes_generation_time"],
+                duration,
+                name,
+            )
+            self.assertEqual(
+                entry["outputs"]["0"]["images"][0]["filename"],
+                name,
+            )
+
     def test_restore_handles_missing_mutex_and_bad_history(self):
         self._make_png("image.png", 1_700_000_000)
         manager = AssetsRestoreManager()

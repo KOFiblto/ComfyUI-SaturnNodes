@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.6.3] - In Development
 
 ### Added
-- **Restore Regression Test Matrix**: 61 new deterministic Python tests and 3 new Node fake-DOM tests covering DOM injection, equal-mtime ordering, restore limits, batches, cancellation, retries, corrupt state, and recovery. The existing `test_batch_queue_dom.mjs` is now run by the suite as well.
+- **Restore Regression Test Matrix**: 63 new deterministic Python tests and 3 new Node fake-DOM tests covering DOM injection, cross-day timestamps, equal-mtime ordering, restore limits, batches, cancellation, retries, corrupt state, and recovery. The existing `test_batch_queue_dom.mjs` is now run by the suite as well.
 
 ### Changed
 - **Deterministic Restore Ordering**: Output scanning and the Visual Image Loader now tie-break equal modification times by relative path, so bulk-copied or archive-extracted files always restore in the same order and receive stable history numbering.
@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Restored Duration Validation**: `NaN`, infinite, negative, and non-numeric durations are rejected when recorded and when read, so they can no longer poison restored timestamps or produce invalid JSON.
-- **Generation Times Persistence**: `generation_times.json` saves now use unique temp files, retry transient Windows `os.replace` locks, serialize with `allow_nan=False`, and clean up leftover temp files.
+- **Generation Times Persistence**: `generation_times.json` saves now sanitize corrupt entries, use unique temp files, retry transient Windows `os.replace` locks, serialize with `allow_nan=False`, and clean up leftover temp files.
 - **Cancel/Wipe Recovery Loss**: Persistent queue entries are removed only after ComfyUI confirms the cancel or wipe; a failed operation keeps the crash-recovery copy intact.
 - **Restore Robustness**: Missing queue mutexes, non-dict histories, history-read failures, malformed retry counters, and invalid restore limits are handled without aborting recovery.
 - **EXIF / A1111 Metadata**: EXIF UserComments with BOM/NUL padding and byte-valued A1111 `parameters` now decode to clean prompt text.
