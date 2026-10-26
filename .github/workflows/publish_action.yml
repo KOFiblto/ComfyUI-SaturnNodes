@@ -2,14 +2,11 @@ name: Publish to ComfyUI Registry
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-    paths:
-      - 'pyproject.toml'
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
