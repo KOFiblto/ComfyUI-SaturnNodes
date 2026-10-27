@@ -1,7 +1,10 @@
 # 🔍 Visual LoRA Loader & Batch Queue Logic Audit
 ## Root Causes 1–5: Defect Analysis, Locations & Mechanics
 
-> **Status:** Investigation and documentation only. Code changes deferred per instruction (*"dont fix!"*).
+> **Status:** Validated against `v2.6.3`. Root Causes **1** and **5** were genuine
+> defects and are now fixed. Root Cause **2** is intended persistent-cycle
+> behavior and is documented rather than changed. Root Causes **3** and **4** do
+> not reproduce with the current submission queue and were corrected below.
 
 ---
 
@@ -13,21 +16,24 @@ When a user selects one or more LoRAs, queues a batch of 5, and while they are b
 3. **Missing LoRAs**: A LoRA that was explicitly selected is skipped and never generated.
 4. **Capture bypass**: The previous "workflow capture" (`Batch Graph Snapshot Guard`) failed to prevent these issues.
 
-The audit identified **five distinct root causes** across the frontend and backend engines that produce these exact symptoms.
+The audit identified **five candidate root causes**. Validation shows that the
+repeat/skip symptoms are explained by Root Causes **1** and **5**, while Root
+Cause **2** is by-design cycling; Root Causes **3** and **4** do not produce the
+described failures in the current code.
 
 ---
 
 ## 📌 Root Cause 1: Deterministic Hash Sorting vs. Unsorted Array Indexing
 
-- **File**: [`nodes/lora_loader.py`](file:///v:/ComfyUI/ComfyUI/custom_nodes/ComfyUI-SaturnNodes/nodes/lora_loader.py#L841-L896)
-- **Functions**: `select_a_lora(...)` (lines 841–896)
+- **File**: [`nodes/lora_loader.py`](nodes/lora_loader.py)
+- **Functions**: `select_a_lora(...)`
+- **Verdict**: ✅ **Confirmed and fixed**
 - **Symptom Produced**: **Same LoRA generated twice; other selected LoRA skipped entirely.**
 
 ### What Is Happening
 In `select_a_lora`, the persistent state key on disk uses a SHA-256 hash calculated over the **alphabetically sorted** list of choices:
 
 ```python
-# nodes/lora_loader.py:845-847
 choices_hash = hashlib.sha256(
     json.dumps(sorted(valid_choices), ensure_ascii=False).encode("utf-8")
 ).hexdigest()[:16]
@@ -35,201 +41,192 @@ choices_hash = hashlib.sha256(
 state_key = f"{prefix}_{unique_id}_{choices_hash}"
 ```
 
-However, when selecting the LoRA for the prompt, the code indexes into the **unsorted** `valid_choices` list:
-
-```python
-# nodes/lora_loader.py:894-895
-if mode == "Sequential":
-    selected = valid_choices[index % len(valid_choices)]
-    index += 1
-```
-
-In the frontend (`web/js/folder_lora_loader.js`), `_selected_lora` stores LoRAs in the order they were clicked or iterated in the DOM.
+However, the selection indexes into the **unsorted** live list, whose order is
+the click/toggle order stored by the frontend (`web/js/folder_lora_loader.js`,
+`updateSelection`). Deselecting and reselecting a tile, or using a folder
+checkbox, changes that order without changing the hash.
 
 ### Failure Scenario:
 1. User selects **LoRA A**, then **LoRA B**:
-   - `valid_choices` = `["A", "B"]`
-   - `sorted(valid_choices)` = `["A", "B"]` $\rightarrow$ `choices_hash` = `H1`
-   - Prompt 1 executes: `index = 0`. Selection is `valid_choices[0 % 2]` = **A**. `index` increments to `1` and is saved to `lora_loader_state.json`.
-2. Later, the user deselects and reselects, or toggles a folder checkbox, resulting in click order **LoRA B**, then **LoRA A**:
-   - `valid_choices` = `["B", "A"]`
-   - `sorted(valid_choices)` = `["A", "B"]` $\rightarrow$ `choices_hash` = `H1` (Matches previous state!)
-   - State for `H1` is loaded: `index` is `1`.
-   - Prompt 2 executes: `valid_choices[1 % 2]` = `valid_choices[1]`.
-   - **At `valid_choices[1]` is LoRA A!**
-3. **Result**:
-   - **LoRA A generated twice in a row.**
-   - **LoRA B was completely skipped and never generated.**
+   - `valid_choices` = `["A", "B"]`, `sorted(...)` = `["A", "B"]` → `choices_hash` = `H1`.
+   - Prompt 1 executes at `index = 0` → **A**; saved `index = 1`.
+2. The user reorders the selection to **B**, then **A**:
+   - `valid_choices` = `["B", "A"]`, sorted still `["A", "B"]` → same `H1`, so `index = 1` is loaded.
+   - `valid_choices[1]` is **A** → **A generated twice, B skipped.**
+
+### Fix Applied
+Sequential state now stores the order observed when the cycle started and
+indexes into that stored order. Reordering the selection can no longer move the
+index onto a different LoRA, so picks are never duplicated or skipped:
+
+```python
+new_entry["index"] = index
+new_entry["order"] = order
+```
+
+The index is also normalized (`index %= len(order)`), which keeps long-lived
+state bounded.
 
 ---
 
 ## 📌 Root Cause 2: Perpetual Inter-Batch Cycle Continuation
 
-- **File**: [`nodes/lora_loader.py`](file:///v:/ComfyUI/ComfyUI/custom_nodes/ComfyUI-SaturnNodes/nodes/lora_loader.py#L856-L928)
-- **Functions**: `select_a_lora(...)` and state storage in `user/default/SaturnNodes/lora_loader_state.json`
-- **Symptom Produced**: **Batches starting on arbitrary mid-cycle LoRAs; leftover pools causing unexpected repeats across sessions.**
+- **File**: [`nodes/lora_loader.py`](nodes/lora_loader.py)
+- **State**: `user/default/SaturnNodes/lora_loader_state.json`
+- **Verdict**: ✅ **Confirmed, but by design — documented, not changed**
+- **Symptom Produced**: **Batches starting on arbitrary mid-cycle LoRAs; leftover pools continuing across sessions.**
 
 ### What Is Happening
-`state_key` is keyed exclusively by `(mode, node_id, choices_hash)`:
-```python
-state_key = f"{prefix}_{unique_id}_{choices_hash}"
-```
-There is **no concept of a batch boundary, run ID, or queue session**. The `index` counter (in Sequential) and the remaining `pool` (in Random No-Replace) are persisted permanently across batches, restarts, and days.
+`state_key` is keyed by `(mode, node_id, choices_hash)`; there is **no batch
+boundary, run ID, or queue session**. The `index` counter (Sequential) and the
+remaining `pool` (Random No-Replace) persist across batches, restarts, and days.
+Global state is pruned only by recency (100 most recent buckets).
 
 ### Failure Scenario:
-1. User selects 3 LoRAs (`[A, B, C]`) and queues a batch of 5:
-   - Run 1 $\rightarrow$ A (index 1)
-   - Run 2 $\rightarrow$ B (index 2)
-   - Run 3 $\rightarrow$ C (index 3)
-   - Run 4 $\rightarrow$ A (index 4)
-   - Run 5 $\rightarrow$ B (index 5)
-   - State saved on disk: `index = 5`.
-2. Later (or the next day), user wants to generate 2 images with those same 3 LoRAs:
-   - Expectation: Starts with A, then B.
-   - Actual: `index = 5`. `5 % 3 = 2` $\rightarrow$ **starts with C**, then A!
-   - LoRA B is never generated.
-3. In **`Random (No Replace)`**, the unpopped items from the previous run remain in `pool`. If 3 out of 5 items were consumed in Batch 1, Batch 2 starts by popping the 2 leftover items before reshuffling, producing back-to-back duplicates across batch boundaries.
+1. Three LoRAs (`[A, B, C]`), batch of 5 → A, B, C, A, B; saved `index = 5`.
+2. A later batch of 2 resumes at `5 % 3 = 2` → **C, A** instead of A, B.
+3. In **Random (No Replace)**, unpopped items from the previous run are consumed
+   first, so a new batch can start on leftovers from the old pool.
+
+### Why This Is Not Changed
+Continuous cycling is the documented "Sequential Cycle" / "Random (No Dupes)"
+contract, and `tests/test_lora_loader.py` asserts it across prompts. The suite
+already ships a manual `↺ Counter` reset and a per-node prompt→LoRA assignment
+map for retries. Resetting automatically per batch would silently change the
+documented cycling behavior, so this is treated as expected behavior with the
+reset control as the escape hatch.
 
 ---
 
 ## 📌 Root Cause 3: Premature Snapshot Guard Teardown in Frontend V2
 
-- **File**: [`web/batch_queue.js`](file:///v:/ComfyUI/ComfyUI/custom_nodes/ComfyUI-SaturnNodes/web/batch_queue.js#L521-L592)
+- **File**: [`web/batch_queue.js`](web/batch_queue.js)
 - **Functions**: `setupQueueHooks()` (`app.queuePrompt` and `api.queuePrompt` hooks)
-- **ComfyUI Reference**: ComfyUI Vue Frontend V2 `settingStore-CUTKo1HX.js` line 1873828
-- **Symptom Produced**: **LoRAs mixing together across batches; Batch 2 prompts picking up live canvas edits.**
+- **Verdict**: ❌ **Not reproducible with the current submission queue**
+- **Original Claim**: A second batch makes ComfyUI's `app.queuePrompt` return
+  `false` synchronously, so the wrapper's `finally` clears `activeBatchContext`
+  before Batch 2's items are serialized, disabling the snapshot guard.
 
-### What Is Happening
-In modern ComfyUI (Vue Frontend V2), `app.queuePrompt` manages an internal queue:
-```javascript
-// ComfyUI core logic:
-this.queueItems.push({ number, batchCount, ... });
-if (this.processingQueue) return false; // Returns synchronously!
-this.processingQueue = true;
-for (; this.queueItems.length; ) {
-    let { batchCount } = this.queueItems.pop();
-    for (let r = 0; r < batchCount; r++) {
-        let x = await this.graphToPrompt(); // Reads live canvas!
-        await q.queuePrompt(number, x);
-    }
-}
-```
+### Why the Claim Does Not Hold
+The wrapper defers the original call through `batchSubmissionQueue`:
 
-SaturnNodes wraps `app.queuePrompt` in `web/batch_queue.js`:
 ```javascript
-// web/batch_queue.js:527-535
 const turn = batchSubmissionQueue.then(async () => {
-    activeBatchContext = getNextBatch(count);
+    const batch = getNextBatch(count);
+    activeBatchContext = batch;
     try {
         return await origQueuePrompt(number, batchCount, queueNodeIds);
     } finally {
-        activeBatchContext = null; // <-- CRITICAL TEARDOWN RACE
+        activeBatchContext = null;
     }
 });
+batchSubmissionQueue = turn.catch(() => {});
+return turn;
 ```
 
-### Failure Scenario:
-1. User queues **Batch 1 (5 items)** with LoRA 1.
-   - `origQueuePrompt` starts. `this.processingQueue = true`. ComfyUI begins serializing and submitting.
-2. While Batch 1 is being submitted, user clicks **LoRA 2** on canvas and queues **Batch 2 (10 items)**.
-3. Batch 2 invokes `app.queuePrompt`:
-   - Inside ComfyUI, `if (this.processingQueue) return false;` fires **synchronously**!
-   - Because `origQueuePrompt` returns immediately, the `try / finally` block executes:
-   - **`activeBatchContext = null;` executes immediately.**
-4. When ComfyUI's background loop eventually finishes Batch 1 and begins Batch 2:
-   - ComfyUI calls `api.queuePrompt` for Batch 2 items.
-   - In `web/batch_queue.js:550`:
-     ```javascript
-     if (!activeBatchContext) {
-         activeBatchContext = getNextBatch(1); // Treated as 1-item batch!
-     }
-     ```
-   - Because `batchContext.batchCount == 1`, line 569 evaluates to **FALSE**:
-     ```javascript
-     if (isSnapshotGuardEnabled() && batchContext.batchCount > 1) // FALSE!
-     ```
-5. **Result**:
-   - **The Snapshot Guard is completely disabled for Batch 2.**
-   - ComfyUI re-serializes the graph from the live canvas on every item (`graphToPrompt()`).
-   - Any further clicks or selections on the canvas bleed directly into the queued items mid-batch, mixing LoRAs between batches.
+`batchSubmissionQueue` is updated synchronously before returning, so a second
+queue action waits for the previous batch's submission promise to settle. Its
+callback — and therefore `origQueuePrompt` — is not invoked while
+`processingQueue === true`, so the synchronous `if (this.processingQueue)
+return false;` path cannot fire for the second UI batch. This serialization is
+present in the released `v2.6.2` as well.
+
+ComfyUI's core behavior quoted in the original analysis is itself correct
+(`comfyui_frontend_package/static/assets`): `queuePrompt` pushes to
+`queueItems`, returns `false` while already processing, and otherwise loops with
+`await graphToPrompt()` per item. The defect was in assuming the wrapper reached
+that code immediately.
+
+### Residual Edge Case
+The early teardown described above *can* occur if a non-SaturnNodes caller
+invokes `app.queuePrompt` while ComfyUI is already processing — the wrapper
+would then get the synchronous `false` and clear its context. That is outside
+the two-manual-batches scenario and is not addressed here.
 
 ---
 
 ## 📌 Root Cause 4: Single-Item Batches (`batchCount == 1`) Bypass Snapshot Guard
 
-- **File**: [`web/batch_queue.js`](file:///v:/ComfyUI/ComfyUI/custom_nodes/ComfyUI-SaturnNodes/web/batch_queue.js#L569)
-- **Functions**: `api.queuePrompt` hook
-- **Symptom Produced**: **No snapshot protection when submitting single prompts rapidly.**
+- **File**: [`web/batch_queue.js`](web/batch_queue.js)
+- **Functions**: `api.queuePrompt` hook (`isSnapshotGuardEnabled() && batchContext.batchCount > 1`)
+- **Verdict**: ⚠️ **Accurate code, not a defect**
 
-### What Is Happening
-Line 569 of `web/batch_queue.js` explicitly gates snapshot protection:
-```javascript
-// web/batch_queue.js:569
-if (isSnapshotGuardEnabled() && batchContext.batchCount > 1) {
-    if (itemIndex === 0) {
-        batchContext.snapshotPrompt = JSON.parse(JSON.stringify(prompt));
-    } else if (batchContext.snapshotPrompt) {
-        promptToSend = mergeDynamicSeeds(batchContext.snapshotPrompt, prompt);
-    }
-}
-```
-If a user queues prompts with ComfyUI's batch count set to `1` (for instance, clicking Queue repeatedly while testing different LoRAs or adjusting prompts), `batchContext.batchCount > 1` is **always false**.
+### Why This Is Not a Defect
+The snapshot guard exists to keep items **inside one multi-item batch**
+consistent while the graph is re-serialized between iterations. A one-item batch
+has no later item to protect, so skipping the snapshot is harmless.
 
-No snapshot is ever captured. If the server queue has a backlog and the user continues interacting with the canvas, every subsequent request serializes whatever happens to be on the canvas at the moment the HTTP call dispatches.
+Additionally, the guard has never protected the *first* item of any batch: the
+snapshot is taken when that item is submitted, not when the user clicked Queue.
+Edits made between clicking and submission affect item 0 of a multi-item batch
+exactly as they affect a one-item batch. Tightening this would require capturing
+the prompt at click time, which is a separate design change, not a
+`batchCount > 1` bug.
 
 ---
 
 ## 📌 Root Cause 5: Function Signature Default Mismatch (`"All"` vs. `"Sequential"`)
 
-- **File**: [`nodes/lora_loader.py`](file:///v:/ComfyUI/ComfyUI/custom_nodes/ComfyUI-SaturnNodes/nodes/lora_loader.py#L952-L969)
-- **Functions**: `VisualLoraLoader.INPUT_TYPES` vs. `VisualLoraLoader.load_lora(...)`
+- **File**: [`nodes/lora_loader.py`](nodes/lora_loader.py)
+- **Functions**: `VisualLoraLoader.INPUT_TYPES`, `VisualLoraLoader.IS_CHANGED`, `VisualLoraLoader.load_lora(...)`
+- **Verdict**: ✅ **Confirmed and fixed**
 - **Symptom Produced**: **Simultaneous loading of multiple LoRAs (stacking all models into one render).**
 
 ### What Is Happening
-There is a discrepancy between the default declared in `INPUT_TYPES` and the default parameter in the Python function signature:
+`INPUT_TYPES` declared the hidden widget default as `"Sequential"`, while both
+`IS_CHANGED` and the execution method signature fell back to `"All"`:
 
 ```python
-# nodes/lora_loader.py:952 (Node definition)
-"hidden": {
-    "_selected_lora": ("STRING", {"default": "[]"}),
-    "_selection_mode": ("STRING", {"default": "Sequential"}),
-    ...
-}
+# INPUT_TYPES
+"_selection_mode": ("STRING", {"default": "Sequential"}),
 
-# nodes/lora_loader.py:969 (Execution method signature)
-def load_lora(self, model, clip, folder, strength_model, strength_clip,
-              display_mode="Scrollable", sort_loras_by="Name (A-Z)",
-              sort_folders_by="Name (A-Z)", folder_position="Folders First",
-              content_alignment="Left Aligned", output_format="Filename",
-              custom_regex="", output_name=None, _selected_lora="[]",
-              _selection_mode="All",  # <-- DEFAULTS TO "All", NOT "Sequential"
-              _scrape_on_new="true", unique_id="default", **kwargs):
+# IS_CHANGED / load_lora (before the fix)
+mode = kwargs.get("_selection_mode", "All")
+def load_lora(..., _selection_mode="All", ...)
 ```
 
 ### Failure Scenario:
-1. If a workflow is executed via API, an older saved workflow format, or if `_selection_mode` is missing from the serialized inputs, Python defaults `_selection_mode` to `"All"`.
-2. When `_selection_mode == "All"`:
-   - Line 985 (`if _selection_mode in ["Random", "Sequential", ...]`) evaluates to **False**.
-   - `select_a_lora` is **never called**.
-   - `loras_to_load` retains all items in `_selected_lora`.
-3. The execution loop iterates through every selected LoRA and loads all of them simultaneously onto the model and CLIP:
-   ```python
-   for item in loras_to_load:
-       current_model, current_clip = comfy.sd.load_lora_for_models(
-           current_model, current_clip, lora, strength_model, strength_clip
-       )
-   ```
-4. **Result**:
-   - Rather than cycling 1 LoRA per prompt, **all selected LoRAs are merged simultaneously into every single generated image**.
+1. A prompt arrives without `_selection_mode` (raw API call, third-party
+   client, or hand-built prompt).
+2. The backend falls back to `"All"`, so the `share one selection` branch
+   (`if _selection_mode in ["Random", "Sequential", "Random (No Replace)"]`) is
+   skipped and `select_a_lora` is never called.
+3. Every selected LoRA is loaded onto the model and CLIP in one render instead
+   of cycling one per prompt.
+
+Normal UI use is unaffected: `web/js/folder_lora_loader.js` always creates a
+serialized `_selection_mode` widget defaulting to `"Sequential"`, which is why
+the bug only surfaced through API-style prompts. `IS_CHANGED` was also affected:
+its `"All"` fallback returned `""` (cacheable) for prompts missing the field.
+
+### Fix Applied
+Both fallbacks now match the node definition and UI:
+
+```python
+mode = kwargs.get("_selection_mode", "Sequential")
+def load_lora(..., _selection_mode="Sequential", ...)
+```
+
+An explicit `"All"` sent by the UI still selects every LoRA simultaneously, so
+intentional "All Loras" mode is unchanged.
 
 ---
 
 ## Summary Matrix
 
-| Root Cause | Affected File(s) | Primary Impact |
-| :--- | :--- | :--- |
-| **1. Hash vs Indexing Order** | `nodes/lora_loader.py:845-895` | Same LoRA selected twice; other selected LoRAs skipped entirely. |
-| **2. Inter-Batch State Carryover** | `nodes/lora_loader.py:856-928` | Prompts start at arbitrary cycle offsets; leftover pools repeat items. |
-| **3. Snapshot Guard Premature Teardown** | `web/batch_queue.js:527-580` | Queuing a second batch while first is processing bypasses snapshot lock completely. |
-| **4. Batch Count == 1 Bypass** | `web/batch_queue.js:569` | Rapid single-prompt queueing offers zero snapshot protection. |
-| **5. Default Mode Mismatch** | `nodes/lora_loader.py:969` | Fallback executes `"All"` mode, applying all LoRAs simultaneously. |
+| Root Cause | Affected File(s) | Primary Impact | Status |
+| :--- | :--- | :--- | :--- |
+| **1. Hash vs Indexing Order** | `nodes/lora_loader.py` | Same LoRA selected twice; other selected LoRAs skipped entirely. | ✅ Fixed (stored cycle order) |
+| **2. Inter-Batch State Carryover** | `nodes/lora_loader.py` | Prompts start at arbitrary cycle offsets; leftover pools continue. | ✅ By design (manual `↺ Counter` reset) |
+| **3. Snapshot Guard Teardown** | `web/batch_queue.js` | — | ❌ Not reproducible; submission queue serializes batches |
+| **4. Batch Count == 1 Bypass** | `web/batch_queue.js` | — | ⚠️ Expected; no second item to snapshot |
+| **5. Default Mode Mismatch** | `nodes/lora_loader.py` | API prompts silently stack all selected LoRAs. | ✅ Fixed (defaults aligned to `Sequential`) |
+
+### Regression Coverage Added
+
+- `test_sequential_reorder_keeps_cycle_position` — reordering the selection
+  continues the existing cycle without repeating or skipping a LoRA.
+- `test_sequential_changed_selection_starts_fresh_cycle` — changing the selected
+  set still starts a new bucket.
+- `test_missing_selection_mode_defaults_to_sequential` — `INPUT_TYPES`,
+  `load_lora`, and `IS_CHANGED` agree on the fallback mode.
