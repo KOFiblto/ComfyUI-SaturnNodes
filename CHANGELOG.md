@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Restore Regression Test Matrix**: 64 new deterministic Python tests and 3 new Node fake-DOM tests covering DOM injection, cross-day timestamps, equal-mtime ordering, restore limits, corrupt images, batches, cancellation, retries, corrupt state, and recovery. The existing `test_batch_queue_dom.mjs` is now run by the suite as well.
+- **Queue Bleed Regression Tests**: `test_batch_queue_snapshot_dom.mjs` models two Queue clicks with an in-flight submission and asserts prompt text/LoRA freezing with live seed merging, and `test_prompt_iterator.py` covers linked-prompt precedence over stale local text.
 
 ### Changed
 - **Deterministic Restore Ordering**: Output scanning and the Visual Image Loader now tie-break equal modification times by relative path, so bulk-copied or archive-extracted files always restore in the same order and receive stable history numbering.
@@ -30,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Registry Publisher ID**: `PublisherId` now matches the registry's case-sensitive publisher id `kofiblto` (the previous `KOFiblto` resolved to 404 on `api.comfy.org`), and the publish workflow fails fast with a readable message when `REGISTRY_ACCESS_TOKEN` is missing instead of running a full install first.
 - **Sequential LoRA Cycle Reordering**: The Sequential cycle now persists the selection order it started with instead of indexing the live (reorderable) list, so deselecting and reselecting LoRAs can no longer repeat one LoRA and skip another from the same state bucket.
 - **Missing LoRA Selection Mode Default**: `load_lora` and `IS_CHANGED` now fall back to `Sequential` (matching `INPUT_TYPES` and the UI) instead of `All`, so API prompts without `_selection_mode` cycle one LoRA per prompt instead of stacking every selected LoRA into one render.
+- **Click-to-Queue Prompt Bleed**: Queue clicks made while another batch is still being submitted now serialize the graph at click time. Text, LoRA selections and other node inputs edited afterwards can no longer bleed into the queued prompt, and single-item queues get the same protection as multi-item batches while random seeds still follow the live prompt.
+- **Prompt Iterator Linked Input**: A connected `prompt` input now takes precedence over the node's local multiline `text`, so stale local text can no longer be replayed instead of the upstream *Prompt Counter* output.
 
 ---
 

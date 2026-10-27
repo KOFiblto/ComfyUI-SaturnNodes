@@ -12,6 +12,7 @@ DOM_TESTS = [
     "test_widget_guards_dom.mjs",
     "test_queue_height_dom.mjs",
     "test_batch_queue_dom.mjs",
+    "test_batch_queue_snapshot_dom.mjs",
     "test_batch_queue_restore_dom.mjs",
     "test_persistent_queue_claim_dom.mjs",
 ]

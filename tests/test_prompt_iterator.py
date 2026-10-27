@@ -85,6 +85,47 @@ class TestPromptQueueIterator(unittest.TestCase):
                 self.assertEqual(p, f"Prompt A{expected_idx}")
                 self.assertEqual(rem_count, 10 - (expected_idx + 1))
 
+    def test_linked_prompt_input_wins_over_stale_text(self):
+        """
+        A connected `prompt` input is authoritative; the local multiline `text`
+        widget must not replay stale characters from an earlier session.
+        """
+        state_db = {}
+
+        def mock_load():
+            return dict(state_db)
+
+        def mock_save(new_state):
+            nonlocal state_db
+            state_db = dict(new_state)
+
+        stale_text = "stale one\n\nstale two"
+        linked_text = "linked one\n\nlinked two"
+
+        with patch("nodes.prompt_iterator.load_state", side_effect=mock_load), \
+             patch("nodes.prompt_iterator.save_state", side_effect=mock_save), \
+             patch("nodes.prompt_iterator.PromptServer.instance.send_sync"):
+
+            p0, _, _, _ = self.node.process_queue(
+                text=stale_text, prompt=linked_text, unique_id="linked_node"
+            )
+            p1, _, _, _ = self.node.process_queue(
+                text=stale_text, prompt=linked_text, unique_id="linked_node"
+            )
+
+        self.assertEqual(p0, "linked one")
+        self.assertEqual(p1, "linked two")
+
+    def test_linked_empty_prompt_does_not_replay_local_text(self):
+        """An empty linked prompt produces no run, even if `text` is stale."""
+        p, remaining, count, exhausted = self.node.process_queue(
+            text="stale prompt text", prompt="", unique_id="linked_empty"
+        )
+        self.assertEqual(p, "")
+        self.assertEqual(remaining, "")
+        self.assertEqual(count, 0)
+        self.assertFalse(exhausted)
+
     def test_multi_pack_isolation_pack_a_and_pack_b(self):
         """
         Verify Pack A (10 prompts) and Pack B (5 prompts) run with complete isolation.

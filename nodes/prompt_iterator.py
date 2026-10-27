@@ -328,7 +328,15 @@ class PromptQueueIterator:
         unique_id="default",
         **kwargs
     ):
-        raw_input = text if text else (prompt if prompt is not None else prompt_text)
+        # A connected `prompt` input is authoritative. Falling back to the
+        # local `text` widget used to replay stale characters from a previous
+        # session even though the linked upstream node produced new prompts.
+        if prompt is not None:
+            raw_input = prompt
+        elif text:
+            raw_input = text
+        else:
+            raw_input = prompt_text
         text_str = str(raw_input) if raw_input is not None else ""
         if not text_str.strip():
             return ("", "", 0, False)

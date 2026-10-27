@@ -510,6 +510,27 @@ async function updateQueueBatchVisuals() {
 }
 
 let batchSubmissionQueue = Promise.resolve();
+// Number of queue actions whose submission turn has not settled yet. Used to
+// detect that ComfyUI will serialize this prompt later instead of immediately.
+let pendingSubmissions = 0;
+
+function capturePromptAtClick() {
+    // Serialize the graph now, while the canvas still shows what the user
+    // clicked. ComfyUI's own loop calls graphToPrompt() much later when another
+    // batch is still being submitted, so without this the text and LoRA
+    // selection edited in the meantime bleed into the queued prompt.
+    try {
+        if (app && typeof app.graphToPrompt === "function") {
+            return Promise.resolve(app.graphToPrompt()).catch(e => {
+                console.warn("[SaturnNodes BatchQueue] Click-time prompt snapshot failed:", e);
+                return null;
+            });
+        }
+    } catch (e) {
+        console.warn("[SaturnNodes BatchQueue] Click-time prompt snapshot failed:", e);
+    }
+    return null;
+}
 
 // Hook queuePrompt to track batch execution and guard multi-item batches
 function setupQueueHooks() {
@@ -523,9 +544,21 @@ function setupQueueHooks() {
         app.queuePrompt = async function(number, batchCount = 1, queueNodeIds) {
             const count = Math.max(1, parseInt(batchCount, 10) || 1);
 
+            // Only ComfyUI's own processing loop or this submission queue can
+            // delay serialization. When idle, ComfyUI snapshots immediately, so
+            // skipping the extra graphToPrompt() keeps single clicks cheap.
+            const shouldCapture = isSnapshotGuardEnabled() &&
+                (pendingSubmissions > 0 || (app && app.processingQueue === true));
+            const clickPromptPromise = shouldCapture ? capturePromptAtClick() : null;
+
+            pendingSubmissions++;
+
             // Chain onto batchSubmissionQueue to ensure sequential batch submissions
             const turn = batchSubmissionQueue.then(async () => {
                 const batch = getNextBatch(count);
+                if (clickPromptPromise) {
+                    batch.clickPromptPromise = clickPromptPromise;
+                }
                 activeBatchContext = batch;
                 saveStorage();
                 try {
@@ -535,6 +568,10 @@ function setupQueueHooks() {
                 }
             });
             batchSubmissionQueue = turn.catch(() => {});
+            turn.then(
+                () => { pendingSubmissions = Math.max(0, pendingSubmissions - 1); },
+                () => { pendingSubmissions = Math.max(0, pendingSubmissions - 1); }
+            );
             return turn;
         };
     }
@@ -564,14 +601,36 @@ function setupQueueHooks() {
             batchContext.inFlight++;
 
             // Batch Graph Snapshot Guard:
-            // When queueing a batch with batchCount > 1, snapshot on iteration 0 in the background
-            // so canvas edits (text, LoRA selection, widgets) don't bleed into subsequent items.
-            if (isSnapshotGuardEnabled() && batchContext.batchCount > 1) {
-                if (itemIndex === 0) {
+            // Freeze the prompt the user clicked instead of the live canvas.
+            // Multi-item batches additionally reuse that snapshot for every
+            // later item so canvas edits cannot bleed into the rest of the batch.
+            if (isSnapshotGuardEnabled()) {
+                let clickPrompt = null;
+                if (itemIndex === 0 && batchContext.clickPromptPromise) {
                     try {
-                        batchContext.snapshotPrompt = JSON.parse(JSON.stringify(prompt));
+                        clickPrompt = await batchContext.clickPromptPromise;
                     } catch (e) {
-                        console.warn("[SaturnNodes BatchQueue] Failed to snapshot prompt:", e);
+                        clickPrompt = null;
+                    }
+                    batchContext.clickPromptPromise = null;
+                }
+
+                if (itemIndex === 0) {
+                    if (clickPrompt && clickPrompt.output) {
+                        try {
+                            batchContext.snapshotPrompt = JSON.parse(JSON.stringify(clickPrompt));
+                        } catch (e) {
+                            console.warn("[SaturnNodes BatchQueue] Failed to snapshot prompt:", e);
+                        }
+                        // Keep randomized seeds from the live prompt so the
+                        // generated image matches the seed the UI queued.
+                        promptToSend = mergeDynamicSeeds(batchContext.snapshotPrompt, prompt);
+                    } else if (batchContext.batchCount > 1) {
+                        try {
+                            batchContext.snapshotPrompt = JSON.parse(JSON.stringify(prompt));
+                        } catch (e) {
+                            console.warn("[SaturnNodes BatchQueue] Failed to snapshot prompt:", e);
+                        }
                     }
                 } else if (batchContext.snapshotPrompt) {
                     promptToSend = mergeDynamicSeeds(batchContext.snapshotPrompt, prompt);

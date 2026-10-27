@@ -1738,7 +1738,7 @@ app.registerExtension({
             name: "Batch Graph Snapshot Guard",
             type: "boolean",
             defaultValue: getInitialSetting("SaturnNodes.🎨 Batch Queue.02_SnapshotGuard", getInitialSetting("SaturnNodes.BatchQueue.SnapshotGuard", true)),
-            tooltip: "When queueing multi-item batches, snapshots prompt and node inputs (like text and LoRAs) in the background so mid-queue canvas edits do not corrupt queued items. Random seeds continue to randomize."
+            tooltip: "Snapshots prompt text, LoRA selections and node inputs when you click Queue (or when a batch is queued behind an in-flight submission), so edits made while ComfyUI is still loading cannot corrupt already queued prompts. Random seeds continue to randomize."
         });
 
         // =========================================================================

@@ -230,3 +230,42 @@ intentional "All Loras" mode is unchanged.
   set still starts a new bucket.
 - `test_missing_selection_mode_defaults_to_sequential` — `INPUT_TYPES`,
   `load_lora`, and `IS_CHANGED` agree on the fallback mode.
+
+---
+
+## Follow-up: Click-to-Queue Bleed (reported after the initial audit)
+
+**Symptom:** Queue a batch with LoRA A, then queue more prompts with LoRAs B/C
+10× and A again 5× while the earlier batch is still loading, and prompts come
+out with text or LoRA selections taken from a different click ("character
+bleeding"). Rapid Queue clicks made the effect worse.
+
+**Actual cause (client-side timing, not parallelism):** ComfyUI's
+`app.queuePrompt` does not serialize a click immediately when it is already
+submitting another batch. It pushes the request onto `queueItems` and returns
+`false`; the graph is serialized with `graphToPrompt()` only when that request's
+turn starts. SaturnNodes additionally serializes UI queue actions through
+`batchSubmissionQueue`. Any canvas edit made between the click and the deferred
+serialization was therefore captured by the queued prompt. The old snapshot
+guard only froze items **after** item 0 of a multi-item batch, so item 0 and
+every single-item queue remained exposed.
+
+**Fix:** `web/batch_queue.js` now captures the graph at click time whenever a
+submission is already pending (`pendingSubmissions > 0` or
+`app.processingQueue === true`). Item 0 of that batch uses the captured prompt,
+later items reuse it as the snapshot, and `mergeDynamicSeeds` keeps randomized
+seeds from the live prompt so generated seeds still match the UI. Idle clicks
+skip the extra serialization.
+
+**Prompt iterator:** reviewed for the same class of bug. It is not affected by
+submission timing because ComfyUI executes prompts serially on the server. One
+real bleed source was fixed: the optional `prompt` input was ignored whenever
+the node's local `text` widget was non-empty, so stale local characters could
+be replayed instead of the connected *Prompt Counter* output. A connected input
+now always wins.
+
+**Why the old tests missed it:** the Python tests call selection/iterator
+functions directly and the DOM tests never modelled a pending HTTP submission.
+The new `tests/test_batch_queue_snapshot_dom.mjs` reproduces the deferred
+`graphToPrompt()` order of ComfyUI, and the iterator precedence tests live in
+`tests/test_prompt_iterator.py`.
