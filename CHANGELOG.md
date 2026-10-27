@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Missing LoRA Selection Mode Default**: `load_lora` and `IS_CHANGED` now fall back to `Sequential` (matching `INPUT_TYPES` and the UI) instead of `All`, so API prompts without `_selection_mode` cycle one LoRA per prompt instead of stacking every selected LoRA into one render.
 - **Click-to-Queue Prompt Bleed**: Queue clicks made while another batch is still being submitted now serialize the graph at click time. Text, LoRA selections and other node inputs edited afterwards can no longer bleed into the queued prompt, and single-item queues get the same protection as multi-item batches while random seeds still follow the live prompt.
 - **Prompt Iterator Linked Input**: A connected `prompt` input now takes precedence over the node's local multiline `text`, so stale local text can no longer be replayed instead of the upstream *Prompt Counter* output.
+- **LoRA Picker Console Flood**: The Visual LoRA Loader now reads its thumbnail setting once per picker render and without the deprecated `getSettingValue(id, default)` argument, so opening a large LoRA folder no longer emits a console warning for every tile.
 
 ---
 

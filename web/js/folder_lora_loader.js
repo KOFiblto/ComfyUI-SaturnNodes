@@ -20,6 +20,17 @@ function getFolderBorderColor(folderName) {
     return `hsl(${h}, 65%, 50%)`;
 }
 
+// Read the thumbnail setting without the deprecated getSettingValue(id, default)
+// second argument, which logs a console warning on every access.
+function getBypassThumbnailDownscaling() {
+    try {
+        const value = app.ui?.settings?.getSettingValue?.("SaturnNodes.🖼️ Visual Loaders.07_BypassThumbnailDownscaling");
+        return value === undefined || value === null ? false : Boolean(value);
+    } catch (_) {
+        return false;
+    }
+}
+
 // Global CSS injection for the visual node styling
 const visualStyles = document.createElement("style");
 visualStyles.textContent = `
@@ -685,6 +696,8 @@ app.registerExtension({
                     createSpecialTile("[ NONE ]", "NONE", "#ff3333", "lora-tile-none");
                     createSpecialTile("[ RANDOM ]", "RANDOM", "#ffaa00", "lora-tile-random");
 
+                    const bypassThumbs = getBypassThumbnailDownscaling();
+
                     data.names.forEach(loraName => {
                         if (loraName === "[ NONE ]" || loraName === "[ RANDOM ]") return;
 
@@ -707,7 +720,6 @@ app.registerExtension({
 
                         const img = document.createElement("img");
                         img.loading = "lazy";
-                        const bypassThumbs = app.ui.settings?.getSettingValue?.("SaturnNodes.🖼️ Visual Loaders.07_BypassThumbnailDownscaling", false);
                         img.dataset.src = `/saturnnodes/folder_lora_loader/get_preview?lora=${encodeURIComponent(loraName)}&folder=${encodeURIComponent(folder)}&pretty=true` + (bypassThumbs ? "&full=true" : "&size=200");
                         tileObserver.observe(img);
                         
@@ -1552,6 +1564,8 @@ app.registerExtension({
                     }, { root: gridContainer, rootMargin: "150px" });
 
                     // --- Render folder groups ---
+                    const bypassThumbs = getBypassThumbnailDownscaling();
+
                     sortedFolders.forEach(subFolder => {
                         const items = foldersMap[subFolder];
                         if (items.length === 0) return;
@@ -1641,7 +1655,6 @@ app.registerExtension({
 
                             const img = document.createElement("img");
                             img.loading = "lazy";
-                            const bypassThumbs = app.ui.settings?.getSettingValue?.("SaturnNodes.🖼️ Visual Loaders.07_BypassThumbnailDownscaling", false);
                             img.dataset.src = `/saturnnodes/folder_lora_loader/get_preview?system_path=${encodeURIComponent(item.systemPath)}` + (bypassThumbs ? "&full=true" : "&size=200");
                             imageObserver.observe(img);
                             
