@@ -3,6 +3,7 @@ import sys
 import json
 import time
 import shutil
+import inspect
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -20,6 +21,7 @@ from nodes.lora_loader import (
     load_usage_data,
     reset_lora_usage_file,
     get_file_sha256_cached,
+    VisualLoraLoader,
 )
 
 
@@ -65,6 +67,36 @@ class TestLoraSelection(unittest.TestCase):
         self.assertEqual(select_a_lora("Sequential", "node1", choices, "p1"), "A")
         self.assertEqual(select_a_lora("Sequential", "node1", choices, "p3"), "C")
         self.assertEqual(select_a_lora("Sequential", "node1", choices, "p4"), "A")
+
+    def test_sequential_reorder_keeps_cycle_position(self):
+        # The state bucket is keyed by the selected set, so a different
+        # click/toggle order must not shift the index onto another LoRA.
+        self.assertEqual(select_a_lora("Sequential", "node_order", ["A", "B", "C"], "o1"), "A")
+        self.assertEqual(select_a_lora("Sequential", "node_order", ["A", "B", "C"], "o2"), "B")
+
+        # Reordering after a reselect must continue the same cycle (C next),
+        # never repeat B and never skip C.
+        self.assertEqual(select_a_lora("Sequential", "node_order", ["C", "A", "B"], "o3"), "C")
+        self.assertEqual(select_a_lora("Sequential", "node_order", ["B", "C", "A"], "o4"), "A")
+        # Retrying a reordered prompt still replays its original assignment.
+        self.assertEqual(select_a_lora("Sequential", "node_order", ["A", "C", "B"], "o3"), "C")
+
+    def test_sequential_changed_selection_starts_fresh_cycle(self):
+        self.assertEqual(select_a_lora("Sequential", "node_set", ["A", "B"], "s1"), "A")
+        self.assertEqual(select_a_lora("Sequential", "node_set", ["A", "B"], "s2"), "B")
+        # A different selection set is a different state bucket.
+        self.assertEqual(select_a_lora("Sequential", "node_set", ["A", "B", "C"], "s3"), "A")
+
+    def test_missing_selection_mode_defaults_to_sequential(self):
+        params = inspect.signature(VisualLoraLoader.load_lora).parameters
+        self.assertEqual(params["_selection_mode"].default, "Sequential")
+        self.assertEqual(
+            VisualLoraLoader.INPUT_TYPES()["hidden"]["_selection_mode"][1]["default"],
+            "Sequential",
+        )
+        # IS_CHANGED must invalidate for the same fallback mode, otherwise a
+        # prompt without _selection_mode would be treated as cacheable "All".
+        self.assertIsInstance(VisualLoraLoader.IS_CHANGED(), float)
 
     def test_no_replace_cycles_all_items_and_avoids_immediate_repeat(self):
         choices = ["A", "B", "C"]

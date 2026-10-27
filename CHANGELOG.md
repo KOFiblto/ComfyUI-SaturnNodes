@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Concurrent Batch Item Indexes**: Concurrent submissions reserve unique `itemIndex` values through a captured batch context and `inFlight` counter, so two prompts can no longer claim the same index or clear the batch early.
 - **Recent Output Loading**: `Load Recent Outputs` clamps invalid `amount`/`index` values, tie-breaks equal mtimes by path, and closes image handles after loading.
 - **Registry Publisher ID**: `PublisherId` now matches the registry's case-sensitive publisher id `kofiblto` (the previous `KOFiblto` resolved to 404 on `api.comfy.org`), and the publish workflow fails fast with a readable message when `REGISTRY_ACCESS_TOKEN` is missing instead of running a full install first.
+- **Sequential LoRA Cycle Reordering**: The Sequential cycle now persists the selection order it started with instead of indexing the live (reorderable) list, so deselecting and reselecting LoRAs can no longer repeat one LoRA and skip another from the same state bucket.
+- **Missing LoRA Selection Mode Default**: `load_lora` and `IS_CHANGED` now fall back to `Sequential` (matching `INPUT_TYPES` and the UI) instead of `All`, so API prompts without `_selection_mode` cycle one LoRA per prompt instead of stacking every selected LoRA into one render.
 
 ---
 
