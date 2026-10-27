@@ -24,10 +24,11 @@ class TestFrontendSettingsApi(unittest.TestCase):
                     continue
                 path = os.path.join(root, name)
                 with open(path, encoding="utf-8") as handle:
-                    for line_number, line in enumerate(handle, 1):
-                        if DEPRECATED_SECOND_ARGUMENT.search(line):
-                            relative = os.path.relpath(path, WEB_ROOT)
-                            offenders.append(f"{relative}:{line_number}")
+                    source = handle.read()
+                for match in DEPRECATED_SECOND_ARGUMENT.finditer(source):
+                    line_number = source.count("\n", 0, match.start()) + 1
+                    relative = os.path.relpath(path, WEB_ROOT)
+                    offenders.append(f"{relative}:{line_number}")
 
         self.assertEqual(
             offenders,
