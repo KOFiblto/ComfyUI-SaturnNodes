@@ -5,7 +5,7 @@ All notable changes to `ComfyUI-SaturnNodes` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.6.3] - In Development
+## [2.6.3] - 2026-10-30 [Stable]
 
 ### Added
 - **Restore Regression Test Matrix**: 64 new deterministic Python tests and 3 new Node fake-DOM tests covering DOM injection, cross-day timestamps, equal-mtime ordering, restore limits, corrupt images, batches, cancellation, retries, corrupt state, and recovery. The existing `test_batch_queue_dom.mjs` is now run by the suite as well.
