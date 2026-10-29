@@ -5,6 +5,13 @@ All notable changes to `ComfyUI-SaturnNodes` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - In Development
+
+### Added
+- **Character Preset Picker**: New visual card browser that selects character/style presets from `ComfyUI/user/default/SaturnNodes/character_presets/` and emits their LoRA stack, positive and negative prompts. Includes a Detect mode that matches triggers found in an upstream prompt text.
+
+---
+
 ## [2.6.3] - 2026-10-30 [Stable]
 
 ### Added
