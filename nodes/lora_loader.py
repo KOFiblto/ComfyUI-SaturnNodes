@@ -864,6 +864,8 @@ def select_a_lora(mode, unique_id, valid_choices, prompt_id=None):
             raw_pool = node_state.get("pool", [])
             pool = list(raw_pool) if isinstance(raw_pool, (list, tuple)) else []
             last_selected = node_state.get("last")
+            raw_order = node_state.get("order")
+            order = list(raw_order) if isinstance(raw_order, (list, tuple)) else []
             try:
                 index = max(0, int(node_state.get("index", 0)))
             except (TypeError, ValueError):
@@ -873,12 +875,27 @@ def select_a_lora(mode, unique_id, valid_choices, prompt_id=None):
             assigned = {}
             pool = list(node_state)
             last_selected = None
+            order = []
             index = 0
         else:
             assigned = {}
             pool = []
             last_selected = None
+            order = []
             index = 0
+
+        if mode == "Sequential":
+            # The state key hashes the *set* of selected LoRAs, so selecting the
+            # same LoRAs in a different order reuses this bucket. Persist the
+            # order observed when the cycle started and index into that, because
+            # indexing the live (reordered) list used to land on a different
+            # LoRA, repeating one pick and skipping another.
+            if not order or sorted(order) != sorted(valid_choices):
+                order = list(valid_choices)
+            if order:
+                index %= len(order)
+        else:
+            order = []
 
         if prompt_id and prompt_id in assigned:
             # Retry/crash recovery: reproduce the exact same selection without
@@ -891,7 +908,7 @@ def select_a_lora(mode, unique_id, valid_choices, prompt_id=None):
 
         if selected is None:
             if mode == "Sequential":
-                selected = valid_choices[index % len(valid_choices)]
+                selected = order[index % len(order)] if order else None
                 index += 1
             elif mode == "Random":
                 import random
@@ -922,6 +939,7 @@ def select_a_lora(mode, unique_id, valid_choices, prompt_id=None):
         }
         if mode == "Sequential":
             new_entry["index"] = index
+            new_entry["order"] = order
         if mode == "Random (No Replace)":
             new_entry["pool"] = pool
             new_entry["last"] = last_selected
@@ -961,12 +979,12 @@ class VisualLoraLoader(FolderLoraLoaderPretty):
 
     @classmethod
     def IS_CHANGED(cls, **kwargs):
-        mode = kwargs.get("_selection_mode", "All")
+        mode = kwargs.get("_selection_mode", "Sequential")
         if mode in ["Random", "Sequential", "Random (No Replace)"]:
             return time.time()
         return ""
 
-    def load_lora(self, model, clip, folder, strength_model, strength_clip, display_mode="Scrollable", sort_loras_by="Name (A-Z)", sort_folders_by="Name (A-Z)", folder_position="Folders First", content_alignment="Left Aligned", output_format="Filename", custom_regex="", output_name=None, _selected_lora="[]", _selection_mode="All", _scrape_on_new="true", unique_id="default", **kwargs):
+    def load_lora(self, model, clip, folder, strength_model, strength_clip, display_mode="Scrollable", sort_loras_by="Name (A-Z)", sort_folders_by="Name (A-Z)", folder_position="Folders First", content_alignment="Left Aligned", output_format="Filename", custom_regex="", output_name=None, _selected_lora="[]", _selection_mode="Sequential", _scrape_on_new="true", unique_id="default", **kwargs):
         active_format = output_name if output_name is not None else output_format
         active_lora = _selected_lora if _selected_lora else "[]"
         if active_lora == "[ NONE ]" or active_lora == "[]" or not active_lora:

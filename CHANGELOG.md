@@ -5,6 +5,38 @@ All notable changes to `ComfyUI-SaturnNodes` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.3] - 2026-10-30 [Stable]
+
+### Added
+- **Restore Regression Test Matrix**: 64 new deterministic Python tests and 3 new Node fake-DOM tests covering DOM injection, cross-day timestamps, equal-mtime ordering, restore limits, corrupt images, batches, cancellation, retries, corrupt state, and recovery. The existing `test_batch_queue_dom.mjs` is now run by the suite as well.
+- **Queue Bleed Regression Tests**: `test_batch_queue_snapshot_dom.mjs` models two Queue clicks with an in-flight submission and asserts prompt text/LoRA freezing with live seed merging, and `test_prompt_iterator.py` covers linked-prompt precedence over stale local text.
+
+### Changed
+- **Deterministic Restore Ordering**: Output scanning and the Visual Image Loader now tie-break equal modification times by relative path, so bulk-copied or archive-extracted files always restore in the same order and receive stable history numbering.
+- **Restored Queue Identity Repair**: `persistent_queue.json` entries are normalized on load and before restore. The top-level `prompt_id` is authoritative, `item[1]` is re-synced before queueing, duplicates collapse to the last occurrence, and malformed entries are dropped instead of crashing recovery.
+- **Synthetic Restored Queue Timestamps**: Restored items receive strictly increasing `create_time` values ending just before "now", preserving their saved queue order instead of sharing one timestamp.
+- **Best-Effort Asset DB Ingestion**: A failing `app.assets` registration no longer aborts a successful history restore.
+- **Serialized Restores**: Startup restore and manual "Restore Now" requests are serialized by a restore lock so overlapping calls cannot interleave history writes or asset ingestion.
+
+### Fixed
+- **Restored Duration Validation**: `NaN`, infinite, negative, and non-numeric durations are rejected when recorded and when read, so they can no longer poison restored timestamps or produce invalid JSON.
+- **Generation Times Persistence**: `generation_times.json` saves now sanitize corrupt entries, use unique temp files, retry transient Windows `os.replace` locks, serialize with `allow_nan=False`, and clean up leftover temp files.
+- **Cancel/Wipe Recovery Loss**: Persistent queue entries are removed only after ComfyUI confirms the cancel or wipe; a failed operation keeps the crash-recovery copy intact.
+- **Restore Robustness**: Missing queue mutexes, non-dict histories, history-read failures, malformed retry counters, and invalid restore limits are handled without aborting recovery.
+- **EXIF / A1111 Metadata**: EXIF UserComments with BOM/NUL padding and byte-valued A1111 `parameters` now decode to clean prompt text.
+- **Batch Color Injection**: Batch colors from `localStorage`/the server are restricted to plain hex values before entering SVG markup; invalid colors fall back to the palette.
+- **Batch Counter & Metadata Corruption**: Negative persisted batch counters clamp into the palette range, metadata pruning uses `queuedAt` recency, unknown segment types normalize safely, out-of-range item indexes clamp to the batch bounds, and older server snapshots can no longer overwrite newer local batch metadata.
+- **Concurrent Batch Item Indexes**: Concurrent submissions reserve unique `itemIndex` values through a captured batch context and `inFlight` counter, so two prompts can no longer claim the same index or clear the batch early.
+- **Recent Output Loading**: `Load Recent Outputs` clamps invalid `amount`/`index` values, tie-breaks equal mtimes by path, and closes image handles after loading.
+- **Registry Publisher ID**: `PublisherId` now matches the registry's case-sensitive publisher id `kofiblto` (the previous `KOFiblto` resolved to 404 on `api.comfy.org`), and the publish workflow fails fast with a readable message when `REGISTRY_ACCESS_TOKEN` is missing instead of running a full install first.
+- **Sequential LoRA Cycle Reordering**: The Sequential cycle now persists the selection order it started with instead of indexing the live (reorderable) list, so deselecting and reselecting LoRAs can no longer repeat one LoRA and skip another from the same state bucket.
+- **Missing LoRA Selection Mode Default**: `load_lora` and `IS_CHANGED` now fall back to `Sequential` (matching `INPUT_TYPES` and the UI) instead of `All`, so API prompts without `_selection_mode` cycle one LoRA per prompt instead of stacking every selected LoRA into one render.
+- **Click-to-Queue Prompt Bleed**: Queue clicks made while another batch is still being submitted now serialize the graph at click time. Text, LoRA selections and other node inputs edited afterwards can no longer bleed into the queued prompt, and single-item queues get the same protection as multi-item batches while random seeds still follow the live prompt.
+- **Prompt Iterator Linked Input**: A connected `prompt` input now takes precedence over the node's local multiline `text`, so stale local text can no longer be replayed instead of the upstream *Prompt Counter* output.
+- **LoRA Picker Console Flood**: The Visual LoRA Loader now reads its thumbnail setting once per picker render and without the deprecated `getSettingValue(id, default)` argument, so opening a large LoRA folder no longer emits a console warning for every tile.
+
+---
+
 ## [2.6.2] - 2026-10-24 [Stable]
 
 ### Added

@@ -459,7 +459,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
   - **Clean 1D Line:** The first item starts with a top curve (`┌`), middle items are straight lines (`│`), and the last item ends with a bottom curve (`└`). Standalone 1-item batches are rounded at both ends (`(`).
   - **In-between Infiltration Detection:** If a different prompt is queued in-between items of a batch, the interrupted batch maintains its open line ends without false curves, while the inserted item is highlighted with its own bracket.
   - **Works Standalone or with PersistentQueue:** Operates client-side via `localStorage` when standalone, and syncs with `PersistentQueue` to retain batch relationships after server restarts.
-- **`Batch Graph Snapshot Guard`** (`boolean`, *Default: true*): Background prompt and node input snapshotting ensuring canvas edits don't mutate active batches.
+- **`Batch Graph Snapshot Guard`** (`boolean`, *Default: true*): Snapshots prompt text, LoRA selections and node inputs when you click Queue (including batches queued behind an in-flight submission), ensuring later canvas edits do not mutate queued prompts. Random seeds continue to randomize.
 </details>
 
 <details>

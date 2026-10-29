@@ -2,17 +2,22 @@ name: Publish to ComfyUI Registry
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
-    paths:
-      - 'pyproject.toml'
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+    - name: Verify registry token
+      env:
+        REGISTRY_ACCESS_TOKEN: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
+      run: |
+        if [ -z "$REGISTRY_ACCESS_TOKEN" ]; then
+          echo "::error::REGISTRY_ACCESS_TOKEN is not configured. Create an API key at https://registry.comfy.org/nodes for the publisher 'kofiblto' and store it under Settings -> Secrets and variables -> Actions."
+          exit 1
+        fi
     - name: Publish Custom Node
       uses: Comfy-Org/publish-node-action@main
       with:

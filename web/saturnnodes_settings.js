@@ -1738,7 +1738,7 @@ app.registerExtension({
             name: "Batch Graph Snapshot Guard",
             type: "boolean",
             defaultValue: getInitialSetting("SaturnNodes.🎨 Batch Queue.02_SnapshotGuard", getInitialSetting("SaturnNodes.BatchQueue.SnapshotGuard", true)),
-            tooltip: "When queueing multi-item batches, snapshots prompt and node inputs (like text and LoRAs) in the background so mid-queue canvas edits do not corrupt queued items. Random seeds continue to randomize."
+            tooltip: "Snapshots prompt text, LoRA selections and node inputs when you click Queue (or when a batch is queued behind an in-flight submission), so edits made while ComfyUI is still loading cannot corrupt already queued prompts. Random seeds continue to randomize."
         });
 
         // =========================================================================
@@ -1867,7 +1867,7 @@ function setupSettingsFooterObserver() {
             <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 16px;">🪐</span>
                 <span style="font-weight: 600; color: #e4e4e7;">ComfyUI-SaturnNodes</span>
-                <span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(180, 140, 95, 0.18); color: #decbb2; border: 1px solid rgba(180, 140, 95, 0.35);">v2.6.2</span>
+                <span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(180, 140, 95, 0.18); color: #decbb2; border: 1px solid rgba(180, 140, 95, 0.35);">v2.6.3 (dev)</span>
             </div>
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                 <a href="https://github.com/KOFiblto/ComfyUI-SaturnNodes" target="_blank" rel="noopener noreferrer" style="color: #decbb2; text-decoration: underline; text-decoration-color: rgba(222, 203, 178, 0.4); text-underline-offset: 3px; font-weight: 500; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); transition: all 0.2s ease;" onmouseover="this.style.color='#ffffff'; this.style.background='rgba(255,255,255,0.12)'; this.style.borderColor='rgba(255,255,255,0.25)';" onmouseout="this.style.color='#decbb2'; this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='rgba(255,255,255,0.12)';">

@@ -206,7 +206,9 @@ def scan_image_folder(resolved_folder, metadata_limit=None):
                 rel_path = os.path.relpath(full_path, resolved_folder).replace("\\", "/")
                 raw_files.append((rel_path, full_path, mtime))
 
-    # Sort files by newest modified first
+    # Sort files by newest modified first. Pre-sort by relative path and use a
+    # stable mtime sort so identical timestamps always produce the same order.
+    raw_files.sort(key=lambda x: x[0])
     raw_files.sort(key=lambda x: x[2], reverse=True)
 
     names = []

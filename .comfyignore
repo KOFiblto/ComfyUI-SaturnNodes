@@ -11,6 +11,13 @@ AGENTS.md
 CLAUDE.md
 GEMINI.md
 CONTRIBUTING.md
+STATUS.md
+LORA_LOADER_AUDIT.md
+
+# Environment variables & local credentials
+.env
+.env.*
+*.env
 
 # Python bytecode caches
 __pycache__/

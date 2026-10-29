@@ -282,7 +282,64 @@ class PersistentQueueManager:
         self.load_from_file()
 
     @staticmethod
-    def _normalize_persisted_payload(data):
+    def _normalize_entry(raw):
+        """Return one repaired persistence entry, or ``None`` if unusable.
+
+        The top-level ``prompt_id`` is authoritative because it is the
+        persistence key used by add/remove. The queued item is only a fallback
+        for legacy or hand-edited entries that lack it. The restore path
+        re-syncs ``item[1]`` before queueing so task completion removes the
+        matching persistence entry.
+        """
+        if not isinstance(raw, dict):
+            return None
+        item = raw.get("item")
+        if not isinstance(item, (list, tuple)) or len(item) < 2:
+            return None
+
+        item_list = list(item)
+        item_pid = item_list[1]
+        entry_pid = raw.get("prompt_id")
+
+        # The top-level prompt_id is the persistence key. Fall back to the
+        # queued item only for legacy/hand-edited entries that lack it. The
+        # restore path re-syncs item[1] before queueing so task_done can always
+        # find and remove the matching persistence entry.
+        if entry_pid is None or entry_pid == "":
+            if item_pid is None or item_pid == "":
+                return None
+            entry_pid = str(item_pid)
+        else:
+            entry_pid = str(entry_pid)
+
+        entry = dict(raw)
+        entry["prompt_id"] = entry_pid
+        entry["item"] = item_list
+        return entry
+
+    @classmethod
+    def _normalize_items(cls, items):
+        """Repair entries and drop duplicate prompt ids, keeping the last one."""
+        normalized = {}
+        changed = False
+        for raw in items:
+            entry = cls._normalize_entry(raw)
+            if entry is None:
+                changed = True
+                continue
+            pid = entry["prompt_id"]
+            if pid in normalized:
+                # add_item() replaces the old entry and appends the new one;
+                # mirror that "last occurrence wins" rule on load.
+                normalized.pop(pid, None)
+                changed = True
+            normalized[pid] = entry
+            if entry != raw:
+                changed = True
+        return list(normalized.values()), changed
+
+    @classmethod
+    def _normalize_persisted_payload(cls, data):
         """Return ``(items, needs_rewrite, is_foreign)`` for persisted payloads.
 
         - v1 files (pre-2.6.2) are a bare list and are migrated on load.
@@ -291,13 +348,6 @@ class PersistentQueueManager:
           caller can keep it read-only instead of destroying a queue it cannot
           understand.
         """
-        def is_valid_item(x):
-            return (
-                isinstance(x, dict)
-                and "prompt_id" in x
-                and isinstance(x.get("item"), (list, tuple))
-            )
-
         if isinstance(data, dict):
             version = data.get("schema_version")
             items = data.get("items")
@@ -310,20 +360,25 @@ class PersistentQueueManager:
                     "leaving it untouched."
                 )
                 return [], False, True
+            normalized, changed = cls._normalize_items(items)
             return (
-                [x for x in items if is_valid_item(x)],
-                version != PERSISTENT_QUEUE_SCHEMA_VERSION,
+                normalized,
+                version != PERSISTENT_QUEUE_SCHEMA_VERSION or changed,
                 False,
             )
 
         if isinstance(data, list):
             # Legacy bare-list format.
-            return [x for x in data if is_valid_item(x)], True, False
+            normalized, _ = cls._normalize_items(data)
+            return normalized, True, False
 
         return [], False, False
 
     def load_from_file(self):
         with self.lock:
+            self._read_only_newer_schema = False
+            self.batch_meta = {}
+            self.batch_meta_updated = {}
             if not os.path.exists(PERSISTENT_FILE):
                 self.persistent_items = []
                 self._prune_batch_meta_locked()
@@ -335,9 +390,10 @@ class PersistentQueueManager:
                 self._read_only_newer_schema = is_foreign
                 self.persistent_items = items
                 for x in self.persistent_items:
-                    if "batch_info" in x and "prompt_id" in x:
+                    batch_info = x.get("batch_info")
+                    if isinstance(batch_info, dict) and "prompt_id" in x:
                         pid = str(x["prompt_id"])
-                        self.batch_meta[pid] = x["batch_info"]
+                        self.batch_meta[pid] = batch_info
                         self.batch_meta_updated[pid] = time.time()
                 if needs_rewrite:
                     # Rewrite once so the legacy bare-list shape is not read
@@ -371,7 +427,7 @@ class PersistentQueueManager:
             self.recently_finished.pop(next(iter(self.recently_finished)))
 
     def set_batch_info(self, prompt_id, batch_info):
-        if not prompt_id:
+        if prompt_id is None or prompt_id == "" or not isinstance(batch_info, dict):
             return
         pid_str = str(prompt_id)
         with self.lock:
@@ -460,7 +516,7 @@ class PersistentQueueManager:
             if isinstance(item_tuple, (tuple, list)):
                 item_list = list(item_tuple)
                 prompt_id = item_list[1] if len(item_list) > 1 else None
-                if not prompt_id:
+                if prompt_id is None or prompt_id == "":
                     return
                 pid_str = str(prompt_id)
                 entry = {
@@ -485,7 +541,7 @@ class PersistentQueueManager:
             print(f"[SaturnNodes PersistentQueue] Error formatting queue item for persistence: {e}")
 
     def remove_item(self, prompt_id):
-        if not prompt_id:
+        if prompt_id is None or prompt_id == "":
             return
         pid_str = str(prompt_id)
         with self.lock:
@@ -557,22 +613,28 @@ class PersistentQueueManager:
         if hasattr(queue, "delete_queue_item"):
             original_delete = queue.delete_queue_item
             def patched_delete(fn, *args, **kwargs):
+                to_delete = []
                 try:
                     with queue.mutex:
                         to_delete = [item[1] for item in queue.queue if fn(item) and len(item) > 1]
-                        for pid in to_delete:
-                            self.remove_item(pid)
                 except Exception:
-                    pass
-                return original_delete(fn, *args, **kwargs)
+                    to_delete = []
+                res = original_delete(fn, *args, **kwargs)
+                # Only forget persistence after the in-memory delete succeeded;
+                # otherwise a failed cancel would silently lose crash recovery.
+                for pid in to_delete:
+                    self.remove_item(pid)
+                return res
             queue.delete_queue_item = patched_delete
 
         # 4. Patch queue.wipe_queue
         if hasattr(queue, "wipe_queue"):
             original_wipe = queue.wipe_queue
             def patched_wipe(*args, **kwargs):
+                res = original_wipe(*args, **kwargs)
+                # Clear persistence only after ComfyUI accepted the wipe.
                 self.wipe_all()
-                return original_wipe(*args, **kwargs)
+                return res
             queue.wipe_queue = patched_wipe
 
         # 5. Redundant websocket event hooks
@@ -607,60 +669,115 @@ class PersistentQueueManager:
             self.has_claimed_once = True
             return
 
-        restored_state_setting = get_env_setting("PERSISTENT_QUEUE_RESTORED_STATE", "Match Default")
-        if restored_state_setting == "Force Paused":
+        restored_state_setting = str(
+            get_env_setting("PERSISTENT_QUEUE_RESTORED_STATE", "Match Default")
+        ).strip().lower()
+        if restored_state_setting == "force paused":
             pause_manager.set_pause(True)
-        elif restored_state_setting == "Force Running":
+        elif restored_state_setting == "force running":
             pause_manager.set_pause(False)
 
-        print(f"[SaturnNodes PersistentQueue] Restoring {len(self.persistent_items)} saved queue item(s) to client '{active_client_id}'...")
+        # Repair duplicates/mismatched prompt ids before restoring. A
+        # hand-edited file must never queue the same prompt twice or leave an
+        # entry that task_done cannot remove.
+        with self.lock:
+            normalized, repaired = self._normalize_items(list(self.persistent_items))
+            if repaired:
+                self.persistent_items = normalized
+                self._save_dirty = True
+        if repaired:
+            self.save_to_file(immediate=True)
+
+        snapshot = list(self.persistent_items)
+        if not snapshot:
+            self.has_claimed_once = True
+            return
+
+        print(f"[SaturnNodes PersistentQueue] Restoring {len(snapshot)} saved queue item(s) to client '{active_client_id}'...")
         try:
             max_retries = int(get_env_setting("PERSISTENT_QUEUE_MAX_RETRIES", "0"))
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             max_retries = 0
         max_retries = max(0, min(10, max_retries))
         self.is_restoring = True
         max_number = 0
         restored_count = 0
+        state_changed = repaired
+        # Restored jobs all used to receive the exact same create_time, which
+        # left their history order dependent on dict iteration. Keep them
+        # strictly increasing and just before "now" so newly queued prompts
+        # still sort after every restored one.
+        create_time_cursor = int(time.time() * 1000) - len(snapshot)
         try:
-            history = server.prompt_queue.get_history() if hasattr(server.prompt_queue, "get_history") else {}
-            for entry in list(self.persistent_items):
+            try:
+                history = server.prompt_queue.get_history() if hasattr(server.prompt_queue, "get_history") else {}
+            except Exception as e:
+                print(f"[SaturnNodes PersistentQueue] Could not read history before restore: {e}")
+                history = {}
+            if not isinstance(history, dict):
+                history = {}
+
+            for entry in snapshot:
+                if not isinstance(entry, dict):
+                    continue
+                item_list = entry.get("item")
+                if not isinstance(item_list, (list, tuple)):
+                    continue
+                item_list = list(item_list)
+                pid = entry.get("prompt_id")
+                if pid is None or pid == "":
+                    pid = item_list[1] if len(item_list) > 1 else None
+                pid_str = str(pid) if pid is not None and pid != "" else ""
+
                 try:
-                    pid = entry.get("prompt_id")
                     # If this prompt is already in history, it finished previously - drop it
-                    if pid and pid in history:
-                        self.remove_item(pid)
+                    if pid_str and pid_str in history:
+                        self.remove_item(pid_str)
+                        state_changed = True
                         continue
 
-                    item_list = list(entry.get("item", []))
-                    if len(item_list) < 3 or not item_list[1] or not isinstance(item_list[2], dict):
+                    if len(item_list) < 3 or not pid_str or not isinstance(item_list[2], dict):
                         # Malformed entry, drop from disk
-                        if pid:
-                            self.remove_item(pid)
+                        if pid_str:
+                            self.remove_item(pid_str)
+                            state_changed = True
                         continue
+
+                    # Keep the queued item and the persistence key in lockstep.
+                    if item_list[1] != pid_str:
+                        item_list[1] = pid_str
+                        entry["item"] = item_list
+                        state_changed = True
 
                     if len(item_list) > 3 and isinstance(item_list[3], dict):
                         if active_client_id:
                             item_list[3]["client_id"] = active_client_id
-                        # Update create_time to current timestamp so resumed jobs sort as newest in history & assets
-                        item_list[3]["create_time"] = int(time.time() * 1000)
+                        # Update create_time so resumed jobs sort as newest in
+                        # history & assets, while preserving their queue order.
+                        create_time_cursor += 1
+                        item_list[3]["create_time"] = create_time_cursor
 
                     if isinstance(item_list[0], (int, float)):
                         max_number = max(max_number, int(item_list[0]))
 
                     server.prompt_queue.put(tuple(item_list))
-                    entry["retries"] = 0
+                    if entry.get("retries", 0) != 0:
+                        entry["retries"] = 0
+                        state_changed = True
                     restored_count += 1
                 except Exception as e:
-                    pid = entry.get("prompt_id")
-                    retries = int(entry.get("retries", 0)) + 1
+                    try:
+                        retries = int(entry.get("retries", 0)) + 1
+                    except (TypeError, ValueError, OverflowError):
+                        retries = 1
                     if retries > max_retries:
-                        print(f"[SaturnNodes PersistentQueue] Error restoring prompt {pid}: {e}. Dropping after {retries} attempt(s).")
-                        if pid:
-                            self.remove_item(pid)
+                        print(f"[SaturnNodes PersistentQueue] Error restoring prompt {pid_str}: {e}. Dropping after {retries} attempt(s).")
+                        if pid_str:
+                            self.remove_item(pid_str)
                     else:
-                        print(f"[SaturnNodes PersistentQueue] Error restoring prompt {pid}: {e}. Retry {retries}/{max_retries} on next launch.")
+                        print(f"[SaturnNodes PersistentQueue] Error restoring prompt {pid_str}: {e}. Retry {retries}/{max_retries} on next launch.")
                         entry["retries"] = retries
+                        state_changed = True
                         self.save_to_file(immediate=True)
         finally:
             self.is_restoring = False
@@ -674,10 +791,13 @@ class PersistentQueueManager:
         if active_client_id:
             with self.lock:
                 for entry in self.persistent_items:
-                    if isinstance(entry.get("item"), list) and len(entry["item"]) > 3:
-                        if isinstance(entry["item"][3], dict):
-                            entry["item"][3]["client_id"] = active_client_id
-                self.save_to_file(immediate=True)
+                    item = entry.get("item") if isinstance(entry, dict) else None
+                    if isinstance(item, (list, tuple)) and len(item) > 3:
+                        if isinstance(item[3], dict):
+                            item[3]["client_id"] = active_client_id
+                            state_changed = True
+        if state_changed:
+            self.save_to_file(immediate=True)
 
         # Broadcast updated queue state to client UI
         try:
@@ -1038,7 +1158,7 @@ def setup_queue_control_routes(server):
             data = await request.json()
             pid = data.get("prompt_id")
             info = data.get("batch_info")
-            if pid and info:
+            if pid and isinstance(info, dict):
                 persistent_manager.set_batch_info(pid, info)
                 return web.json_response({"success": True})
         except Exception as e:

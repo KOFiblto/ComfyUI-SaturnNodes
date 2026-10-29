@@ -65,7 +65,18 @@ class LoadRecentOutputs:
             dummy = torch.zeros((1, 512, 512, 3), dtype=torch.float32)
             return (dummy,)
 
-        file_list.sort(key=lambda x: x[1], reverse=True)
+        try:
+            amount = max(1, int(amount))
+        except (TypeError, ValueError, OverflowError):
+            amount = 1
+        try:
+            index = max(0, int(index))
+        except (TypeError, ValueError, OverflowError):
+            index = 0
+
+        # Newest first, with the path as a deterministic tie-breaker for files
+        # copied/extracted with identical timestamps.
+        file_list.sort(key=lambda x: (x[1], x[0]), reverse=True)
         recent_files = file_list[:amount]
         if "oldest" in str(order).lower() or "chronological" in str(order).lower():
             recent_files.reverse()
@@ -74,11 +85,11 @@ class LoadRecentOutputs:
         target_file, _ = recent_files[actual_index]
 
         try:
-            img = Image.open(target_file)
-            img = ImageOps.exif_transpose(img)
-            image = img.convert("RGB")
-            image = np.array(image).astype(np.float32) / 255.0
-            image = torch.from_numpy(image).unsqueeze(0)
+            with Image.open(target_file) as img:
+                img = ImageOps.exif_transpose(img)
+                image = img.convert("RGB")
+                image = np.array(image).astype(np.float32) / 255.0
+                image = torch.from_numpy(image).unsqueeze(0)
         except Exception as e:
             print(f"[SaturnNodes] Error loading recent output image {target_file}: {e}")
             image = torch.zeros((1, 512, 512, 3), dtype=torch.float32)
