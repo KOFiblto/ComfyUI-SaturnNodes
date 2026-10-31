@@ -93,8 +93,8 @@ Keep characters as **cards** instead of remembering LoRA filenames and trigger w
 1. Add **`🪐 🧑‍🎤 Character Preset Picker`** and click **New** in its toolbar. Give the card an id (`Folder/Name` for categories), a trigger word, a positive prompt, a negative prompt, and one or more LoRAs with their own model/clip strengths.
 2. Drop a thumbnail in with **Upload image**, or click **Use LoRA preview** to copy the preview of a card that has exactly one LoRA.
 3. Connect the picker's `loras` (or `loras_json`) output to **`🪐 🧬 Apply Character LoRAs`**, and route `positive`/`negative` into your prompt encoder. The picker itself never touches `MODEL`/`CLIP`, so it can sit anywhere in the graph.
-4. **Select mode**: click cards to add them to the run. Choose how they are consumed with `selection_mode` — `Sequential` cycles through the clicked cards, `Random` picks one, `Random (No Replace)` uses all of them before repeating, `All` uses every clicked card at once.
-5. **Detect mode**: wire your prompt text into the `text` input and the picker highlights the card whose trigger appears in it (the first trigger in the text wins; enable `match_all` for several). The grid is read-only in this mode, and after each run the card that was actually used flashes on the canvas.
+4. **Clicking cards**: click cards to add them to the run — each selected card shows a numbered badge with its click order. Choose how they are consumed with `selection_mode` — `Sequential` cycles through the clicked cards, `Random` picks one, `Random (No Replace)` uses all of them before repeating, `All` uses every clicked card at once (in click order).
+5. **Prompt-driven picking**: wire your prompt text into the `text` input and the picker highlights the card whose trigger appears in it (the first trigger in the text wins; enable `match_all` for several). While text is connected the grid is read-only; disconnect it or clear the text and your clicked cards are used again. After each run the card that was actually used flashes on the canvas.
 6. Type the trigger word into your prompt yourself — the picker does not inject it.
 
 > [!NOTE]

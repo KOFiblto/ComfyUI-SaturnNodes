@@ -327,27 +327,31 @@ class TestPickerNode(CharacterPresetTestCase):
         cp.invalidate_card_cache()
         self.node = CharacterPresetPicker()
 
-    def test_detect_mode_requires_text(self):
-        with self.assertRaises(ValueError):
-            self.node.pick(mode="Detect", text="")
+    def test_detect_uses_selection_when_text_is_empty(self):
+        stack, _, positive, _, names = self.node.pick(
+            text="", selection_mode="All", _selected_presets='["char1"]'
+        )
+        self.assertEqual(positive, "red hair")
+        self.assertEqual(names, "char1")
+        self.assertEqual(stack, [])
 
     def test_detect_mode_matches_first_trigger(self):
         stack, stack_json, positive, negative, names = self.node.pick(
-            mode="Detect", text="Char2 and Char1", match_mode="Whole Word"
+            text="Char2 and Char1", match_mode="Whole Word"
         )
         self.assertEqual(positive, "blue hair")
         self.assertEqual(names, "char2")
         self.assertEqual(json.loads(stack_json), stack)
 
     def test_select_mode_without_selection_is_empty(self):
-        stack, _, positive, _, names = self.node.pick(mode="Select", _selected_presets="[]")
+        stack, _, positive, _, names = self.node.pick(_selected_presets="[]")
         self.assertEqual(stack, [])
         self.assertEqual(positive, "")
         self.assertEqual(names, "")
 
     def test_select_mode_uses_hidden_widget(self):
         _, _, positive, _, names = self.node.pick(
-            mode="Select", selection_mode="All", _selected_presets='["char1", "char2"]'
+            selection_mode="All", _selected_presets='["char1", "char2"]'
         )
         self.assertEqual(positive, "red hair, blue hair")
         self.assertEqual(names, "char1, char2")
@@ -355,17 +359,17 @@ class TestPickerNode(CharacterPresetTestCase):
     def test_folder_filter_applies_to_detect(self):
         save_card("folder/char3", {"trigger": "Char3", "positive": "green hair"})
         cp.invalidate_card_cache()
-        _, _, positive, _, _ = self.node.pick(mode="Detect", text="Char3", folder="folder")
+        _, _, positive, _, _ = self.node.pick(text="Char3", folder="folder")
         self.assertEqual(positive, "green hair")
-        _, _, positive, _, _ = self.node.pick(mode="Detect", text="Char3", folder="")
+        _, _, positive, _, _ = self.node.pick(text="Char3", folder="")
         self.assertEqual(positive, "green hair")
 
     def test_disabled_cards_are_skipped_by_default(self):
         save_card("off", {"trigger": "Off", "positive": "hidden", "enabled": False})
         cp.invalidate_card_cache()
-        _, _, positive, _, _ = self.node.pick(mode="Detect", text="Off")
+        _, _, positive, _, _ = self.node.pick(text="Off")
         self.assertEqual(positive, "")
-        _, _, positive, _, _ = self.node.pick(mode="Detect", text="Off", include_disabled=True)
+        _, _, positive, _, _ = self.node.pick(text="Off", include_disabled=True)
         self.assertEqual(positive, "hidden")
 
 

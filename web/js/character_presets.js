@@ -165,13 +165,16 @@ const PICKER_CSS = `
     display: none;
     align-items: center;
     justify-content: center;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 3px;
+    box-sizing: border-box;
+    border-radius: 9px;
     background: #00ff66;
     color: #06240f;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 800;
+    line-height: 1;
     z-index: 2;
 }
 .saturn-char-tile.selected .saturn-char-check { display: flex; }
@@ -549,13 +552,13 @@ class CharacterPickerUI {
         this.cards = [];
         this.folders = [];
         this.matchedIds = new Set();
+        this.detectActive = false;
         this.lastDetectSignature = null;
         this.search = "";
         this.destroyed = false;
         this.modal = null;
 
         this.folderWidget = getWidget(node, "folder");
-        this.modeWidget = getWidget(node, "mode");
         this.selectionWidget = getWidget(node, "selection_mode");
         this.sortWidget = getWidget(node, "sort_presets_by");
         this.folderPositionWidget = getWidget(node, "folder_position");
@@ -568,6 +571,7 @@ class CharacterPickerUI {
 
         this.build();
         this.bindWidgets();
+        this.updateSelectionHint();
         this.refresh();
         this.startDetectWatcher();
     }
@@ -681,14 +685,8 @@ class CharacterPickerUI {
     }
 
     bindWidgets() {
-        if (this.modeWidget) {
-            this.modeWidget.callback = () => {
-                this.lastDetectSignature = null;
-                this.updateMode();
-            };
-        }
         if (this.selectionWidget) {
-            this.selectionWidget.callback = () => this.updateMode();
+            this.selectionWidget.callback = () => this.updateSelectionHint();
         }
         if (this.sortWidget) {
             this.sortWidget.callback = () => {
@@ -715,7 +713,6 @@ class CharacterPickerUI {
         }
 
         if (this.sortWidget) this.sortSelect.value = this.sortWidget.value || SORT_PRESETS[0];
-        if (this.modeWidget) this.modeWidget.value = this.modeWidget.value || "Select";
         if (this.selectionWidget) this.selectionWidget.value = this.selectionWidget.value || "Sequential";
     }
 
@@ -729,17 +726,10 @@ class CharacterPickerUI {
         }
     }
 
-    updateMode() {
-        const detect = (this.modeWidget?.value || "Select") === "Detect";
-        this.grid.classList.toggle("detect-mode", detect);
-        this.lastDetectSignature = null;
-        if (detect) {
-            this.setStatus("Detect mode: triggers are matched inside the connected text input.", "warn");
-        } else {
-            const mode = this.selectionWidget?.value || "Sequential";
-            this.setStatus(MODE_HINTS[mode] || "");
-        }
-        this.updateDetectPreview();
+    updateSelectionHint() {
+        if (this.detectActive) return;
+        const mode = this.selectionWidget?.value || "Sequential";
+        this.setStatus(MODE_HINTS[mode] || "");
     }
 
     setStatus(text, kind) {
@@ -762,7 +752,6 @@ class CharacterPickerUI {
             this.folders = Array.isArray(data.folders) ? data.folders : [];
             this.rebuildFolderSelect(folder);
             this.render();
-            this.updateMode();
         } catch (error) {
             this.setStatus(`Could not load character presets: ${error.message || error}`, "error");
         }
@@ -813,14 +802,15 @@ class CharacterPickerUI {
             return;
         }
 
-        const selected = new Set(readSelected(this.hiddenWidget));
+        const selectedIds = readSelected(this.hiddenWidget);
+        const selected = new Set(selectedIds);
         const fragment = document.createDocumentFragment();
-        cards.forEach((card) => fragment.appendChild(this.renderTile(card, selected)));
+        cards.forEach((card) => fragment.appendChild(this.renderTile(card, selected, selectedIds)));
         this.grid.appendChild(fragment);
         this.updateDetectPreview();
     }
 
-    renderTile(card, selected) {
+    renderTile(card, selected, selectedIds) {
         const tile = el("div", "saturn-char-tile");
         tile.dataset.cardId = card.id;
         tile.setAttribute("data-card-id", card.id);
@@ -840,7 +830,10 @@ class CharacterPickerUI {
         } else {
             thumb.appendChild(el("div", "saturn-char-fallback", initials(card.name)));
         }
-        thumb.appendChild(el("div", "saturn-char-check", "\u2713"));
+        const order = selectedIds ? selectedIds.indexOf(card.id) : -1;
+        const orderBadge = el("div", "saturn-char-check", order >= 0 ? String(order + 1) : "");
+        orderBadge.title = "Selection order (used in this order by Sequential and All)";
+        thumb.appendChild(orderBadge);
         thumb.appendChild(el("div", "saturn-char-match-pill", "MATCH"));
 
         const meta = el("div", "saturn-char-meta");
@@ -895,8 +888,8 @@ class CharacterPickerUI {
     }
 
     toggleSelection(cardId) {
-        if ((this.modeWidget?.value || "Select") === "Detect") {
-            this.setStatus("Detect mode picks cards from the text input. Switch Mode to Select to click cards.", "warn");
+        if (this.detectActive) {
+            this.setStatus("The connected text picks the cards. Disconnect it to click cards.", "warn");
             return;
         }
         const selected = readSelected(this.hiddenWidget);
@@ -910,31 +903,41 @@ class CharacterPickerUI {
 
     updateSelectionStyles() {
         if (!this.grid) return;
-        const selected = new Set(readSelected(this.hiddenWidget));
+        const selectedIds = readSelected(this.hiddenWidget);
+        const selected = new Set(selectedIds);
         this.grid.querySelectorAll(".saturn-char-tile").forEach((tile) => {
-            tile.classList.toggle("selected", selected.has(tile.getAttribute("data-card-id")));
+            const cardId = tile.getAttribute("data-card-id");
+            tile.classList.toggle("selected", selected.has(cardId));
+            const badge = tile.querySelector(".saturn-char-check");
+            if (badge) {
+                const order = selectedIds.indexOf(cardId);
+                badge.textContent = order >= 0 ? String(order + 1) : "";
+            }
         });
     }
 
     startDetectWatcher() {
         this.detectTimer = setInterval(() => {
             if (this.destroyed) return;
-            if ((this.modeWidget?.value || "Select") !== "Detect") return;
             this.updateDetectPreview();
         }, 700);
     }
 
     updateDetectPreview() {
         if (!this.grid) return;
-        const detect = (this.modeWidget?.value || "Select") === "Detect";
+        const text = getLinkedText(this.node);
+        const detect = text.trim().length > 0;
+        this.detectActive = detect;
+        this.grid.classList.toggle("detect-mode", detect);
+
         if (!detect) {
             this.matchedIds = new Set();
             this.lastDetectSignature = null;
             this.grid.querySelectorAll(".saturn-char-tile.matched").forEach((tile) => tile.classList.remove("matched"));
+            this.updateSelectionHint();
             return;
         }
 
-        const text = getLinkedText(this.node);
         const matchMode = this.matchModeWidget?.value || "Whole Word";
         const caseSensitive = this.caseWidget?.value === true;
         const matchAll = this.matchAllWidget?.value === true;
@@ -950,13 +953,11 @@ class CharacterPickerUI {
             tile.classList.toggle("matched", this.matchedIds.has(tile.getAttribute("data-card-id")));
         });
 
-        if (!text.trim()) {
-            this.setStatus("Detect mode needs text: connect a prompt to the text input.", "warn");
-        } else if (!matched.length) {
+        if (!matched.length) {
             this.setStatus("No character trigger found in the connected text.", "warn");
         } else {
             const names = matched.map((card) => card.name).join(", ");
-            this.setStatus(`Detected: ${names}`, "ok");
+            this.setStatus(`Detected from text: ${names}`, "ok");
         }
     }
 
@@ -966,12 +967,9 @@ class CharacterPickerUI {
             else if (status === "no-selection") this.setStatus("No card selected, nothing was applied.", "warn");
             return;
         }
-        const detect = (this.modeWidget?.value || "Select") === "Detect";
-        if (!detect) {
-            // Refresh first so the flash lands on the freshly rendered tiles
-            // (usage counters changed during the run).
-            await this.refresh();
-        }
+        // Refresh first so the flash lands on the freshly rendered tiles
+        // (usage counters changed during the run).
+        await this.refresh();
         const names = [];
         cardIds.forEach((cardId) => {
             const tile = this.grid.querySelector(`.saturn-char-tile[data-card-id="${CSS.escape(cardId)}"]`);
@@ -1018,10 +1016,6 @@ class CharacterPickerUI {
 
     async openEditor(card) {
         if (this.modal) return;
-        if ((this.modeWidget?.value || "Select") === "Detect" && !card) {
-            this.setStatus("Switch Mode to Select to create cards.", "warn");
-            return;
-        }
 
         const isNew = !card;
         const loraList = await fetchLoras().catch(() => []);

@@ -1,6 +1,6 @@
 [project]
 name = "saturnnodes"
-description = "Essential workflow controls, mid-generation pausing, real-time queue persistence, folder watcher, and visual model loaders for ComfyUI."
+description = "Workflow control and productivity suite for ComfyUI: mid-generation pause/continue, crash-safe persistent queue, batch queue visualizer, folder watchers, visual LoRA and image browsers, character preset cards, live latent previews, and stereogram tools."
 version = "2.7.0"
 readme = "README.md"
 license = { file = "LICENSE" }

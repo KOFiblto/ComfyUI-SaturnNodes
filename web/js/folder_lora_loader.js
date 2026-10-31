@@ -251,6 +251,30 @@ visualStyles.textContent = `
         border-width: 4px !important;
         box-shadow: 0 0 12px rgba(0, 255, 102, 0.5);
     }
+    .lora-order-badge {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 3px;
+        box-sizing: border-box;
+        border-radius: 8px;
+        background: #00ff66;
+        color: #06240f;
+        font-size: 10px;
+        font-weight: 800;
+        line-height: 1;
+        pointer-events: none;
+        z-index: 3;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.45);
+    }
+    .lora-tile.selected .lora-order-badge {
+        display: flex;
+    }
     .lora-tile img {
         width: 100%;
         height: 100%;
@@ -1390,7 +1414,8 @@ app.registerExtension({
                 const tiles = viewContainer.querySelectorAll(".lora-tile");
                 tiles.forEach(t => {
                     const name = t.dataset.loraName;
-                    if (selectedList.includes(name)) {
+                    const orderIndex = selectedList.indexOf(name);
+                    if (orderIndex >= 0) {
                         t.classList.add("selected");
                         t.style.borderColor = "#00ff66";
                     } else {
@@ -1400,6 +1425,10 @@ app.registerExtension({
                         } else {
                             t.style.borderColor = "";
                         }
+                    }
+                    const orderBadge = t.querySelector(".lora-order-badge");
+                    if (orderBadge) {
+                        orderBadge.textContent = orderIndex >= 0 ? String(orderIndex + 1) : "";
                     }
                 });
 
@@ -1652,6 +1681,13 @@ app.registerExtension({
                                 tile.className += " selected";
                                 tile.style.borderColor = "#00ff66";
                             }
+
+                            const orderBadge = document.createElement("div");
+                            orderBadge.className = "lora-order-badge";
+                            const orderIndex = selectedList.indexOf(item.loraName);
+                            orderBadge.textContent = orderIndex >= 0 ? String(orderIndex + 1) : "";
+                            orderBadge.title = "Selection order (LoRAs are applied in this order)";
+                            tile.appendChild(orderBadge);
 
                             const img = document.createElement("img");
                             img.loading = "lazy";

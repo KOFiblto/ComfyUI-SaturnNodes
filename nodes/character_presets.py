@@ -772,8 +772,9 @@ class CharacterPresetPicker:
     """Visual character preset browser.
 
     Emits the selected cards' LoRA stack plus their positive and negative
-    prompts. In Detect mode the cards are chosen by scanning an upstream text
-    for their triggers instead of by clicking.
+    prompts. When an upstream text is connected and not empty, the cards are
+    chosen by scanning that text for their triggers; otherwise the clicked
+    cards are used.
     """
 
     @classmethod
@@ -781,7 +782,6 @@ class CharacterPresetPicker:
         return {
             "required": {
                 "folder": ("STRING", {"default": ""}),
-                "mode": (["Select", "Detect"], {"default": "Select"}),
                 "selection_mode": (SELECTION_MODES, {"default": "Sequential"}),
                 "separator": ("STRING", {"default": ", ", "advanced": True}),
                 "match_mode": (MATCH_MODES, {"default": "Whole Word", "advanced": True}),
@@ -810,14 +810,15 @@ class CharacterPresetPicker:
     CATEGORY = CARD_CATEGORY
     DESCRIPTION = (
         "Visual character preset browser. Pick cards to emit their LoRA stack and "
-        "prompts, or use Detect mode to select cards by matching their triggers "
-        "inside an upstream prompt text."
+        "prompts. When the optional text input carries a prompt, the cards are "
+        "detected from their trigger words instead, and the clicked selection is "
+        "ignored for that run."
     )
 
     @classmethod
-    def IS_CHANGED(cls, mode="Select", selection_mode="Sequential", folder="", text="", **kwargs):
+    def IS_CHANGED(cls, selection_mode="Sequential", folder="", text="", **kwargs):
         signature = _presets_signature()
-        if mode == "Detect":
+        if (text or "").strip():
             return f"{signature}|detect|{text}"
         if selection_mode in ("Sequential", "Random", "Random (No Replace)"):
             return time.time()
@@ -826,7 +827,6 @@ class CharacterPresetPicker:
     def pick(
         self,
         folder="",
-        mode="Select",
         selection_mode="Sequential",
         separator=", ",
         match_mode="Whole Word",
@@ -845,16 +845,9 @@ class CharacterPresetPicker:
         available = available_loras()
         prompt_id = _current_prompt_id()
         status = ""
+        has_text = bool((text or "").strip())
 
-        if mode == "Detect":
-            if not (text or "").strip():
-                # In Detect mode the upstream text is a hard requirement: without
-                # it there is nothing to scan, so fail loudly instead of silently
-                # emitting an empty stack.
-                raise ValueError(
-                    "Character Preset Picker: Detect mode requires a text input. "
-                    "Connect the prompt text to the 'text' input or switch Mode to Select."
-                )
+        if has_text:
             chosen = match_cards(text, cards, match_mode, case_sensitive, match_all)
             if not chosen:
                 status = "no-match"
@@ -865,7 +858,7 @@ class CharacterPresetPicker:
 
         positive, negative, stack, names = build_outputs(chosen, separator, available)
         increment_usage([card["id"] for card in chosen])
-        _notify_ui(unique_id, [card["id"] for card in chosen], mode, status)
+        _notify_ui(unique_id, [card["id"] for card in chosen], "Detect" if has_text else "Select", status)
 
         missing = [entry["requested"] for entry in stack if not entry["resolved"]]
         if missing:

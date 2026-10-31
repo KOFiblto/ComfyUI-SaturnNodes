@@ -147,7 +147,6 @@ function makeNode() {
     };
     const specs = [
         ["folder", ""],
-        ["mode", "Select"],
         ["selection_mode", "Sequential"],
         ["separator", ", "],
         ["match_mode", "Whole Word"],
@@ -188,9 +187,24 @@ const char1Tile = ui.grid.querySelector('[data-card-id="char1"]');
 char1Tile.click();
 assert.deepEqual(JSON.parse(hidden.value), ["char1"], "clicking a tile stores the card id");
 assert.ok(char1Tile.classList.contains("selected"), "selected tiles get the green ring state");
+assert.equal(
+    char1Tile.querySelector(".saturn-char-check").textContent,
+    "1",
+    "the badge shows the selection order"
+);
+
+const char3Tile = ui.grid.querySelector('[data-card-id="folder/char3"]');
+char3Tile.click();
+assert.deepEqual(JSON.parse(hidden.value), ["char1", "folder/char3"], "cards keep click order");
+assert.equal(char1Tile.querySelector(".saturn-char-check").textContent, "1", "first pick stays 1");
+assert.equal(char3Tile.querySelector(".saturn-char-check").textContent, "2", "second pick becomes 2");
+
+char3Tile.click();
+assert.equal(char3Tile.querySelector(".saturn-char-check").textContent, "", "deselecting clears the badge");
 
 char1Tile.click();
 assert.deepEqual(JSON.parse(hidden.value), [], "clicking again deselects");
+assert.equal(char1Tile.querySelector(".saturn-char-check").textContent, "", "the badge clears on deselect");
 
 // Sorting: usage sort puts the most used card first (within the root group).
 node.widgets.find((widget) => widget.name === "folder_position").value = "Root Presets First";
@@ -210,19 +224,19 @@ assert.equal(
     "folders-first grouping puts folder cards on top"
 );
 
-// Detect mode: the grid is disabled for clicking and the first trigger wins.
-node.widgets.find((widget) => widget.name === "mode").value = "Detect";
+// Connected text: the grid is disabled for clicking and the first trigger wins.
 app.graph.links = { 1: { id: 1, origin_id: 9, origin_slot: 0 } };
 node.inputs = [{ name: "text", link: 1 }];
 const origin = { id: 9, widgets: [{ name: "text", value: "I am Char2 and Char1" }] };
 app.graph.getNodeById = (id) => (String(id) === "9" ? origin : null);
 
-ui.updateMode();
-assert.ok(ui.grid.classList.contains("detect-mode"), "detect mode greys out the grid");
+ui.updateDetectPreview();
+assert.ok(ui.detectActive, "a non-empty text input activates detection");
+assert.ok(ui.grid.classList.contains("detect-mode"), "detection greys out the grid");
 
 const before = hidden.value;
 ui.grid.querySelector('[data-card-id="char1"]').click();
-assert.equal(hidden.value, before, "detect mode ignores tile clicks");
+assert.equal(hidden.value, before, "detection ignores tile clicks");
 
 ui.lastDetectSignature = null;
 ui.updateDetectPreview();
@@ -255,9 +269,20 @@ assert.ok(
     "the detect preview follows upstream text changes"
 );
 
-// Post-run feedback: the used card flashes, even in Select mode.
-node.widgets.find((widget) => widget.name === "mode").value = "Select";
-ui.updateMode();
+// An empty text falls back to manual selection.
+origin.widgets[0].value = "";
+ui.updateDetectPreview();
+assert.ok(!ui.detectActive, "an empty text input disables detection");
+assert.ok(!ui.grid.classList.contains("detect-mode"), "the grid becomes clickable again");
+ui.grid.querySelector('[data-card-id="char2"]').click();
+assert.deepEqual(JSON.parse(hidden.value), ["char2"], "clicks select cards again once text is empty");
+assert.equal(
+    ui.grid.querySelector('[data-card-id="char2"]').querySelector(".saturn-char-check").textContent,
+    "1",
+    "manual numbering resumes after detection ends"
+);
+
+// Post-run feedback: the used card flashes.
 await handlers["saturnnodes_character_presets_selected"]({
     detail: { node_id: "3", cards: ["char1"], status: "" },
 });

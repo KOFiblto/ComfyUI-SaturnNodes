@@ -291,7 +291,7 @@ Use atomic, descriptive English commit headers:
 - `Release: ...` (Consolidated version release merge)
 
 ### 6.4 Registry Publishing (ComfyUI Registry)
-- Registry node name: `saturnnodes` (Publisher `KOFiblto`, `DisplayName = ComfyUI-SaturnNodes`). **Published versions are immutable** — always bump the version before publishing a change.
-- `.github/workflows/publish_action.yml` publishes automatically when `pyproject.toml` changes on `main` (and can also be triggered manually via workflow dispatch). It requires the `REGISTRY_ACCESS_TOKEN` repository secret.
+- Registry node name: `saturnnodes` (Publisher `kofiblto`, `DisplayName = ComfyUI-SaturnNodes`). **Published versions are immutable** — always bump the version before publishing a change.
+- `.github/workflows/publish_action.yml` publishes automatically when `pyproject.toml` changes on `main` (and can also be triggered manually via workflow dispatch). It requires the `REGISTRY_ACCESS_TOKEN` repository secret, and after publishing it copies the matching `CHANGELOG.md` section into the registry version's changelog field via `PUT /publishers/{publisherId}/nodes/{nodeId}/versions/{versionId}`.
 - `.comfyignore` excludes development files (tests, CI, contributor docs) from the published package archive.
 - Icon (`web/logo.png`) must be square, 400x400 or smaller.

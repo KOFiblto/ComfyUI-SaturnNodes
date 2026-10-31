@@ -12,7 +12,7 @@ A unified workflow control and productivity suite for **ComfyUI**. Both **Fronte
 - **Stereoscopic 3D & Cross-Eye Generator**: Convert 2D artwork and renders into 3D stereograms, parallel views, and red-cyan anaglyphs with automatic Depth Anything V2 fallback.
 - **Batch Prompting & Iteration**: Queue multiple prompts automatically with delimiter splits, regex blocks, and persistent queue state tracking.
 - **Visual Thumbnail Browsing**: Browse LoRAs and image folders with auto-scraped Civitai & TMDB previews, ranking badges, and multi-selection.
-- **Character Preset Cards**: Save characters as visual cards (thumbnail, trigger word, prompts, LoRA stack) and either click them or let Detect mode pick them from the prompt text.
+- **Character Preset Cards**: Save characters as visual cards (thumbnail, trigger word, prompts, LoRA stack) and either click them or let a connected prompt text pick them by trigger word.
 - **Real-Time Queue & Pause Controls**: Pause, resume, or cleanly cancel execution mid-generation, with automatic crash recovery for interrupted queues.
 - **Aspect Ratio & Resolution Utilities**: Find exact matching aspect ratios, crop dimensions, and visual sizing helpers.
 - **Safe Local Script Execution**: Run local scripts and executables strictly confined to `ComfyUI/scripts/` with interactive operator authorization.
@@ -69,7 +69,7 @@ Loads a LoRA using formatted pretty names (e.g. `Cyberpunk Character V1` instead
 <summary><b>🪐 🖼️ Visual LoRA Loader</b> (<code>VisualLoraLoader</code>)</summary>
 
 #### Overview
-Visual thumbnail browser for LoRAs with Civitai SHA256 search & TMDB auto-scraping, popularity rank badges (🔥), multi-selection support, and independent per-node thumbnail zoom sizing.
+Visual thumbnail browser for LoRAs with Civitai SHA256 search & TMDB auto-scraping, popularity rank badges (🔥), multi-selection support with click-order numbering, and independent per-node thumbnail zoom sizing.
 
 #### Maintenance Reset Buttons
 The node's control bar exposes three maintenance buttons — each asks for confirmation before acting:
@@ -371,16 +371,15 @@ Inspired by Stereonix, this node transforms any 2D image into stereoscopic 3D pa
 <summary><b>🪐 🧑‍🎤 Character Preset Picker</b> (<code>CharacterPresetPicker</code>)</summary>
 
 #### Overview
-A visual browser for **character preset cards**. Each card stores a thumbnail, a trigger word, a positive prompt, a negative prompt, and a stack of LoRAs (each with its own model/clip strength). Pick cards by clicking them, or switch to **Detect** mode to let the node find the character inside an upstream prompt text by its trigger word.
+A visual browser for **character preset cards**. Each card stores a thumbnail, a trigger word, a positive prompt, a negative prompt, and a stack of LoRAs (each with its own model/clip strength). Pick cards by clicking them, or connect a prompt text to the `text` input and let the node find the character by its trigger word instead.
 
 Cards are plain JSON files with an optional sidecar image, stored in `ComfyUI/user/default/SaturnNodes/character_presets/` (subfolders act as categories). The node only outputs data — use the companion **Apply Character LoRAs** node to patch `MODEL`/`CLIP`.
 
 > [!TIP]
-> Trigger words are **not** added to the prompt automatically. Type the trigger in your prompt yourself; the picker only uses it to find the card in Detect mode.
+> Trigger words are **not** added to the prompt automatically. Type the trigger in your prompt yourself; the picker only uses it to find the card when text is connected.
 
 #### Inputs & Widgets
 - **`folder`** (`STRING`): Folder filter. Hidden in the UI and driven by the folder dropdown in the picker toolbar.
-- **`mode`** (`COMBO`): `Select` (click cards) or `Detect` (match trigger words in the `text` input).
 - **`selection_mode`** (`COMBO`): How the clicked cards are used — `Sequential` (one per run, in order), `Random` (one random card), `Random (No Replace)` (shuffles and uses every clicked card before repeating), `All` (every clicked card in one run), `None` (emits nothing).
 - **`separator`** (`STRING`, *Advanced*, default `", "`): Joins positive/negative prompts when several cards are used.
 - **`match_mode`** (`COMBO`, *Advanced*): `Whole Word` (default), `Contains`, or `Exact`. No regular expressions.
@@ -390,7 +389,7 @@ Cards are plain JSON files with an optional sidecar image, stored in `ComfyUI/us
 - **`sort_presets_by`** (`COMBO`, *Advanced*): Name, usage count, or date modified (both directions).
 - **`folder_position`** (`COMBO`, *Advanced*): `Folders First` or `Root Presets First`.
 - **`display_mode`** (`COMBO`, *Advanced*): `Scrollable` (fixed height grid) or `Show All` (taller node).
-- **`text`** (`STRING`, input socket, *required in Detect mode*): The prompt text scanned for trigger words. Detect mode fails with a clear error when nothing is connected.
+- **`text`** (`STRING`, optional input socket): The prompt text scanned for trigger words. While it carries text, detection is active and the clicked selection is ignored; when it is empty or unconnected, the clicked cards are used instead.
 
 #### Outputs
 - **`loras`** (`SATURN_LORA_STACK`): The resolved LoRA stack, with per-entry model/clip strength.
@@ -400,10 +399,10 @@ Cards are plain JSON files with an optional sidecar image, stored in `ComfyUI/us
 - **`names`** (`STRING`): Names of the used cards.
 
 #### Picker UI
-- **Click** a card to select it (green ring + ✓), **double-click** to edit it, or use the hover buttons to edit / duplicate / delete.
+- **Click** a card to select it (green ring + selection-order number), **double-click** to edit it, or use the hover buttons to edit / duplicate / delete.
 - **New** creates a card, **Folder** opens the presets directory, **Refresh** rescans it.
-- Manual selection is shown with a green ring; **Detect** matches are shown with a green wash and a `MATCH` pill, and the grid stops accepting clicks.
-- After every run the cards that were actually used flash on the canvas, so you can see what Detect mode picked.
+- Manual selection is shown with a green ring and a numbered badge in click order; connected-text matches are shown with a green wash and a `MATCH` pill, and the grid stops accepting clicks.
+- After every run the cards that were actually used flash on the canvas, so you can see what detection picked.
 </details>
 
 <details>
