@@ -11,6 +11,8 @@ export const SATURN_NODE_TYPES = new Set([
     "FolderLoraLoaderPretty",
     "VisualImageLoader",
     "LoadRecentOutputs",
+    "CharacterPresetPicker",
+    "ApplyCharacterLoRAs",
 
     // Automation, Flow & Utilities
     "LoadImageFromFolder",

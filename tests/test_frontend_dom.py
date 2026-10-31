@@ -15,6 +15,7 @@ DOM_TESTS = [
     "test_batch_queue_snapshot_dom.mjs",
     "test_batch_queue_restore_dom.mjs",
     "test_persistent_queue_claim_dom.mjs",
+    "test_character_presets_dom.mjs",
 ]
 
 

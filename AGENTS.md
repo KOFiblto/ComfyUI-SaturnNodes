@@ -50,6 +50,7 @@ ComfyUI-SaturnNodes/
 │   ├── aspect_ratio.py        # Text & preview aspect ratio calculation nodes
 │   ├── assets_restore.py      # Startup output-folder history restoration
 │   ├── auto_watcher.py        # Automated folder watch image loaders
+│   ├── character_presets.py   # Character preset cards, visual picker & LoRA applier
 │   ├── decision_node.py       # Inline pause/gate decision node & notifications
 │   ├── generation_times.py    # Prompt duration recording for restored asset history
 │   ├── image_loader.py        # Visual image browser & EXIF/PNG metadata parser
@@ -78,6 +79,7 @@ ComfyUI-SaturnNodes/
 │   ├── logo.png               # Registry icon (400x400)
 │   └── js/                    # Node-specific UI widgets (visual pickers, buttons, aspect preview)
 │       ├── auth_helper.js     # CSRF token helper shared by all frontend extensions
+│       ├── character_presets.js # Character preset card grid, editor modal & detect preview
 │       ├── copy_prompt.js
 │       ├── decision_node.js
 │       ├── folder_lora_loader.js

@@ -87,6 +87,19 @@ Tired of guessing what a LoRA does based on its filename?
 4. **Independent Per-Node Zoom**: Use the `tile_size` slider to adjust preview card sizes to your preference. Zoom levels are saved per node directly inside your workflow JSON, so different visual loaders maintain independent tile sizes across browser reloads.
 5. **Maintenance Reset Buttons**: The control bar offers `↺ Counter` (reset this node's Sequential/Random LoRA cycle + prompt→LoRA assignments), `🧹 Usage` (clear usage badges), and `🗑 Cache` (delete cached thumbnails). Each asks for confirmation. ⚠️ Only use `↺ Counter` when the queue is empty — resetting mid-batch restarts the LoRA cycle from the first selected LoRA and can mismatch prompts against LoRAs.
 
+### 🪐 🧑‍🎤 Character Preset Picker
+Keep characters as **cards** instead of remembering LoRA filenames and trigger words.
+
+1. Add **`🪐 🧑‍🎤 Character Preset Picker`** and click **New** in its toolbar. Give the card an id (`Folder/Name` for categories), a trigger word, a positive prompt, a negative prompt, and one or more LoRAs with their own model/clip strengths.
+2. Drop a thumbnail in with **Upload image**, or click **Use LoRA preview** to copy the preview of a card that has exactly one LoRA.
+3. Connect the picker's `loras` (or `loras_json`) output to **`🪐 🧬 Apply Character LoRAs`**, and route `positive`/`negative` into your prompt encoder. The picker itself never touches `MODEL`/`CLIP`, so it can sit anywhere in the graph.
+4. **Select mode**: click cards to add them to the run. Choose how they are consumed with `selection_mode` — `Sequential` cycles through the clicked cards, `Random` picks one, `Random (No Replace)` uses all of them before repeating, `All` uses every clicked card at once.
+5. **Detect mode**: wire your prompt text into the `text` input and the picker highlights the card whose trigger appears in it (the first trigger in the text wins; enable `match_all` for several). The grid is read-only in this mode, and after each run the card that was actually used flashes on the canvas.
+6. Type the trigger word into your prompt yourself — the picker does not inject it.
+
+> [!NOTE]
+> Cards live in `ComfyUI/user/default/SaturnNodes/character_presets/` as `<Name>.json` plus an optional sidecar image. Use the **Folder** button to open that directory and back it up or share cards.
+
 ### 🪐 ⏱️ Recent Outputs
 Want to quickly reference your recent generations without digging through Windows Explorer? The **`🪐 ⏱️ Recent Outputs`** node cycles chronologically through your `output/` directory, pulling your freshest creations right back into the workflow canvas.
 

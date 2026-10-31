@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Character Preset Picker**: New visual card browser that selects character/style presets from `ComfyUI/user/default/SaturnNodes/character_presets/` and emits their LoRA stack, positive and negative prompts. Includes a Detect mode that matches triggers found in an upstream prompt text.
+- **Apply Character LoRAs**: Companion node that applies the picker's stack to `MODEL`/`CLIP`, using each card entry's own model and clip strength and skipping missing files.
+- **Character Card Editor**: Modal editor for card id/folders, trigger word, positive/negative prompt, tags, notes, enabled state, multi-LoRA rows with per-entry strengths, and thumbnail upload (or copy the preview of a card's single LoRA). Cards can be duplicated, renamed across folders, and deleted from the picker.
+- **Picker Selection Modes**: `Sequential`, `Random`, `Random (No Replace)`, `All` and `None` over the cards the user clicked, with persisted cycle state and post-run flashing of the cards actually used.
+- **Character Preset Tests**: 35 Python tests for card normalization, path containment, LoRA resolution, matching order, selection modes, prompt assembly and the applier, plus a fake-DOM regression test for the picker grid, selection, Detect highlighting and post-run feedback.
+
+### Changed
+- **Detect Mode Feedback**: Trigger matches use a green overlay wash plus a `MATCH` pill, visually distinct from the green ring used by manual selection, and the grid becomes read-only while Detect mode is active.
 
 ---
 
