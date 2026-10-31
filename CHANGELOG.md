@@ -12,12 +12,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Apply Character LoRAs**: Companion node that applies the picker's stack to `MODEL`/`CLIP`, using each card entry's own model and clip strength and skipping missing files.
 - **Character Card Editor**: Modal editor for card id/folders, trigger word, positive/negative prompt, tags, notes, enabled state, multi-LoRA rows with per-entry strengths, and thumbnail upload (or copy the preview of a card's single LoRA). Cards can be duplicated, renamed across folders, and deleted from the picker.
 - **Picker Selection Modes**: `Sequential`, `Random`, `Random (No Replace)`, `All` and `None` over the cards the user clicked, with persisted cycle state and post-run flashing of the cards actually used.
+- **LoRA Card Import**: The picker can scan any installed LoRA folder (`Import` button), keep its subfolders as card categories, humanise file names into character names, derive trigger words from safetensors metadata (ignoring generic `sks` placeholders) or the file name, skip or merge existing cards, and inherit previews from the LoRA sidecar images.
 - **Selection-Order Badges**: Both the Character Preset Picker and the Visual LoRA Loader now number selected cards in the order they were clicked, matching the order the LoRAs are actually applied.
-- **Character Preset Tests**: 37 Python tests for card normalization, path containment, LoRA resolution, matching order, selection modes, prompt assembly and the applier, plus a fake-DOM regression test for the picker grid, selection numbering, text-driven highlighting and post-run feedback.
+- **Character Preset Tests**: 50 Python tests for card normalization, path containment, LoRA resolution, import scanning and naming, matching order, selection modes, prompt assembly and the applier, plus a fake-DOM regression test for the picker grid, selection numbering, text-driven highlighting and post-run feedback.
 
 ### Changed
 - **Automatic Text Detection**: The picker's `mode` widget is gone. A non-empty connected `text` input switches to trigger detection; an empty or unconnected text falls back to the clicked cards, so the node never errors for a missing prompt.
 - **Detect Feedback**: Trigger matches use a green overlay wash plus a `MATCH` pill, visually distinct from the green ring used by manual selection, and the grid becomes read-only while text detection is active.
+
+### Fixed
+- **Floating Latent Dock Stale Preview**: With *Auto-hide when idle* enabled, the dock no longer pops up at `execution_start` showing the previous run's latent. It stays hidden until the first fresh preview of the current run arrives.
+- **Inherited LoRA Preview Extension**: **Use LoRA preview** now copies the image with its real extension instead of always writing a `.png`, so JPEG/WebP previews are stored with a matching extension and any stale sidecar of another type is removed.
 
 ---
 

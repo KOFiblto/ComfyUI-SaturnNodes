@@ -348,7 +348,8 @@ export class FakeElement {
     querySelectorAll(selector) {
         const found = [];
         const walk = node => {
-            for (const child of node.children) {
+            for (const child of node.children || []) {
+                if (child.nodeType !== 1) continue;
                 if (matchesSelector(child, selector)) found.push(child);
                 walk(child);
             }

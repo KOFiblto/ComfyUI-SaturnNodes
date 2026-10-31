@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import struct
 import sys
 import tempfile
 import unittest
@@ -9,14 +10,18 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_helper
 
+import folder_paths
 import nodes.character_presets as cp
 from nodes.character_presets import (
     ApplyCharacterLoRAs,
     CharacterPresetPicker,
     build_outputs,
     card_json_path,
+    card_preview_path,
     delete_card,
     duplicate_card,
+    humanize_lora_name,
+    import_lora_cards,
     load_card,
     match_cards,
     normalize_card,
@@ -25,6 +30,7 @@ from nodes.character_presets import (
     parse_selected,
     resolve_lora,
     save_card,
+    scan_lora_import,
     select_cards,
 )
 
@@ -411,6 +417,149 @@ class TestApplierNode(CharacterPresetTestCase):
                 loras=[{"name": "krea2/Chey.safetensors", "strength_model": 0, "strength_clip": 0}],
             )
         loader.assert_not_called()
+
+
+class TestLoraImport(CharacterPresetTestCase):
+    def setUp(self):
+        super().setUp()
+        self.loras_dir = os.path.join(self.temp_dir, "loras")
+        os.makedirs(os.path.join(self.loras_dir, "krea2", "Celebrity", "Actresses"), exist_ok=True)
+        self.write_lora("krea2/Celebrity/Actresses/krea2_Ana-De-Armas_v1.safetensors", {"1_sks woman": {"sks woman": 1}})
+        self.write_lora("krea2/Celebrity/Actresses/krea2_Emma-Watson-V4.safetensors")
+        self.write_lora("krea2/Celebrity/Actresses/krea2_Emma-Watson-V2_large_onetrainer.safetensors")
+        self.write_lora("krea2/Celebrity/Men/krea2_Hero.safetensors", {"1_hero": {"hero": 3}})
+        self.write_lora("krea2/Other/Unrelated.safetensors")
+        self.import_patches = [
+            patch.object(cp, "available_loras", self.list_loras),
+            patch.object(
+                folder_paths,
+                "get_folder_paths",
+                create=True,
+                new=lambda kind: [self.loras_dir] if kind == "loras" else [],
+            ),
+            patch("folder_paths.get_full_path", self.full_path),
+        ]
+        for patcher in self.import_patches:
+            patcher.start()
+
+    def tearDown(self):
+        for patcher in reversed(self.import_patches):
+            patcher.stop()
+        super().tearDown()
+
+    def write_lora(self, relative, tag_frequency=None):
+        path = os.path.join(self.loras_dir, *relative.split("/"))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        metadata = {}
+        if tag_frequency is not None:
+            metadata["ss_tag_frequency"] = json.dumps(tag_frequency)
+        header = json.dumps({"__metadata__": metadata, "weight": {"dtype": "F16", "shape": [1], "data_offsets": [0, 2]}}).encode("utf-8")
+        with open(path, "wb") as handle:
+            handle.write(struct.pack("<Q", len(header)))
+            handle.write(header)
+            handle.write(b"\x00\x00")
+        return path
+
+    def list_loras(self):
+        found = []
+        for root, _dirs, files in os.walk(self.loras_dir):
+            for name in files:
+                if name.lower().endswith(".safetensors"):
+                    found.append(os.path.relpath(os.path.join(root, name), self.loras_dir).replace("\\", "/"))
+        return sorted(found)
+
+    def full_path(self, _kind, name):
+        candidate = os.path.join(self.loras_dir, *str(name).replace("\\", "/").split("/"))
+        return candidate if os.path.exists(candidate) else ""
+
+    def test_humanize_lora_name(self):
+        self.assertEqual(humanize_lora_name("krea2_Ana-De-Armas_v1.safetensors"), "Ana De Armas")
+        self.assertEqual(humanize_lora_name("krea2_Emma-Watson-V2_large_onetrainer.safetensors"), "Emma Watson")
+        self.assertEqual(humanize_lora_name("krea2_Judy-Hopps.safetensors"), "Judy Hopps")
+        self.assertEqual(humanize_lora_name("Celebrity.safetensors"), "Celebrity")
+
+    def test_scan_only_reads_the_requested_folder(self):
+        _, entries = scan_lora_import("krea2/Celebrity", target_folder="Celebrity")
+        loras = {entry["lora"] for entry in entries}
+        self.assertIn("krea2/Celebrity/Actresses/krea2_Ana-De-Armas_v1.safetensors", loras)
+        self.assertNotIn("krea2/Other/Unrelated.safetensors", loras)
+        self.assertEqual(len(entries), 4)
+
+    def test_scan_builds_cards_under_the_target_folder(self):
+        _, entries = scan_lora_import("krea2/Celebrity", target_folder="Celebrity")
+        ids = {entry["id"] for entry in entries}
+        self.assertIn("Celebrity/Actresses/Ana De Armas", ids)
+        self.assertIn("Celebrity/Men/Hero", ids)
+
+    def test_scan_disambiguates_version_collisions(self):
+        _, entries = scan_lora_import("krea2/Celebrity/Actresses", target_folder="")
+        ids = sorted(entry["id"] for entry in entries)
+        self.assertIn("Emma Watson", ids)
+        self.assertIn("Emma Watson V4", ids)
+
+    def test_metadata_trigger_is_used_when_meaningful(self):
+        _, entries = scan_lora_import("krea2/Celebrity/Men", trigger_mode="metadata")
+        hero = next(entry for entry in entries if entry["lora"].endswith("krea2_Hero.safetensors"))
+        self.assertEqual(hero["trigger"], "hero")
+
+    def test_generic_metadata_trigger_falls_back_to_the_name(self):
+        _, entries = scan_lora_import("krea2/Celebrity/Actresses", trigger_mode="metadata")
+        ana = next(entry for entry in entries if entry["lora"].endswith("krea2_Ana-De-Armas_v1.safetensors"))
+        self.assertEqual(ana["trigger"], "Ana De Armas")
+
+    def test_trigger_mode_none_emits_no_trigger(self):
+        _, entries = scan_lora_import("krea2/Celebrity/Men", trigger_mode="none")
+        self.assertEqual(entries[0]["trigger"], "")
+
+    def test_scan_rejects_folders_outside_the_loras_root(self):
+        with self.assertRaises(ValueError):
+            scan_lora_import("../")
+        with self.assertRaises(ValueError):
+            scan_lora_import("krea2/../..")
+
+    def test_import_creates_cards_with_lora_and_preview(self):
+        result = import_lora_cards("krea2/Celebrity/Men", target_folder="Celebrity")
+        self.assertEqual(len(result["created"]), 1)
+        saved = load_card("Celebrity/Hero")
+        self.assertIsNotNone(saved)
+        self.assertEqual(saved["trigger"], "Hero")
+        self.assertEqual(saved["loras"][0]["name"], "krea2/Celebrity/Men/krea2_Hero.safetensors")
+        self.assertTrue(saved["notes"].startswith("Imported from"))
+
+    def test_import_marks_existing_cards_and_skips_them(self):
+        import_lora_cards("krea2/Celebrity/Men")
+        _, entries = scan_lora_import("krea2/Celebrity/Men")
+        self.assertTrue(entries[0]["exists"])
+        result = import_lora_cards("krea2/Celebrity/Men")
+        self.assertEqual(result["created"], [])
+        self.assertEqual(result["skipped"][0]["reason"], "exists")
+
+    def test_import_overwrite_keeps_existing_prompts(self):
+        import_lora_cards("krea2/Celebrity/Men")
+        saved = load_card("Hero")
+        saved["positive"] = "heroic portrait"
+        saved["trigger"] = "cap"
+        save_card("Hero", saved)
+        result = import_lora_cards("krea2/Celebrity/Men", overwrite=True)
+        self.assertEqual(len(result["created"]), 1)
+        merged = load_card("Hero")
+        self.assertEqual(merged["positive"], "heroic portrait")
+        self.assertEqual(merged["trigger"], "cap")
+
+    def test_import_only_selected_loras(self):
+        result = import_lora_cards(
+            "krea2/Celebrity/Actresses",
+            ["krea2/Celebrity/Actresses/krea2_Emma-Watson-V4.safetensors"],
+        )
+        self.assertEqual([entry["id"] for entry in result["created"]], ["Emma Watson"])
+
+    def test_import_preview_comes_from_the_lora_sidecar(self):
+        image = os.path.join(self.loras_dir, "krea2", "Celebrity", "Men", "krea2_Hero.jpg")
+        with open(image, "wb") as handle:
+            handle.write(b"\xff\xd8\xff\xd9")
+        import_lora_cards("krea2/Celebrity/Men")
+        preview = card_preview_path("Hero")
+        self.assertEqual(os.path.normcase(preview), os.path.normcase(image))
 
 
 if __name__ == "__main__":

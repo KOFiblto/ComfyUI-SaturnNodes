@@ -130,4 +130,64 @@ document.body.appendChild(toolbar);
 FloatingLatentDock.prototype.updatePosition.call(dock);
 assert.equal(dock.dockEl.style.bottom, "88px", "dock must sit 8px above the canvas toolbar");
 
+// 5. Auto-hide: a run start must not reveal the dock (it would show the
+//    previous run's latent). Only a fresh preview of the current run reveals it.
+const makeAutoHideDock = () => {
+    const dockEl = document.createElement("div");
+    dockEl.classList.add("saturn-dock-hidden");
+    const settings = {
+        "03_AutoHideWhenIdle": true,
+        "01_EnableFloatingDock": true,
+    };
+    return {
+        dockEl,
+        isVisible: true,
+        isGenerating: false,
+        statusBadge: null,
+        lightboxEl: null,
+        getSetting(id, fallback) {
+            const key = Object.keys(settings).find(name => id.includes(name));
+            return key ? settings[key] : fallback;
+        },
+    };
+};
+
+const autoDock = makeAutoHideDock();
+const apiHandlers = {};
+context.api.addEventListener = (name, callback) => {
+    apiHandlers[name] = callback;
+};
+FloatingLatentDock.prototype.setupExecutionListeners.call(autoDock);
+assert.equal(typeof apiHandlers.execution_start, "function", "execution_start handler must register");
+
+assert.equal(
+    FloatingLatentDock.prototype.maybeRevealForPreview.call(autoDock),
+    false,
+    "a preview outside a running prompt (page-load replay) must not reveal the dock"
+);
+assert.ok(autoDock.dockEl.classList.contains("saturn-dock-hidden"));
+
+apiHandlers.execution_start();
+assert.ok(
+    autoDock.dockEl.classList.contains("saturn-dock-hidden"),
+    "execution_start must keep the dock hidden instead of revealing the stale latent"
+);
+
+autoDock.isGenerating = true;
+assert.equal(
+    FloatingLatentDock.prototype.maybeRevealForPreview.call(autoDock),
+    true,
+    "the first fresh preview of the run reveals the dock"
+);
+assert.ok(!autoDock.dockEl.classList.contains("saturn-dock-hidden"));
+
+autoDock.isVisible = false;
+autoDock.dockEl.classList.add("saturn-dock-hidden");
+assert.equal(
+    FloatingLatentDock.prototype.maybeRevealForPreview.call(autoDock),
+    false,
+    "a user-hidden dock must stay hidden"
+);
+assert.ok(autoDock.dockEl.classList.contains("saturn-dock-hidden"));
+
 console.log("floating dock DOM regression test passed");

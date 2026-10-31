@@ -400,9 +400,20 @@ Cards are plain JSON files with an optional sidecar image, stored in `ComfyUI/us
 
 #### Picker UI
 - **Click** a card to select it (green ring + selection-order number), **double-click** to edit it, or use the hover buttons to edit / duplicate / delete.
-- **New** creates a card, **Folder** opens the presets directory, **Refresh** rescans it.
+- **New** creates a card, **Import** bulk-creates cards from installed LoRAs, **Folder** opens the presets directory, **Refresh** rescans it.
 - Manual selection is shown with a green ring and a numbered badge in click order; connected-text matches are shown with a green wash and a `MATCH` pill, and the grid stops accepting clicks.
 - After every run the cards that were actually used flash on the canvas, so you can see what detection picked.
+
+#### Bulk import from LoRAs
+**Import** turns an installed LoRA folder into cards in one shot:
+
+1. Enter the LoRA folder relative to the ComfyUI `loras` directory (for example `Krea2/Celebrity`).
+2. Set **Card folder** to the prefix the cards should live under (prefilled from the last folder name, e.g. `Celebrity`). Subfolders below the scanned folder are kept, so `Krea2/Celebrity/Actresses` becomes `Celebrity/Actresses`.
+3. Pick the **Trigger word** source: `From the file name` (e.g. `krea2_Ana-De-Armas_v1` → `Ana De Armas`), `From LoRA metadata` (reads `ss_tag_frequency` and similar safetensors metadata, ignoring generic placeholders such as `sks woman`, and falls back to the file name), or `None`.
+4. **Scan** lists every LoRA with its card id and whether a preview image was found; untick anything you do not want. Existing cards are marked `exists` and skipped unless **Overwrite existing cards** is enabled.
+5. **Import** writes the selected cards. Prompts are left empty for you to fill in, the LoRA is preloaded at strength 1.0, and the card thumbnail is inherited from the LoRA's sidecar image (`.png`, `.jpg`, `.jpeg` or `.webp` next to the safetensors file), so nothing is duplicated on disk.
+
+Overwrite mode merges instead of clobbering: a card that is imported again keeps its existing prompts and trigger and only gets the LoRA added if it is missing.
 </details>
 
 <details>

@@ -100,6 +100,14 @@ Keep characters as **cards** instead of remembering LoRA filenames and trigger w
 > [!NOTE]
 > Cards live in `ComfyUI/user/default/SaturnNodes/character_presets/` as `<Name>.json` plus an optional sidecar image. Use the **Folder** button to open that directory and back it up or share cards.
 
+#### Bulk importing existing character LoRAs
+Already have a folder full of character LoRAs (for example `Krea2/Celebrity`)? Open the picker, click **Import**, enter that folder and scan.
+
+1. **Card folder** is prefilled with the last folder name, so the cards land under `Celebrity/…` and keep the LoRA subfolders (`Celebrity/Actresses`, `Celebrity/Marvel`, …).
+2. **Trigger word**: `From LoRA metadata` uses the training captions when they contain something specific (generic tokens like `sks woman` are ignored) and otherwise falls back to the humanised file name — usually the character's name, which is exactly what you type in the prompt anyway.
+3. Untick anything you do not want, then **Import**. Each card gets the LoRA at 1.0 and inherits the LoRA's sidecar preview image. Prompts start empty so your existing workflow stays in charge.
+4. Re-importing later with **Overwrite existing cards** keeps the prompts and triggers you already wrote and only refreshes the LoRA link.
+
 ### 🪐 ⏱️ Recent Outputs
 Want to quickly reference your recent generations without digging through Windows Explorer? The **`🪐 ⏱️ Recent Outputs`** node cycles chronologically through your `output/` directory, pulling your freshest creations right back into the workflow canvas.
 

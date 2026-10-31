@@ -864,7 +864,10 @@ class FloatingLatentDock {
                 this.statusBadge.classList.add("generating");
             }
             if (this.getSetting("SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", false) && this.isVisible) {
-                this.dockEl?.classList.remove("saturn-dock-hidden");
+                // The canvas still holds the previous run's latent. Keep the dock
+                // hidden until the first fresh preview of this run arrives, so it
+                // never pops up showing stale pixels.
+                this.dockEl?.classList.add("saturn-dock-hidden");
             }
             if (this.lightboxEl) {
                 this.updateLightbox();
@@ -952,7 +955,21 @@ class FloatingLatentDock {
             this.updateLightbox();
         }
 
+        // Auto-hide mode: the dock only appears once this run's first fresh
+        // latent is drawn, never on execution_start with the previous run's
+        // image still on the canvas.
+        this.maybeRevealForPreview();
+
         this.requestPositionUpdate();
+    }
+
+    maybeRevealForPreview() {
+        if (!this.isGenerating) return false;
+        if (!this.isVisible) return false;
+        if (!this.getSetting("SaturnNodes.👁️ Live Preview.01_EnableFloatingDock", true)) return false;
+        if (!this.getSetting("SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", false)) return false;
+        this.dockEl?.classList.remove("saturn-dock-hidden");
+        return true;
     }
 
     updateVisibility() {

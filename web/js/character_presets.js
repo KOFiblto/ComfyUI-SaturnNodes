@@ -364,6 +364,30 @@ const PICKER_CSS = `
 .saturn-char-thumb-buttons { display: flex; flex-direction: column; gap: 5px; }
 .saturn-char-thumb-buttons .saturn-char-btn { text-align: center; }
 .saturn-char-hint { font-size: 10px; color: #9c8471; }
+.saturn-char-import-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 42vh;
+    overflow: auto;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    padding: 4px;
+    background: rgba(0, 0, 0, 0.18);
+}
+.saturn-char-import-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+.saturn-char-import-row:hover { background: rgba(255, 255, 255, 0.05); }
+.saturn-char-import-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saturn-char-import-row .path { opacity: 0.55; font-size: 9.5px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saturn-char-import-row .tag { font-size: 9px; padding: 0 4px; border-radius: 6px; background: rgba(0, 255, 102, 0.18); color: #7bffb0; }
+.saturn-char-import-row.exists { opacity: 0.55; }
 `;
 
 function injectStyles() {
@@ -637,6 +661,10 @@ class CharacterPickerUI {
         this.refreshButton.title = "Rescan the presets folder";
         this.refreshButton.addEventListener("click", () => this.refresh());
 
+        this.importButton = el("button", "saturn-char-btn", "Import");
+        this.importButton.title = "Create cards from installed LoRAs";
+        this.importButton.addEventListener("click", () => this.openImportModal());
+
         this.openFolderButton = el("button", "saturn-char-btn", "Folder");
         this.openFolderButton.title = "Open the character presets folder";
         this.openFolderButton.addEventListener("click", async () => {
@@ -652,6 +680,7 @@ class CharacterPickerUI {
             this.searchInput,
             this.sortSelect,
             this.newButton,
+            this.importButton,
             this.refreshButton,
             this.openFolderButton
         );
@@ -1012,6 +1041,202 @@ class CharacterPickerUI {
         } catch (error) {
             this.setStatus(String(error.message || error), "error");
         }
+    }
+
+    async openImportModal() {
+        if (this.modal) return;
+
+        const backdrop = el("div", "saturn-char-modal-backdrop");
+        const modal = el("div", "saturn-char-modal");
+        const head = el("div", "saturn-char-modal-head");
+        head.appendChild(el("span", null, "Import LoRAs as cards"));
+        const closeButton = el("button", "saturn-char-btn", "Close");
+        head.appendChild(closeButton);
+
+        const body = el("div", "saturn-char-modal-body");
+
+        const folderField = el("div", "saturn-char-field");
+        folderField.appendChild(el("label", null, "LoRA folder (relative to the ComfyUI loras directory)"));
+        const folderInput = el("input");
+        folderInput.type = "text";
+        folderInput.placeholder = "e.g. krea2/Celebrity";
+        folderField.appendChild(folderInput);
+
+        const targetField = el("div", "saturn-char-field");
+        targetField.appendChild(el("label", null, "Card folder (prefix for the imported cards)"));
+        const targetInput = el("input");
+        targetInput.type = "text";
+        targetInput.placeholder = "e.g. Celebrity";
+        targetField.appendChild(targetInput);
+
+        folderInput.addEventListener("input", () => {
+            if (targetInput.dataset.touched === "true") return;
+            const parts = folderInput.value.replace(/\\/g, "/").split("/").filter(Boolean);
+            targetInput.value = parts.length ? parts[parts.length - 1] : "";
+        });
+        targetInput.addEventListener("input", () => {
+            targetInput.dataset.touched = "true";
+        });
+
+        const options = el("div", "saturn-char-cols");
+        const triggerField = el("div", "saturn-char-field");
+        triggerField.appendChild(el("label", null, "Trigger word"));
+        const triggerSelect = el("select");
+        [
+            ["name", "From the file name"],
+            ["metadata", "From LoRA metadata"],
+            ["none", "None"],
+        ].forEach(([value, text]) => {
+            const option = el("option", null, text);
+            option.value = value;
+            triggerSelect.appendChild(option);
+        });
+        triggerField.appendChild(triggerSelect);
+
+        const overwriteField = el("div", "saturn-char-field");
+        const overwriteLabel = el("label");
+        const overwriteInput = el("input");
+        overwriteInput.type = "checkbox";
+        overwriteLabel.append(overwriteInput, document.createTextNode(" Overwrite existing cards (keeps their prompts)"));
+        overwriteField.appendChild(overwriteLabel);
+        options.append(triggerField, overwriteField);
+
+        const summaryEl = el("div", "saturn-char-hint", "Scan a folder to preview the cards that would be created.");
+        const listEl = el("div", "saturn-char-import-list");
+        listEl.style.display = "none";
+
+        body.append(folderField, targetField, options, summaryEl, listEl);
+
+        const foot = el("div", "saturn-char-modal-foot");
+        const errorEl = el("span", "error");
+        const spacer = el("div", "spacer");
+        const scanButton = el("button", "saturn-char-btn", "Scan");
+        const importButton = el("button", "saturn-char-btn", "Import");
+        importButton.disabled = true;
+        foot.append(errorEl, spacer, scanButton, importButton);
+
+        modal.append(head, body, foot);
+        backdrop.appendChild(modal);
+        document.body.appendChild(backdrop);
+        this.modal = backdrop;
+
+        let candidates = [];
+        let rows = [];
+
+        const close = () => {
+            backdrop.remove();
+            this.modal = null;
+            document.removeEventListener("keydown", onKeyDown, true);
+        };
+        const onKeyDown = (event) => {
+            if (event.key === "Escape") {
+                event.stopPropagation();
+                close();
+            }
+        };
+        document.addEventListener("keydown", onKeyDown, true);
+        backdrop.addEventListener("keydown", (event) => event.stopPropagation());
+        backdrop.addEventListener("mousedown", (event) => {
+            if (event.target === backdrop) close();
+        });
+        closeButton.addEventListener("click", close);
+
+        const updateImportState = () => {
+            const checked = rows.filter((row) => row.checkbox.checked).length;
+            importButton.disabled = checked === 0;
+            importButton.textContent = checked ? `Import ${checked}` : "Import";
+        };
+
+        const renderCandidates = () => {
+            listEl.innerHTML = "";
+            rows = [];
+            listEl.style.display = candidates.length ? "flex" : "none";
+            candidates.forEach((entry) => {
+                const row = el("div", "saturn-char-import-row");
+                if (entry.exists) row.classList.add("exists");
+                const checkbox = el("input");
+                checkbox.type = "checkbox";
+                checkbox.checked = !entry.exists || overwriteInput.checked;
+                checkbox.addEventListener("change", updateImportState);
+                const name = el("span", "name", entry.name);
+                name.title = entry.id;
+                const path = el("span", "path", entry.lora);
+                path.title = entry.lora;
+                row.append(checkbox, name, path);
+                if (entry.exists) row.appendChild(el("span", "tag", "exists"));
+                if (entry.has_preview) row.appendChild(el("span", "tag", "preview"));
+                listEl.appendChild(row);
+                rows.push({ checkbox, entry });
+            });
+            updateImportState();
+        };
+
+        scanButton.addEventListener("click", async () => {
+            const folder = folderInput.value.trim();
+            if (!folder) {
+                errorEl.textContent = "Enter the LoRA folder to scan.";
+                return;
+            }
+            errorEl.textContent = "";
+            scanButton.disabled = true;
+            summaryEl.textContent = "Scanning...";
+            try {
+                const data = await postJson("import_scan", {
+                    folder,
+                    target_folder: targetInput.value.trim(),
+                    trigger_mode: triggerSelect.value,
+                    overwrite: overwriteInput.checked,
+                });
+                candidates = Array.isArray(data.candidates) ? data.candidates : [];
+                renderCandidates();
+                const withPreview = candidates.filter((entry) => entry.has_preview).length;
+                const existing = candidates.filter((entry) => entry.exists).length;
+                summaryEl.textContent = candidates.length
+                    ? `${candidates.length} LoRA(s) found under ${data.root || folder} · ${withPreview} with a preview image · ${existing} already imported`
+                    : `No LoRA files found under ${data.root || folder}.`;
+            } catch (error) {
+                candidates = [];
+                rows = [];
+                listEl.innerHTML = "";
+                listEl.style.display = "none";
+                summaryEl.textContent = "";
+                errorEl.textContent = String(error.message || error);
+            } finally {
+                scanButton.disabled = false;
+                updateImportState();
+            }
+        });
+
+        importButton.addEventListener("click", async () => {
+            const selected = rows.filter((row) => row.checkbox.checked).map((row) => row.entry.lora);
+            if (!selected.length) {
+                errorEl.textContent = "Select at least one LoRA to import.";
+                return;
+            }
+            errorEl.textContent = "";
+            importButton.disabled = true;
+            try {
+                const data = await postJson("import_loras", {
+                    folder: folderInput.value.trim(),
+                    target_folder: targetInput.value.trim(),
+                    trigger_mode: triggerSelect.value,
+                    overwrite: overwriteInput.checked,
+                    loras: selected,
+                });
+                const created = Array.isArray(data.created) ? data.created.length : 0;
+                const failed = Array.isArray(data.failed) ? data.failed.length : 0;
+                close();
+                await this.refresh();
+                const parts = [`Imported ${created} card${created === 1 ? "" : "s"}`];
+                if (failed) parts.push(`${failed} failed`);
+                this.setStatus(parts.join(" · "), failed ? "warn" : "ok");
+            } catch (error) {
+                errorEl.textContent = String(error.message || error);
+            } finally {
+                importButton.disabled = false;
+                updateImportState();
+            }
+        });
     }
 
     async openEditor(card) {

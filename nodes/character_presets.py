@@ -468,6 +468,331 @@ def list_folders():
 
 
 # ---------------------------------------------------------------------------
+# Importing installed LoRAs as cards
+# ---------------------------------------------------------------------------
+
+_MAX_LORA_HEADER_BYTES = 8 * 1024 * 1024
+_IMPORT_TRIGGER_MODES = ("name", "metadata", "none")
+_GENERIC_TRIGGER_TOKENS = {
+    "sks",
+    "sks woman",
+    "sks man",
+    "sks person",
+    "sks girl",
+    "sks boy",
+    "sks style",
+    "woman",
+    "man",
+    "person",
+}
+
+
+def lora_roots():
+    """Every configured ``loras`` directory as an absolute path."""
+    try:
+        roots = folder_paths.get_folder_paths("loras")
+    except Exception:
+        roots = []
+    resolved = []
+    for root in roots or []:
+        try:
+            resolved.append(os.path.abspath(root))
+        except Exception:
+            continue
+    return resolved
+
+
+def resolve_lora_folder(folder):
+    """Absolute directory for a user supplied LoRA subfolder, or ``None``."""
+    cleaned = str(folder or "").replace("\\", "/").strip().strip("/")
+    if not cleaned:
+        return None
+    parts = [part for part in cleaned.split("/") if part]
+    if not parts or any(part in (".", "..") for part in parts):
+        return None
+    for root in lora_roots():
+        candidate = os.path.abspath(os.path.join(root, *parts))
+        try:
+            if os.path.commonpath([root, candidate]) != root:
+                continue
+        except ValueError:
+            continue
+        if os.path.isdir(candidate):
+            return candidate
+    return None
+
+
+def _read_safetensors_metadata(path):
+    if not str(path).lower().endswith(".safetensors"):
+        return {}
+    try:
+        size = os.path.getsize(path)
+        with open(path, "rb") as handle:
+            raw_length = handle.read(8)
+            if len(raw_length) != 8:
+                return {}
+            header_length = int.from_bytes(raw_length, "little")
+            if header_length <= 0 or header_length > _MAX_LORA_HEADER_BYTES or header_length > size:
+                return {}
+            payload = handle.read(header_length)
+        data = json.loads(payload.decode("utf-8"))
+    except Exception:
+        return {}
+    metadata = data.get("__metadata__") if isinstance(data, dict) else None
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def lora_trigger_from_metadata(lora_path):
+    """Best-effort trigger words from safetensors metadata (ai-toolkit/kohya)."""
+    metadata = _read_safetensors_metadata(lora_path)
+    if not metadata:
+        return ""
+
+    tokens = []
+    raw = metadata.get("ss_tag_frequency")
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except Exception:
+            raw = None
+    if isinstance(raw, dict):
+        for group in raw.values():
+            if isinstance(group, dict):
+                tokens.extend(str(key).strip() for key in group.keys())
+            elif isinstance(group, list):
+                tokens.extend(str(item).strip() for item in group)
+
+    for key in ("trigger", "trigger_words", "ss_trigger_words", "activation_text"):
+        value = metadata.get(key)
+        if isinstance(value, str) and value.strip():
+            tokens.extend(part.strip() for part in value.split(","))
+
+    unique = []
+    seen = set()
+    for token in tokens:
+        lowered = token.lower()
+        if not token or lowered in seen or lowered in _GENERIC_TRIGGER_TOKENS:
+            continue
+        seen.add(lowered)
+        unique.append(token)
+    return ", ".join(unique)
+
+
+def humanize_lora_name(filename):
+    """Readable character name from a LoRA file name."""
+    stem = os.path.splitext(os.path.basename(str(filename or "")))[0].strip()
+    if not stem:
+        return ""
+    name = stem
+    # Drop a leading model tag such as "krea2_" when the rest is capitalised.
+    match = re.match(r"^([a-z][a-z0-9]*)[_-]([A-Z].*)$", name)
+    if match:
+        name = match.group(2)
+    name = re.sub(r"(?i)[_-](onetrainer|large|small|final)$", "", name)
+    name = re.sub(r"(?i)[_-]v\d+(?:[_-](?:large|small|final))?$", "", name)
+    name = re.sub(r"[_-]+", " ", name)
+    name = re.sub(r"\s+", " ", name).strip()
+    return name or stem
+
+
+def lora_version_tag(filename):
+    stem = os.path.splitext(os.path.basename(str(filename or "")))[0]
+    match = re.search(r"[_-]([vV]\d+)", stem)
+    return match.group(1) if match else ""
+
+
+def _allocate_card_id(folder_parts, name, version, blocked):
+    attempts = [name]
+    if version:
+        attempts.append(f"{name} {version}")
+    for attempt in attempts:
+        candidate = "/".join(folder_parts + [attempt])
+        if candidate.lower() not in blocked:
+            blocked.add(candidate.lower())
+            return candidate
+    index = 2
+    while True:
+        candidate = "/".join(folder_parts + [f"{name} ({index})"])
+        if candidate.lower() not in blocked:
+            blocked.add(candidate.lower())
+            return candidate
+        index += 1
+
+
+def scan_lora_import(
+    folder,
+    target_folder="",
+    trigger_mode="name",
+    overwrite=False,
+    include_subfolders=True,
+    only_loras=None,
+):
+    """Candidates for turning installed LoRAs below ``folder`` into cards."""
+    if trigger_mode not in _IMPORT_TRIGGER_MODES:
+        trigger_mode = "name"
+    root_dir = resolve_lora_folder(folder)
+    if not root_dir:
+        raise ValueError("LoRA folder not found. Use a path below the ComfyUI loras directory.")
+
+    prefix = str(folder or "").replace("\\", "/").strip().strip("/")
+    prefix_length = len(prefix)
+    prefix_lower = (prefix + "/").lower()
+    wanted = None
+    if only_loras is not None:
+        wanted = {str(name).replace("\\", "/").lower() for name in only_loras if str(name).strip()}
+
+    loras = []
+    for name in available_loras():
+        normalized = str(name).replace("\\", "/")
+        if not normalized.lower().startswith(prefix_lower):
+            continue
+        relative = normalized[prefix_length + 1:]
+        if not relative or (not include_subfolders and "/" in relative):
+            continue
+        if wanted is not None and normalized.lower() not in wanted:
+            continue
+        loras.append(normalized)
+    loras.sort(key=str.lower)
+
+    target = str(target_folder or "").replace("\\", "/").strip().strip("/")
+    if target:
+        target = normalize_card_id(target)
+    target_parts = [part for part in target.split("/") if part] if target else []
+    if any(part in (".", "..") or ":" in part for part in target_parts):
+        target_parts = []
+
+    existing = {card["id"].lower() for card in list_cards(folder="", include_disabled=True, use_cache=False)}
+    blocked = set() if overwrite else set(existing)
+
+    entries = []
+    for lora_name in loras:
+        relative = lora_name[prefix_length + 1:]
+        directory = relative.rsplit("/", 1)[0] if "/" in relative else ""
+        subfolder_parts = [part for part in directory.split("/") if part]
+        display_name = humanize_lora_name(relative)
+        version = lora_version_tag(relative)
+
+        full_path = None
+        try:
+            full_path = folder_paths.get_full_path("loras", lora_name)
+        except Exception:
+            full_path = None
+
+        trigger = ""
+        if trigger_mode == "metadata":
+            trigger = lora_trigger_from_metadata(full_path) if full_path else ""
+        if trigger_mode != "none" and not trigger:
+            trigger = display_name
+
+        folder_parts = target_parts + subfolder_parts
+        natural = "/".join(folder_parts + [display_name])
+        natural_lower = natural.lower()
+        exists = natural_lower in existing
+        if exists and not overwrite:
+            # Keep the existing id visible so the UI can show it as skipped.
+            blocked.add(natural_lower)
+            card_id = natural
+        elif natural_lower not in blocked:
+            blocked.add(natural_lower)
+            card_id = natural
+        else:
+            card_id = _allocate_card_id(folder_parts, display_name, version, blocked)
+
+        entries.append(
+            {
+                "lora": lora_name,
+                "id": card_id,
+                "name": card_id.rsplit("/", 1)[-1],
+                "folder": card_id.rsplit("/", 1)[0] if "/" in card_id else "",
+                "trigger": trigger,
+                "has_preview": bool(lora_preview_path(lora_name)),
+                "exists": bool(card_id.lower() in existing),
+            }
+        )
+    return root_dir, entries
+
+
+def _merge_import_card(card, lora_name, trigger):
+    """Keep an existing card's prompts when re-importing the same LoRA."""
+    loras = list(card.get("loras") or [])
+    lowered = {entry["name"].replace("\\", "/").lower() for entry in loras}
+    if lora_name.replace("\\", "/").lower() not in lowered:
+        loras.append(
+            {
+                "name": lora_name,
+                "strength_model": 1.0,
+                "strength_clip": 1.0,
+                "enabled": True,
+            }
+        )
+    card["loras"] = loras
+    if trigger and not card.get("trigger"):
+        card["trigger"] = trigger
+    return card
+
+
+def import_lora_cards(
+    folder,
+    loras=None,
+    target_folder="",
+    trigger_mode="name",
+    overwrite=False,
+    include_subfolders=True,
+):
+    """Create cards for the selected LoRAs. Returns a summary dict."""
+    wanted = None
+    if loras is not None:
+        wanted = [str(name).replace("\\", "/") for name in loras if str(name).strip()]
+    _, entries = scan_lora_import(
+        folder,
+        target_folder=target_folder,
+        trigger_mode=trigger_mode,
+        overwrite=overwrite,
+        include_subfolders=include_subfolders,
+        only_loras=wanted,
+    )
+    if not entries:
+        raise ValueError("No LoRA files found in that folder")
+
+    created = []
+    skipped = []
+    failed = []
+    for entry in entries:
+        if entry["exists"] and not overwrite:
+            skipped.append({"id": entry["id"], "reason": "exists"})
+            continue
+        try:
+            if entry["exists"]:
+                existing = load_card(entry["id"]) or {}
+                payload = normalize_card(_merge_import_card(existing, entry["lora"], entry["trigger"]), entry["id"])
+            else:
+                payload = normalize_card(
+                    {
+                        "name": entry["name"],
+                        "trigger": entry["trigger"],
+                        "positive": "",
+                        "negative": "",
+                        "loras": [entry["lora"]],
+                        "tags": [],
+                        "notes": f"Imported from {entry['lora']}",
+                        "enabled": True,
+                    },
+                    entry["id"],
+                )
+            save_card(entry["id"], payload)
+            created.append({"id": entry["id"], "name": payload["name"]})
+        except Exception as exc:
+            failed.append({"lora": entry["lora"], "error": str(exc)})
+
+    return {
+        "created": created,
+        "skipped": skipped,
+        "failed": failed,
+        "total": len(entries),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Usage counters
 # ---------------------------------------------------------------------------
 
@@ -1196,13 +1521,80 @@ async def use_lora_preview_endpoint(request):
     if not source:
         return web.json_response({"error": "That LoRA has no preview image"}, status=404)
 
-    target = os.path.splitext(card_json_path(card_id))[0] + ".png"
+    card_path = card_json_path(card_id)
+    if not card_path:
+        return web.json_response({"error": "Invalid card id"}, status=400)
+    base_no_ext = os.path.splitext(card_path)[0]
+    target = base_no_ext + os.path.splitext(source)[1].lower()
+    for stale in _sidecar_images(base_no_ext):
+        if os.path.normcase(stale) != os.path.normcase(target):
+            try:
+                os.remove(stale)
+            except OSError:
+                pass
     try:
         shutil.copyfile(source, target)
     except OSError as exc:
         return web.json_response({"error": str(exc)}, status=500)
     invalidate_card_cache()
     return web.json_response({"status": "ok"})
+
+
+@routes.post("/saturnnodes/character_presets/import_scan")
+async def import_scan_endpoint(request):
+    if not is_authenticated_local_request(request):
+        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    try:
+        payload = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON body"}, status=400)
+    try:
+        root, entries = scan_lora_import(
+            payload.get("folder", ""),
+            target_folder=payload.get("target_folder", ""),
+            trigger_mode=payload.get("trigger_mode", "name"),
+            overwrite=bool(payload.get("overwrite", False)),
+            include_subfolders=payload.get("include_subfolders", True) is not False,
+        )
+    except ValueError as exc:
+        return web.json_response({"error": str(exc)}, status=400)
+    except Exception as exc:
+        return web.json_response({"error": str(exc)}, status=500)
+    return web.json_response(
+        {
+            "status": "ok",
+            "root": root,
+            "roots": lora_roots(),
+            "candidates": entries,
+        }
+    )
+
+
+@routes.post("/saturnnodes/character_presets/import_loras")
+async def import_loras_endpoint(request):
+    if not is_authenticated_local_request(request):
+        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    try:
+        payload = await request.json()
+    except Exception:
+        return web.json_response({"error": "Invalid JSON body"}, status=400)
+    loras = payload.get("loras")
+    if loras is not None and not isinstance(loras, list):
+        return web.json_response({"error": "loras must be a list of LoRA names"}, status=400)
+    try:
+        result = import_lora_cards(
+            payload.get("folder", ""),
+            loras,
+            target_folder=payload.get("target_folder", ""),
+            trigger_mode=payload.get("trigger_mode", "name"),
+            overwrite=bool(payload.get("overwrite", False)),
+            include_subfolders=payload.get("include_subfolders", True) is not False,
+        )
+    except ValueError as exc:
+        return web.json_response({"error": str(exc)}, status=400)
+    except Exception as exc:
+        return web.json_response({"error": str(exc)}, status=500)
+    return web.json_response({"status": "ok", **result})
 
 
 @routes.post("/saturnnodes/character_presets/open_folder")

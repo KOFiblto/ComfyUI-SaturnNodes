@@ -89,13 +89,61 @@ const app = {
     graph: { _nodes: [], links: {}, getNodeById: () => null, setDirtyCanvas() {} },
 };
 
+const importCalls = [];
 const intervals = [];
 const context = vm.createContext({
     console,
     document,
     app,
     api,
-    authenticatedFetch: async () => ({ ok: true, status: 200, json: async () => ({}) }),
+    authenticatedFetch: async (url, options = {}) => {
+        const body = options.body ? JSON.parse(options.body) : null;
+        importCalls.push({ url: String(url), body });
+        if (String(url).includes("import_scan")) {
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    status: "ok",
+                    root: "V:/models/loras/krea2/Celebrity",
+                    candidates: [
+                        {
+                            lora: "krea2/Celebrity/Men/krea2_Hero.safetensors",
+                            id: "Celebrity/Hero",
+                            name: "Hero",
+                            folder: "Celebrity",
+                            trigger: "Hero",
+                            has_preview: true,
+                            exists: false,
+                        },
+                        {
+                            lora: "krea2/Celebrity/Men/krea2_Villain.safetensors",
+                            id: "Celebrity/Villain",
+                            name: "Villain",
+                            folder: "Celebrity",
+                            trigger: "Villain",
+                            has_preview: false,
+                            exists: true,
+                        },
+                    ],
+                }),
+            };
+        }
+        if (String(url).includes("import_loras")) {
+            return {
+                ok: true,
+                status: 200,
+                json: async () => ({
+                    status: "ok",
+                    created: [{ id: "Celebrity/Hero", name: "Hero" }],
+                    skipped: [],
+                    failed: [],
+                    total: 1,
+                }),
+            };
+        }
+        return { ok: true, status: 200, json: async () => ({}) };
+    },
     window: { prompt: () => null, confirm: () => true },
     CSS: { escape: (value) => String(value).replace(/["\\]/g, "\\$&") },
     setInterval: (callback) => {
@@ -305,6 +353,66 @@ await handlers["saturnnodes_character_presets_selected"]({
     detail: { node_id: "99", cards: ["char2"], status: "" },
 });
 assert.equal(ui.statusEl.textContent, "idle");
+
+// Import modal: scanning lists LoRA candidates and imports only the ticked ones.
+await ui.openImportModal();
+assert.ok(ui.modal, "the import modal opens");
+
+const importModal = ui.modal;
+const modalInputs = importModal
+    .querySelectorAll("input")
+    .filter((input) => input.type === "text");
+assert.equal(modalInputs.length, 2, "the import modal has a LoRA folder and a card folder field");
+
+const folderInput = modalInputs[0];
+const targetInput = modalInputs[1];
+folderInput.value = "krea2/Celebrity";
+folderInput.dispatchEvent({ type: "input", target: folderInput });
+assert.equal(targetInput.value, "Celebrity", "the card folder is prefilled from the LoRA folder");
+
+// The fake DOM does not auto-select the first <option>, so mirror the browser.
+importModal.querySelectorAll("select")[0].value = "name";
+
+const findModalButton = (label) =>
+    importModal.querySelectorAll("button").find((button) => button.textContent === label);
+
+const scanButton = findModalButton("Scan");
+assert.ok(scanButton, "the import modal exposes a Scan button");
+scanButton.click();
+await sleep(40);
+
+const scanCall = importCalls.find((call) => call.url.includes("import_scan"));
+assert.deepEqual(
+    scanCall.body,
+    { folder: "krea2/Celebrity", target_folder: "Celebrity", trigger_mode: "name", overwrite: false },
+    "the scan sends the folder, card folder and trigger mode"
+);
+
+const rows = importModal.querySelectorAll(".saturn-char-import-row");
+assert.equal(rows.length, 2, "the scan lists every candidate");
+const checkboxIn = (row) => row.querySelectorAll("input").find((input) => input.type === "checkbox");
+assert.ok(checkboxIn(rows[0]).checked, "new candidates are ticked by default");
+assert.ok(!checkboxIn(rows[1]).checked, "already imported cards stay unticked");
+assert.ok(rows[1].classList.contains("exists"), "existing cards are marked in the list");
+assert.match(
+    importModal.querySelector(".saturn-char-hint").textContent,
+    /2 LoRA\(s\) found/,
+    "the summary reports how many candidates were found"
+);
+
+const importAction = findModalButton("Import 1");
+assert.ok(importAction, "the import button counts the ticked candidates");
+importAction.click();
+await sleep(40);
+
+const importCall = importCalls.find((call) => call.url.includes("import_loras"));
+assert.deepEqual(
+    importCall.body.loras,
+    ["krea2/Celebrity/Men/krea2_Hero.safetensors"],
+    "only the ticked LoRA is imported"
+);
+assert.equal(ui.modal, null, "the modal closes after importing");
+assert.match(ui.statusEl.textContent, /Imported 1 card/, "the picker reports the import result");
 
 ui.destroy();
 assert.equal(intervals.length, 1, "the detect watcher is registered once");
