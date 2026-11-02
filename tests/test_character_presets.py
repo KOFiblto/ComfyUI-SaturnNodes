@@ -5,6 +5,7 @@ import struct
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -417,6 +418,29 @@ class TestApplierNode(CharacterPresetTestCase):
                 loras=[{"name": "krea2/Chey.safetensors", "strength_model": 0, "strength_clip": 0}],
             )
         loader.assert_not_called()
+
+
+class TestReadAuthorization(CharacterPresetTestCase):
+    """Read-only card routes are loaded by plain fetch/<img>, which cannot send
+    the CSRF header. They must stay loopback + same-origin instead."""
+
+    def request(self, remote="127.0.0.1", headers=None, transport=None):
+        return SimpleNamespace(remote=remote, headers=headers or {}, transport=transport)
+
+    def test_local_same_origin_reads_need_no_token(self):
+        self.assertTrue(cp._read_allowed(self.request()))
+
+    def test_remote_reads_are_rejected(self):
+        self.assertFalse(cp._read_allowed(self.request(remote="10.1.2.3")))
+
+    def test_cross_site_reads_are_rejected(self):
+        self.assertFalse(cp._read_allowed(self.request(headers={"Sec-Fetch-Site": "cross-site"})))
+        self.assertFalse(cp._read_allowed(self.request(headers={"Origin": "https://evil.example"})))
+        self.assertFalse(cp._read_allowed(self.request(headers={"Referer": "https://evil.example/page"})))
+
+    def test_remote_peer_through_transport_is_rejected(self):
+        transport = SimpleNamespace(get_extra_info=lambda name: ("192.168.1.5", 1234))
+        self.assertFalse(cp._read_allowed(self.request(remote=None, transport=transport)))
 
 
 class TestLoraImport(CharacterPresetTestCase):

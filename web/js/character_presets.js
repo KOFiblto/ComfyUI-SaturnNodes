@@ -56,7 +56,7 @@ const PICKER_CSS = `
     font-size: 11px;
     min-width: 0;
 }
-.saturn-char-toolbar select { max-width: 130px; }
+.saturn-char-toolbar select { max-width: 150px; min-width: 92px; }
 .saturn-char-toolbar input[type="text"] { flex: 1 1 90px; }
 .saturn-char-btn {
     background: #3d2413;
@@ -625,6 +625,9 @@ class CharacterPickerUI {
         const toolbar = el("div", "saturn-char-toolbar");
         this.folderSelect = el("select");
         this.folderSelect.title = "Character preset folder";
+        const allOption = el("option", null, "All presets");
+        allOption.value = "";
+        this.folderSelect.appendChild(allOption);
         this.folderSelect.addEventListener("change", () => {
             if (this.folderWidget) {
                 this.folderWidget.value = this.folderSelect.value;

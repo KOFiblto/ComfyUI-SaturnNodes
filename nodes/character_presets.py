@@ -25,7 +25,12 @@ import folder_paths
 from aiohttp import web
 from server import PromptServer
 
-from .utils import get_saturnnodes_user_dir, is_authenticated_local_request
+from .utils import (
+    get_saturnnodes_user_dir,
+    is_authenticated_local_request,
+    is_local_request,
+    is_same_origin_or_direct,
+)
 
 try:  # ComfyUI runtime
     import comfy.sd
@@ -1271,10 +1276,16 @@ server = PromptServer.instance
 routes = server.routes
 
 
+def _read_allowed(request):
+    """Read-only card endpoints are loaded by plain fetch/`<img>` tags, which
+    cannot attach the CSRF header. Keep them loopback + same-origin only."""
+    return is_local_request(request) and is_same_origin_or_direct(request)
+
+
 @routes.get("/saturnnodes/character_presets/get_presets")
 async def get_presets_endpoint(request):
-    if not is_authenticated_local_request(request):
-        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    if not _read_allowed(request):
+        return web.json_response({"error": "Forbidden: Local access only"}, status=403)
     try:
         folder = request.query.get("folder", "")
         include_disabled = request.query.get("include_disabled", "false").lower() == "true"
@@ -1292,8 +1303,8 @@ async def get_presets_endpoint(request):
 
 @routes.get("/saturnnodes/character_presets/get_preview")
 async def get_preview_endpoint(request):
-    if not is_authenticated_local_request(request):
-        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    if not _read_allowed(request):
+        return web.json_response({"error": "Forbidden: Local access only"}, status=403)
     card_id = request.query.get("id", "")
     card = load_card(card_id)
     path = card_preview_path(card_id, card)
@@ -1330,8 +1341,8 @@ def _content_type(path):
 
 @routes.get("/saturnnodes/character_presets/get_loras")
 async def get_loras_endpoint(request):
-    if not is_authenticated_local_request(request):
-        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    if not _read_allowed(request):
+        return web.json_response({"error": "Forbidden: Local access only"}, status=403)
     return web.json_response({"loras": sorted(available_loras())})
 
 
