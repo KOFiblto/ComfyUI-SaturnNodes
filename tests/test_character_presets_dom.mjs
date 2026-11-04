@@ -80,6 +80,17 @@ const api = {
     },
 };
 
+const storage = new Map();
+const window = {
+    prompt: () => null,
+    confirm: () => true,
+    localStorage: {
+        getItem: (key) => (storage.has(key) ? storage.get(key) : null),
+        setItem: (key, value) => storage.set(key, String(value)),
+        removeItem: (key) => storage.delete(key),
+    },
+};
+
 const extension = { name: "", nodeCreated: null };
 const app = {
     registerExtension(candidate) {
@@ -144,7 +155,7 @@ const context = vm.createContext({
         }
         return { ok: true, status: 200, json: async () => ({}) };
     },
-    window: { prompt: () => null, confirm: () => true },
+    window,
     CSS: { escape: (value) => String(value).replace(/["\\]/g, "\\$&") },
     setInterval: (callback) => {
         intervals.push(callback);
@@ -229,6 +240,31 @@ assert.ok(node.widgets.find((widget) => widget.name === "folder").hidden, "the f
 const tiles = ui.grid.querySelectorAll(".saturn-char-tile");
 assert.equal(tiles.length, 3, "every card renders a tile");
 assert.ok(ui.grid.classList.contains("scrollable"), "default display mode scrolls");
+assert.equal(ui.grid.querySelectorAll(".saturn-char-folder-grid").length, 2, "tiles live in folder groups");
+
+// The picker mirrors the visual LoRA loader: one compact control bar and
+// fixed-size tiles instead of a width-stretched CSS grid.
+const controlLabels = ui.container
+    .querySelectorAll(".saturn-char-control-label")
+    .map((node) => node.textContent);
+assert.deepEqual(controlLabels, ["Mode:", "Sort:", "Folder:", "View:"], "the control bar exposes the loader-style controls");
+const toggleLabels = ui.container
+    .querySelectorAll(".saturn-char-toggle-btn")
+    .map((node) => node.textContent);
+assert.deepEqual(
+    toggleLabels,
+    ["Scroll", "Show All", "New", "Import", "Refresh", "Folder"],
+    "the extra picker actions use the loader button style"
+);
+["selection_mode", "sort_presets_by", "display_mode"].forEach((name) => {
+    const widget = node.widgets.find((item) => item.name === name);
+    assert.ok(widget.hidden, `${name} is replaced by the in-node control bar`);
+});
+
+const styleText = document.getElementById("saturn-character-presets-style").textContent;
+assert.match(styleText, /width:\s*var\(--saturn-char-tile-size, 80px\)/, "tiles use a fixed width");
+assert.match(styleText, /aspect-ratio:\s*3 \/ 4/, "tiles keep the LoRA loader card ratio");
+assert.doesNotMatch(styleText, /minmax\(96px/, "the width-stretched grid is gone");
 
 // Manual selection: click toggles the card and the hidden widget.
 const char1Tile = ui.grid.querySelector('[data-card-id="char1"]');
@@ -271,6 +307,49 @@ assert.equal(
     "folder/char3",
     "folders-first grouping puts folder cards on top"
 );
+
+// Folder groups: headers, counts, collapse state and select-all.
+const rootHeader = ui.grid.querySelector('.saturn-char-folder-header[data-folder="Root"]');
+const folderHeader = ui.grid.querySelector('.saturn-char-folder-header[data-folder="folder"]');
+assert.ok(rootHeader, "unfiled cards get a Root group");
+assert.ok(folderHeader, "folder cards get their own group");
+const rootGroup = rootHeader.parentElement;
+assert.equal(rootGroup.querySelectorAll(".saturn-char-tile").length, 2, "the Root group holds both unfiled cards");
+assert.equal(folderHeader.parentElement.querySelectorAll(".saturn-char-tile").length, 1, "the folder group holds its card");
+assert.equal(rootHeader.querySelector(".saturn-char-folder-count").textContent, "(2)", "the header shows the card count");
+
+rootHeader.click();
+assert.ok(rootGroup.classList.contains("collapsed"), "clicking a header collapses its group");
+assert.ok(rootHeader.classList.contains("collapsed"), "the header arrow flips when collapsed");
+assert.equal(window.localStorage.getItem(ui.folderStorageKey("Root")), "true", "collapse state is persisted");
+rootHeader.click();
+assert.ok(!rootGroup.classList.contains("collapsed"), "clicking again expands the group");
+assert.equal(window.localStorage.getItem(ui.folderStorageKey("Root")), "false", "expanded state is persisted");
+
+const rootCheckbox = rootHeader.querySelector(".saturn-char-folder-checkbox");
+rootCheckbox.checked = true;
+rootCheckbox.click();
+assert.deepEqual(JSON.parse(hidden.value).sort(), ["char1", "char2"], "the folder checkbox selects every card in the group");
+assert.ok(rootCheckbox.checked, "the folder checkbox stays ticked when the whole group is selected");
+rootCheckbox.checked = false;
+rootCheckbox.click();
+assert.deepEqual(JSON.parse(hidden.value), [], "unticking the folder clears its cards");
+
+// Mode and view controls drive the hidden native widgets.
+ui.modeSelect.value = "Random";
+ui.modeSelect.dispatchEvent({ type: "change" });
+assert.equal(node.widgets.find((widget) => widget.name === "selection_mode").value, "Random", "Mode updates selection_mode");
+assert.match(ui.statusEl.textContent, /random/i, "Mode updates the hint line");
+ui.modeSelect.value = "Sequential";
+ui.modeSelect.dispatchEvent({ type: "change" });
+
+ui.showAllButton.click();
+assert.equal(node.widgets.find((widget) => widget.name === "display_mode").value, "Show All", "View updates display_mode");
+assert.ok(ui.grid.classList.contains("show-all"), "Show All removes the scroll container");
+assert.ok(!ui.grid.classList.contains("scrollable"), "the grid stops scrolling in Show All");
+ui.scrollButton.click();
+assert.equal(node.widgets.find((widget) => widget.name === "display_mode").value, "Scrollable", "Scroll restores display_mode");
+assert.ok(ui.grid.classList.contains("scrollable"), "the grid scrolls again");
 
 // Connected text: the grid is disabled for clicking and the first trigger wins.
 app.graph.links = { 1: { id: 1, origin_id: 9, origin_slot: 0 } };

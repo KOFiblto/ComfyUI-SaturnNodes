@@ -29,51 +29,106 @@ const PICKER_CSS = `
 .saturn-char-root {
     display: flex;
     flex-direction: column;
-    gap: 6px;
     width: 100%;
     height: 100%;
+    min-height: 0;
+    max-height: 100%;
     box-sizing: border-box;
-    padding: 6px;
+    padding: 8px;
     color: #f2e6da;
     font-size: 12px;
-    background: #2a1a10;
-    border-radius: 6px;
+    background: #111;
+    border-radius: 8px;
     overflow: hidden;
 }
-.saturn-char-toolbar {
+.saturn-char-control-bar {
     display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    row-gap: 6px;
+    padding: 4px 6px;
+    background: #181818;
+    border: 1px solid #282828;
+    border-radius: 5px;
+    margin-bottom: 6px;
+    width: 100%;
+    box-sizing: border-box;
 }
-.saturn-char-toolbar select,
-.saturn-char-toolbar input[type="text"] {
-    background: #1b110a;
-    color: #f2e6da;
-    border: 1px solid #6a3f20;
-    border-radius: 4px;
-    padding: 2px 4px;
-    font-size: 11px;
+.saturn-char-control-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     min-width: 0;
 }
-.saturn-char-toolbar select { max-width: 150px; min-width: 92px; }
-.saturn-char-toolbar input[type="text"] { flex: 1 1 90px; }
-.saturn-char-btn {
-    background: #3d2413;
-    color: #f2e6da;
-    border: 1px solid #6a3f20;
+.saturn-char-control-label {
+    font-size: 10px;
+    color: #888;
+    font-weight: bold;
+    white-space: nowrap;
+}
+.saturn-char-control-bar select,
+.saturn-char-control-bar input[type="text"] {
+    background: #252525;
+    border: 1px solid #353535;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 4px;
     border-radius: 4px;
-    padding: 2px 7px;
-    font-size: 11px;
+    min-width: 0;
+    max-width: 150px;
+    box-sizing: border-box;
+}
+.saturn-char-control-bar select { cursor: pointer; }
+.saturn-char-control-bar input[type="text"] {
+    flex: 1 1 90px;
+    max-width: none;
+    font-weight: normal;
+    cursor: text;
+}
+.saturn-char-toggle-btn {
+    background: #252525;
+    border: 1px solid #353535;
+    color: #aaa;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    white-space: nowrap;
+}
+.saturn-char-toggle-btn:hover {
+    background: #303030;
+    color: #fff;
+}
+.saturn-char-toggle-btn.active {
+    background: #007acc;
+    border-color: #0098ff;
+    color: #fff;
+    box-shadow: 0 0 5px rgba(0, 122, 204, 0.4);
+}
+.saturn-char-toggle-btn:disabled { opacity: 0.45; cursor: default; }
+.saturn-char-btn {
+    background: #252525;
+    border: 1px solid #353535;
+    color: #ddd;
+    border-radius: 4px;
+    padding: 3px 9px;
+    font-size: 10px;
+    font-weight: bold;
     cursor: pointer;
     white-space: nowrap;
 }
-.saturn-char-btn:hover { background: #59331a; border-color: #b06a33; }
+.saturn-char-btn:hover { background: #303030; color: #fff; }
 .saturn-char-btn:disabled { opacity: 0.45; cursor: default; }
 .saturn-char-status {
     font-size: 10.5px;
     color: #c9b3a0;
     min-height: 13px;
+    margin-bottom: 4px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -81,43 +136,140 @@ const PICKER_CSS = `
 .saturn-char-status.warn { color: #ffcf70; }
 .saturn-char-status.error { color: #ff8a8a; }
 .saturn-char-status.ok { color: #6dff9a; }
-.saturn-char-grid {
-    flex: 1 1 auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
-    gap: 6px;
-    align-content: start;
+.saturn-char-grid-container {
+    flex: 1 1 0px;
+    min-height: 0;
+    max-height: 100%;
     overflow-y: auto;
-    padding: 2px;
-    border-radius: 6px;
-    transition: background 0.15s ease, box-shadow 0.15s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    box-sizing: border-box;
+    padding-right: 4px;
 }
-.saturn-char-grid.scrollable { max-height: 320px; }
-.saturn-char-grid.show-all { max-height: none; }
-.saturn-char-grid.detect-mode {
+.saturn-char-grid-container::-webkit-scrollbar {
+    width: 6px;
+}
+.saturn-char-grid-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+}
+.saturn-char-grid-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+.saturn-char-grid-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+.saturn-char-root.show-all-mode {
+    height: auto;
+    max-height: none;
+    overflow-y: visible;
+}
+.saturn-char-root.show-all-mode .saturn-char-grid-container {
+    flex: 0 0 auto;
+    height: auto;
+    max-height: none;
+    overflow-y: visible;
+}
+.saturn-char-grid-container.detect-mode {
     background-image: linear-gradient(rgba(150, 150, 150, 0.09), rgba(150, 150, 150, 0.09));
     box-shadow: inset 0 0 0 2px rgba(150, 150, 150, 0.35);
+    border-radius: 6px;
 }
-.saturn-char-grid.detect-mode .saturn-char-tile { cursor: default; }
-.saturn-char-grid.detect-mode .saturn-char-tile:hover {
+.saturn-char-grid-container.detect-mode .saturn-char-tile { cursor: default; }
+.saturn-char-grid-container.detect-mode .saturn-char-tile:hover {
     transform: none;
-    border-color: #4a2c18;
+    border-color: #333;
+}
+.saturn-char-folder-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+    width: 100%;
+}
+.saturn-char-folder-header {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    background: linear-gradient(90deg, #1d1d1d, #141414);
+    border: 1px solid #262626;
+    border-radius: 5px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s, border-color 0.15s;
+}
+.saturn-char-folder-header:hover {
+    background: linear-gradient(90deg, #242424, #1a1a1a);
+    border-color: #383838;
+}
+.saturn-char-folder-toggle {
+    font-size: 9px;
+    color: #888;
+    margin-right: 8px;
+    transition: transform 0.2s ease-in-out;
+}
+.saturn-char-folder-header.collapsed .saturn-char-folder-toggle {
+    transform: rotate(-90deg);
+}
+.saturn-char-folder-name {
+    font-size: 11px;
+    font-weight: bold;
+    color: #d1d1d1;
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.saturn-char-folder-count {
+    font-size: 10px;
+    color: #555;
+    margin-right: 10px;
+}
+.saturn-char-folder-checkbox {
+    cursor: pointer;
+    width: 13px;
+    height: 13px;
+    accent-color: #007acc;
+    margin: 0;
+}
+.saturn-char-folder-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 8px;
+    padding: 4px 2px;
+}
+.saturn-char-folder-container.collapsed .saturn-char-folder-grid {
+    display: none !important;
 }
 .saturn-char-tile {
+    width: var(--saturn-char-tile-size, 80px);
+    flex: 0 0 auto;
+    aspect-ratio: 3 / 4;
     position: relative;
     display: flex;
     flex-direction: column;
-    background: #1b110a;
-    border: 1px solid #4a2c18;
+    justify-content: flex-end;
+    align-items: center;
+    background: #1a1a1a;
+    border: 2px solid #333;
     border-radius: 6px;
     overflow: hidden;
     cursor: pointer;
-    transition: border-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+    box-sizing: border-box;
+    transition: all 0.15s ease-in-out;
 }
-.saturn-char-tile:hover { transform: translateY(-1px); border-color: #b06a33; }
+.saturn-char-tile:hover {
+    border-color: #007acc;
+    transform: scale(1.03);
+}
 .saturn-char-tile.selected {
-    border-color: #00ff66;
-    box-shadow: 0 0 0 2px #00ff66, 0 0 10px rgba(0, 255, 102, 0.35);
+    border-color: #00ff66 !important;
+    border-width: 4px !important;
+    box-shadow: 0 0 12px rgba(0, 255, 102, 0.5);
 }
 .saturn-char-tile.used {
     animation: saturn-char-flash 1.2s ease-out 3;
@@ -127,17 +279,22 @@ const PICKER_CSS = `
     100% { box-shadow: 0 0 0 0 rgba(255, 200, 90, 0); }
 }
 .saturn-char-thumb {
-    position: relative;
+    position: absolute;
+    inset: 0;
     width: 100%;
-    aspect-ratio: 1 / 1;
+    height: 100%;
     background: #120b06;
     overflow: hidden;
+    z-index: 0;
 }
 .saturn-char-thumb img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 .saturn-char-fallback {
     width: 100%;
@@ -158,104 +315,126 @@ const PICKER_CSS = `
     box-shadow: inset 0 0 0 2px #00ff66;
     pointer-events: none;
 }
-.saturn-char-check {
+.saturn-char-label {
     position: absolute;
-    top: 3px;
-    left: 3px;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    min-width: 17px;
-    height: 17px;
-    padding: 0 3px;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    width: 100%;
     box-sizing: border-box;
-    border-radius: 9px;
-    background: #00ff66;
-    color: #06240f;
-    font-size: 10px;
-    font-weight: 800;
-    line-height: 1;
-    z-index: 2;
-}
-.saturn-char-tile.selected .saturn-char-check { display: flex; }
-.saturn-char-match-pill {
-    position: absolute;
-    top: 3px;
-    right: 3px;
-    display: none;
-    padding: 1px 5px;
-    border-radius: 8px;
-    background: #00ff66;
-    color: #06240f;
-    font-size: 8.5px;
-    font-weight: 800;
-    letter-spacing: 0.4px;
-    z-index: 2;
-}
-.saturn-char-tile.matched .saturn-char-match-pill { display: block; }
-.saturn-char-meta {
-    padding: 3px 4px 4px;
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
+    background: rgba(0, 0, 0, 0.85);
+    border-top: 1px solid #222;
+    padding: 4px 3px;
+    text-align: center;
 }
 .saturn-char-name {
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 600;
+    color: #fff;
+    line-height: 1.25;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .saturn-char-trigger {
-    font-size: 9.5px;
+    font-size: 8.5px;
+    font-weight: 400;
     color: #8fe3b0;
+    line-height: 1.25;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.saturn-char-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px;
-    margin-top: 1px;
-}
-.saturn-char-chip {
-    font-size: 8.5px;
+.saturn-char-check {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 16px;
+    height: 16px;
     padding: 0 3px;
-    border-radius: 3px;
-    background: #33200f;
-    color: #c9b3a0;
+    box-sizing: border-box;
+    border-radius: 8px;
+    background: #00ff66;
+    color: #06240f;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1;
+    pointer-events: none;
+    z-index: 3;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
-.saturn-char-chip.missing { background: #4a1c1c; color: #ffb3b3; }
+.saturn-char-tile.selected .saturn-char-check { display: flex; }
+.saturn-char-match-pill {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: none;
+    padding: 1px 5px;
+    border-radius: 8px;
+    background: #00ff66;
+    color: #06240f;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    pointer-events: none;
+    z-index: 3;
+}
+.saturn-char-tile.matched .saturn-char-match-pill { display: block; }
+.saturn-char-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    z-index: 2;
+    padding: 1px 4px;
+    border-radius: 8px;
+    background: rgba(0, 122, 204, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 8px;
+    font-weight: bold;
+    pointer-events: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.saturn-char-badge.warn {
+    background: rgba(168, 0, 0, 0.9);
+}
 .saturn-char-actions {
     position: absolute;
-    right: 2px;
-    bottom: 2px;
+    inset: 0 0 20px 0;
     display: none;
-    gap: 2px;
-    z-index: 3;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 4;
 }
 .saturn-char-tile:hover .saturn-char-actions { display: flex; }
 .saturn-char-actions button {
-    width: 17px;
-    height: 17px;
+    width: 20px;
+    height: 20px;
     padding: 0;
-    border: 1px solid #6a3f20;
-    border-radius: 3px;
-    background: rgba(20, 12, 7, 0.92);
-    color: #f2e6da;
-    font-size: 9.5px;
+    border: 1px solid #353535;
+    border-radius: 4px;
+    background: rgba(32, 32, 32, 0.95);
+    color: #fff;
+    font-size: 10px;
     line-height: 1;
     cursor: pointer;
 }
-.saturn-char-actions button:hover { background: #59331a; }
+.saturn-char-actions button:hover { background: #007acc; border-color: #0098ff; }
 .saturn-char-empty {
-    grid-column: 1 / -1;
+    width: 100%;
     padding: 14px 8px;
     text-align: center;
     color: #9c8471;
     font-size: 11px;
     line-height: 1.5;
+    box-sizing: border-box;
 }
 .saturn-char-modal-backdrop {
     position: fixed;
@@ -500,6 +679,27 @@ function sortCards(cards, sortBy, folderPosition) {
     return [...cards].sort((a, b) => (groupRank(a) - groupRank(b)) || compare(a, b));
 }
 
+function readStoredValue(key) {
+    try {
+        if (typeof window !== "undefined" && window.localStorage) {
+            return window.localStorage.getItem(key);
+        }
+    } catch (_) {
+        /* storage can be blocked by privacy settings */
+    }
+    return null;
+}
+
+function writeStoredValue(key, value) {
+    try {
+        if (typeof window !== "undefined" && window.localStorage) {
+            window.localStorage.setItem(key, value);
+        }
+    } catch (_) {
+        /* storage can be blocked by privacy settings */
+    }
+}
+
 function initials(name) {
     const cleaned = String(name || "?").replace(/[^\p{L}\p{N} ]/gu, " ").trim();
     if (!cleaned) return "?";
@@ -621,8 +821,51 @@ class CharacterPickerUI {
     build() {
         injectStyles();
         const container = el("div", "saturn-char-root");
+        const ui = this;
 
-        const toolbar = el("div", "saturn-char-toolbar");
+        const controlBar = el("div", "saturn-char-control-bar");
+
+        // Mode: drives the hidden selection_mode widget, like the LoRA loader's Mode select.
+        const modeGroup = el("div", "saturn-char-control-group");
+        modeGroup.appendChild(el("span", "saturn-char-control-label", "Mode:"));
+        this.modeSelect = el("select");
+        this.modeSelect.title = "How the selected cards are used on each run";
+        SELECTION_MODES.forEach((mode) => {
+            const option = el("option", null, mode);
+            option.value = mode;
+            this.modeSelect.appendChild(option);
+        });
+        this.modeSelect.addEventListener("change", () => {
+            if (this.selectionWidget) {
+                this.selectionWidget.value = this.modeSelect.value;
+                if (this.selectionWidget.callback) this.selectionWidget.callback(this.modeSelect.value);
+            }
+            this.updateSelectionHint();
+            this.node.triggerSlotEvent?.(0);
+        });
+        modeGroup.appendChild(this.modeSelect);
+        controlBar.appendChild(modeGroup);
+
+        // Sort: drives the hidden sort_presets_by widget.
+        const sortGroup = el("div", "saturn-char-control-group");
+        sortGroup.appendChild(el("span", "saturn-char-control-label", "Sort:"));
+        this.sortSelect = el("select");
+        this.sortSelect.title = "Sort presets inside each folder";
+        SORT_PRESETS.forEach((option) => {
+            const item = el("option", null, option);
+            item.value = option;
+            this.sortSelect.appendChild(item);
+        });
+        this.sortSelect.addEventListener("change", () => {
+            if (this.sortWidget) this.sortWidget.value = this.sortSelect.value;
+            this.render();
+        });
+        sortGroup.appendChild(this.sortSelect);
+        controlBar.appendChild(sortGroup);
+
+        // Folder filter: replaces the hidden native folder widget.
+        const folderGroup = el("div", "saturn-char-control-group");
+        folderGroup.appendChild(el("span", "saturn-char-control-label", "Folder:"));
         this.folderSelect = el("select");
         this.folderSelect.title = "Character preset folder";
         const allOption = el("option", null, "All presets");
@@ -635,7 +878,22 @@ class CharacterPickerUI {
             }
             this.refresh();
         });
+        folderGroup.appendChild(this.folderSelect);
+        controlBar.appendChild(folderGroup);
 
+        // View: drives the hidden display_mode widget.
+        const viewGroup = el("div", "saturn-char-control-group");
+        viewGroup.appendChild(el("span", "saturn-char-control-label", "View:"));
+        this.scrollButton = el("button", "saturn-char-toggle-btn active", "Scroll");
+        this.scrollButton.title = "Scroll inside the node";
+        this.scrollButton.addEventListener("click", () => this.setDisplayMode("Scrollable"));
+        this.showAllButton = el("button", "saturn-char-toggle-btn", "Show All");
+        this.showAllButton.title = "Grow the node to fit every card";
+        this.showAllButton.addEventListener("click", () => this.setDisplayMode("Show All"));
+        viewGroup.append(this.scrollButton, this.showAllButton);
+        controlBar.appendChild(viewGroup);
+
+        const searchGroup = el("div", "saturn-char-control-group");
         this.searchInput = el("input");
         this.searchInput.type = "text";
         this.searchInput.placeholder = "Search name, trigger or tag";
@@ -643,32 +901,23 @@ class CharacterPickerUI {
             this.search = this.searchInput.value.trim().toLowerCase();
             this.render();
         });
+        searchGroup.appendChild(this.searchInput);
+        controlBar.appendChild(searchGroup);
 
-        this.sortSelect = el("select");
-        this.sortSelect.title = "Sort presets";
-        SORT_PRESETS.forEach((option) => {
-            const item = el("option", null, option);
-            item.value = option;
-            this.sortSelect.appendChild(item);
-        });
-        this.sortSelect.addEventListener("change", () => {
-            if (this.sortWidget) this.sortWidget.value = this.sortSelect.value;
-            this.render();
-        });
-
-        this.newButton = el("button", "saturn-char-btn", "New");
+        const actionGroup = el("div", "saturn-char-control-group");
+        this.newButton = el("button", "saturn-char-toggle-btn", "New");
         this.newButton.title = "Create a new character preset card";
         this.newButton.addEventListener("click", () => this.openEditor(null));
 
-        this.refreshButton = el("button", "saturn-char-btn", "Refresh");
-        this.refreshButton.title = "Rescan the presets folder";
-        this.refreshButton.addEventListener("click", () => this.refresh());
-
-        this.importButton = el("button", "saturn-char-btn", "Import");
+        this.importButton = el("button", "saturn-char-toggle-btn", "Import");
         this.importButton.title = "Create cards from installed LoRAs";
         this.importButton.addEventListener("click", () => this.openImportModal());
 
-        this.openFolderButton = el("button", "saturn-char-btn", "Folder");
+        this.refreshButton = el("button", "saturn-char-toggle-btn", "Refresh");
+        this.refreshButton.title = "Rescan the presets folder";
+        this.refreshButton.addEventListener("click", () => this.refresh());
+
+        this.openFolderButton = el("button", "saturn-char-toggle-btn", "Folder");
         this.openFolderButton.title = "Open the character presets folder";
         this.openFolderButton.addEventListener("click", async () => {
             try {
@@ -678,20 +927,21 @@ class CharacterPickerUI {
             }
         });
 
-        toolbar.append(
-            this.folderSelect,
-            this.searchInput,
-            this.sortSelect,
-            this.newButton,
-            this.importButton,
-            this.refreshButton,
-            this.openFolderButton
-        );
+        actionGroup.append(this.newButton, this.importButton, this.refreshButton, this.openFolderButton);
+        controlBar.appendChild(actionGroup);
 
         this.statusEl = el("div", "saturn-char-status", "");
-        this.grid = el("div", "saturn-char-grid scrollable");
+        this.grid = el("div", "saturn-char-grid-container scrollable");
+        this.container = container;
+        this.foldersMap = {};
 
-        container.append(toolbar, this.statusEl, this.grid);
+        // Mirror the visual LoRA loader: the DOM widget must always fill the
+        // node body, otherwise flex:1 grids collapse to their content height.
+        container.style.setProperty("height", "100%", "important");
+        container.style.setProperty("max-height", "100%", "important");
+        container.style.setProperty("box-sizing", "border-box", "important");
+
+        container.append(controlBar, this.statusEl, this.grid);
 
         this.domWidget = this.node.addDOMWidget("character_picker", "HTML", container, {
             getValue: () => (this.hiddenWidget ? this.hiddenWidget.value : "[]"),
@@ -705,24 +955,40 @@ class CharacterPickerUI {
         this.domWidget.computeLayoutSize = () => ({ minHeight: 180, maxHeight: undefined, minWidth: 320 });
         delete this.domWidget.computeSize;
 
-        this.container = container;
         this.hideWidget(this.folderWidget);
         this.hideWidget(getWidget(this.node, "separator"));
+        this.hideWidget(this.selectionWidget);
+        this.hideWidget(this.sortWidget);
+        this.hideWidget(this.displayWidget);
         this.applyDisplayMode();
 
         const originalResize = this.node.onResize;
-        this.node.onResize = function () {
+        this.node.onResize = function (size) {
             if (originalResize) originalResize.apply(this, arguments);
+            const showAll = (ui.displayWidget?.value || "Scrollable") === "Show All";
+            if (!showAll && size) ui.node.userCustomHeight = size[1];
+        };
+
+        this.node.computeSize = function () {
+            const width = Math.max(380, ui.node.size?.[0] || 420);
+            const showAll = (ui.displayWidget?.value || "Scrollable") === "Show All";
+            if (showAll && ui.grid) {
+                return [width, Math.max(360, (ui.grid.scrollHeight || 0) + 160)];
+            }
+            return [width, Math.max(360, ui.node.size?.[1] || 540)];
         };
     }
 
     bindWidgets() {
         if (this.selectionWidget) {
-            this.selectionWidget.callback = () => this.updateSelectionHint();
+            this.selectionWidget.callback = () => {
+                if (this.modeSelect) this.modeSelect.value = this.selectionWidget.value || "Sequential";
+                this.updateSelectionHint();
+            };
         }
         if (this.sortWidget) {
             this.sortWidget.callback = () => {
-                this.sortSelect.value = this.sortWidget.value;
+                if (this.sortSelect) this.sortSelect.value = this.sortWidget.value;
                 this.render();
             };
         }
@@ -744,17 +1010,48 @@ class CharacterPickerUI {
             this.includeDisabledWidget.callback = () => this.refresh();
         }
 
-        if (this.sortWidget) this.sortSelect.value = this.sortWidget.value || SORT_PRESETS[0];
-        if (this.selectionWidget) this.selectionWidget.value = this.selectionWidget.value || "Sequential";
+        if (this.sortWidget && this.sortSelect) this.sortSelect.value = this.sortWidget.value || SORT_PRESETS[0];
+        if (this.selectionWidget) {
+            this.selectionWidget.value = this.selectionWidget.value || "Sequential";
+            if (this.modeSelect) this.modeSelect.value = this.selectionWidget.value;
+        }
+    }
+
+    setDisplayMode(mode) {
+        if (this.displayWidget) this.displayWidget.value = mode;
+        this.applyDisplayMode();
     }
 
     applyDisplayMode() {
+        if (!this.grid) return;
         const showAll = (this.displayWidget?.value || "Scrollable") === "Show All";
+        this.container?.classList.toggle("show-all-mode", showAll);
         this.grid.classList.toggle("show-all", showAll);
         this.grid.classList.toggle("scrollable", !showAll);
+        this.scrollButton?.classList.toggle("active", !showAll);
+        this.showAllButton?.classList.toggle("active", showAll);
+
+        if (this.container) {
+            this.container.style.setProperty("height", showAll ? "auto" : "100%", "important");
+            this.container.style.setProperty("max-height", showAll ? "none" : "100%", "important");
+            this.container.style.setProperty("overflow-y", showAll ? "visible" : "hidden", "important");
+        }
+        this.grid.style.setProperty("height", showAll ? "auto" : "100%", "important");
+        this.grid.style.setProperty("max-height", showAll ? "none" : "100%", "important");
+        this.grid.style.setProperty("overflow-y", showAll ? "visible" : "auto", "important");
+        this.grid.style.setProperty("flex", showAll ? "none" : "1 1 0px", "important");
+
         if (showAll) {
-            const height = Math.min(920, 200 + this.cards.length * 4);
-            this.node.setSize?.([this.node.size?.[0] || 420, height]);
+            setTimeout(() => {
+                const contentH = this.grid?.scrollHeight || 0;
+                const width = this.node.size?.[0] || 420;
+                this.node.setSize?.([width, Math.max(360, contentH + 160)]);
+                app.graph?.setDirtyCanvas?.(true, true);
+            }, 50);
+        } else if (this.node.userCustomHeight) {
+            const width = this.node.size?.[0] || 420;
+            this.node.setSize?.([width, Math.max(360, this.node.userCustomHeight)]);
+            app.graph?.setDirtyCanvas?.(true, true);
         }
     }
 
@@ -816,8 +1113,48 @@ class CharacterPickerUI {
         return sortCards(cards, this.sortWidget?.value || SORT_PRESETS[0], this.folderPositionWidget?.value);
     }
 
+    groupCards(cards) {
+        const sortBy = this.sortWidget?.value || SORT_PRESETS[0];
+        const groups = new Map();
+        cards.forEach((card) => {
+            const folder = card.folder || "Root";
+            if (!groups.has(folder)) groups.set(folder, []);
+            groups.get(folder).push(card);
+        });
+
+        const keys = [...groups.keys()].sort((a, b) =>
+            a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
+        );
+        const rootFirst = (this.folderPositionWidget?.value || "Folders First") === "Root Presets First";
+        const rootIndex = keys.indexOf("Root");
+        if (rootIndex >= 0) {
+            keys.splice(rootIndex, 1);
+            if (rootFirst) keys.unshift("Root");
+            else keys.push("Root");
+        }
+
+        return keys.map((folder) => ({
+            folder,
+            cards: sortCards(groups.get(folder), sortBy),
+        }));
+    }
+
+    folderStorageKey(folder) {
+        return `saturn_char_picker_folder_collapsed_${folder}`;
+    }
+
+    isFolderCollapsed(folder) {
+        return readStoredValue(this.folderStorageKey(folder)) === "true";
+    }
+
+    setFolderCollapsed(folder, collapsed) {
+        writeStoredValue(this.folderStorageKey(folder), collapsed ? "true" : "false");
+    }
+
     render() {
+        if (!this.grid) return;
         this.grid.innerHTML = "";
+        this.foldersMap = {};
         const cards = this.visibleCards();
         this.renderedCards = cards;
 
@@ -837,16 +1174,102 @@ class CharacterPickerUI {
         const selectedIds = readSelected(this.hiddenWidget);
         const selected = new Set(selectedIds);
         const fragment = document.createDocumentFragment();
-        cards.forEach((card) => fragment.appendChild(this.renderTile(card, selected, selectedIds)));
+        this.groupCards(cards).forEach((group) => {
+            this.foldersMap[group.folder] = group.cards;
+            fragment.appendChild(this.renderFolderGroup(group, selected, selectedIds));
+        });
         this.grid.appendChild(fragment);
+        this.updateFolderCheckboxes();
         this.updateDetectPreview();
+    }
+
+    renderFolderGroup(group, selected, selectedIds) {
+        const folder = group.folder;
+        const container = el("div", "saturn-char-folder-container");
+        const collapsed = this.isFolderCollapsed(folder);
+        if (collapsed) container.classList.add("collapsed");
+
+        const header = el("div", "saturn-char-folder-header");
+        header.dataset.folder = folder;
+        header.setAttribute("data-folder", folder);
+        if (collapsed) header.classList.add("collapsed");
+
+        header.appendChild(el("span", "saturn-char-folder-toggle", "\u25bc"));
+        header.appendChild(el("span", "saturn-char-folder-name", folder));
+        header.appendChild(el("span", "saturn-char-folder-count", `(${group.cards.length})`));
+
+        const checkbox = el("input", "saturn-char-folder-checkbox");
+        checkbox.type = "checkbox";
+        checkbox.title = "Select/Deselect all in folder";
+        checkbox.addEventListener("click", (event) => {
+            event.stopPropagation();
+            this.toggleFolderSelection(group.cards, checkbox.checked);
+        });
+        header.appendChild(checkbox);
+
+        header.addEventListener("click", () => {
+            const isCollapsed = container.classList.toggle("collapsed");
+            header.classList.toggle("collapsed", isCollapsed);
+            this.setFolderCollapsed(folder, isCollapsed);
+        });
+        container.appendChild(header);
+
+        const folderGrid = el("div", "saturn-char-folder-grid");
+        group.cards.forEach((card) => {
+            folderGrid.appendChild(this.renderTile(card, selected, selectedIds));
+        });
+        container.appendChild(folderGrid);
+        return container;
+    }
+
+    toggleFolderSelection(cards, checked) {
+        if (this.detectActive) {
+            this.setStatus("The connected text picks the cards. Disconnect it to click cards.", "warn");
+            this.updateFolderCheckboxes();
+            return;
+        }
+        let selected = readSelected(this.hiddenWidget);
+        const ids = cards.map((card) => card.id);
+        if (checked) {
+            ids.forEach((id) => {
+                if (!selected.includes(id)) selected.push(id);
+            });
+        } else {
+            selected = selected.filter((id) => !ids.includes(id));
+        }
+        writeSelected(this.hiddenWidget, selected);
+        this.updateSelectionStyles();
+        this.node.triggerSlotEvent?.(0);
+    }
+
+    updateFolderCheckboxes() {
+        if (!this.grid || !this.foldersMap) return;
+        const selected = readSelected(this.hiddenWidget);
+        this.grid.querySelectorAll(".saturn-char-folder-header").forEach((header) => {
+            const folder = header.getAttribute("data-folder");
+            const cards = this.foldersMap[folder] || [];
+            const checkbox = header.querySelector(".saturn-char-folder-checkbox");
+            if (!checkbox || !cards.length) return;
+            const selectedCount = cards.filter((card) => selected.includes(card.id)).length;
+            checkbox.checked = selectedCount === cards.length;
+            checkbox.indeterminate = selectedCount > 0 && selectedCount < cards.length;
+        });
     }
 
     renderTile(card, selected, selectedIds) {
         const tile = el("div", "saturn-char-tile");
         tile.dataset.cardId = card.id;
         tile.setAttribute("data-card-id", card.id);
-        tile.title = `${card.name}${card.folder ? ` (${card.folder})` : ""}\nTrigger: ${card.trigger || "none"}\nDouble-click to edit`;
+
+        const loras = (card.loras || []).filter((entry) => entry.enabled !== false);
+        const missing = card.missing_loras || [];
+        const tooltip = [`${card.name}${card.folder ? ` (${card.folder})` : ""}`];
+        tooltip.push(`Trigger: ${card.trigger || "none"}`);
+        if (loras.length) tooltip.push(`${loras.length} LoRA${loras.length > 1 ? "s" : ""}`);
+        if (missing.length) tooltip.push(`Missing: ${missing.join(", ")}`);
+        if (card.enabled === false) tooltip.push("Disabled");
+        tooltip.push("Double-click to edit");
+        tile.title = tooltip.join("\n");
 
         const thumb = el("div", "saturn-char-thumb");
         if (card.has_preview) {
@@ -862,29 +1285,29 @@ class CharacterPickerUI {
         } else {
             thumb.appendChild(el("div", "saturn-char-fallback", initials(card.name)));
         }
+
         const order = selectedIds ? selectedIds.indexOf(card.id) : -1;
         const orderBadge = el("div", "saturn-char-check", order >= 0 ? String(order + 1) : "");
         orderBadge.title = "Selection order (used in this order by Sequential and All)";
-        thumb.appendChild(orderBadge);
-        thumb.appendChild(el("div", "saturn-char-match-pill", "MATCH"));
+        const matchPill = el("div", "saturn-char-match-pill", "MATCH");
 
-        const meta = el("div", "saturn-char-meta");
-        const name = el("div", "saturn-char-name", card.name);
-        name.title = card.id;
-        meta.appendChild(name);
-        meta.appendChild(el("div", "saturn-char-trigger", card.trigger || "\u2014"));
-
-        const chips = el("div", "saturn-char-chips");
-        const loraCount = (card.loras || []).filter((entry) => entry.enabled !== false).length;
-        if (loraCount) chips.appendChild(el("span", "saturn-char-chip", `${loraCount} LoRA${loraCount > 1 ? "s" : ""}`));
-        if (card.usage) chips.appendChild(el("span", "saturn-char-chip", `used ${card.usage}`));
-        if ((card.missing_loras || []).length) {
-            const missing = el("span", "saturn-char-chip missing", `\u26a0 ${card.missing_loras.length} missing`);
-            missing.title = card.missing_loras.join("\n");
-            chips.appendChild(missing);
+        let badge = null;
+        if (missing.length) {
+            badge = el("div", "saturn-char-badge warn", `\u26a0 ${missing.length}`);
+            badge.title = `Missing LoRA files:\n${missing.join("\n")}`;
+        } else if (card.usage) {
+            badge = el("div", "saturn-char-badge", String(card.usage));
+            badge.title = `Used ${card.usage} time${card.usage === 1 ? "" : "s"}`;
         }
-        if (card.enabled === false) chips.appendChild(el("span", "saturn-char-chip", "disabled"));
-        meta.appendChild(chips);
+
+        const label = el("div", "saturn-char-label");
+        label.appendChild(el("div", "saturn-char-name", card.name));
+        const trigger = String(card.trigger || "").trim();
+        if (trigger && trigger !== card.name) {
+            const triggerEl = el("div", "saturn-char-trigger", trigger);
+            triggerEl.title = `Trigger: ${trigger}`;
+            label.appendChild(triggerEl);
+        }
 
         const actions = el("div", "saturn-char-actions");
         const editButton = el("button", null, "\u270e");
@@ -907,7 +1330,10 @@ class CharacterPickerUI {
         });
         actions.append(editButton, duplicateButton, deleteButton);
 
-        tile.append(thumb, meta, actions);
+        tile.append(thumb, label, orderBadge, matchPill);
+        if (badge) tile.appendChild(badge);
+        tile.appendChild(actions);
+
         if (selected.has(card.id)) tile.classList.add("selected");
         if (this.matchedIds.has(card.id)) tile.classList.add("matched");
 
@@ -946,6 +1372,7 @@ class CharacterPickerUI {
                 badge.textContent = order >= 0 ? String(order + 1) : "";
             }
         });
+        this.updateFolderCheckboxes();
     }
 
     startDetectWatcher() {
@@ -1589,9 +2016,6 @@ app.registerExtension({
         if (!isCharacterPicker(node)) return;
 
         node.size = [420, 540];
-        node.computeSize = function () {
-            return [420, 540];
-        };
 
         const ui = new CharacterPickerUI(node);
         node._saturnCharacterPicker = ui;

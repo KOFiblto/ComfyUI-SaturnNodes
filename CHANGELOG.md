@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Automatic Text Detection**: The picker's `mode` widget is gone. A non-empty connected `text` input switches to trigger detection; an empty or unconnected text falls back to the clicked cards, so the node never errors for a missing prompt.
 - **Detect Feedback**: Trigger matches use a green overlay wash plus a `MATCH` pill, visually distinct from the green ring used by manual selection, and the grid becomes read-only while text detection is active.
+- **Picker Layout Matches the Visual LoRA Loader**: The card grid is now grouped into collapsible folder sections (name, card count, collapse arrow, select-all checkbox, remembered per folder) instead of one flat list. Tiles use a fixed `80px` / `3:4` size and wrap, so resizing the node changes how many cards fit per row but never their height.
+- **Picker Control Bar**: `selection_mode`, `sort_presets_by` and `display_mode` moved out of the native widget stack into a loader-style control bar (**Mode**, **Sort**, **Folder**, **View**) that drives the hidden widgets, next to the search field and the **New / Import / Refresh / Folder** actions. **Scroll** keeps a fixed-height scrolling grid; **Show All** grows the node to fit every card and returns to your previous height afterwards.
 
 ### Fixed
 - **Character Picker Blank Grid**: The picker's read routes (`get_presets`, `get_preview`, `get_loras`) no longer require the CSRF header, which plain `fetch` and `<img>` requests cannot send. The card grid, thumbnails and folder selector now populate on localhost, while every mutating route keeps the strict token check. The folder selector also shows `All presets` immediately instead of looking empty while loading.

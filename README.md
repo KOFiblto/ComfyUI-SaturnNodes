@@ -379,16 +379,16 @@ Cards are plain JSON files with an optional sidecar image, stored in `ComfyUI/us
 > Trigger words are **not** added to the prompt automatically. Type the trigger in your prompt yourself; the picker only uses it to find the card when text is connected.
 
 #### Inputs & Widgets
-- **`folder`** (`STRING`): Folder filter. Hidden in the UI and driven by the folder dropdown in the picker toolbar.
-- **`selection_mode`** (`COMBO`): How the clicked cards are used — `Sequential` (one per run, in order), `Random` (one random card), `Random (No Replace)` (shuffles and uses every clicked card before repeating), `All` (every clicked card in one run), `None` (emits nothing).
+- **`folder`** (`STRING`): Folder filter. Hidden in the UI and driven by the **Folder** dropdown in the picker control bar.
+- **`selection_mode`** (`COMBO`): How the clicked cards are used — `Sequential` (one per run, in order), `Random` (one random card), `Random (No Replace)` (shuffles and uses every clicked card before repeating), `All` (every clicked card in one run), `None` (emits nothing). Hidden in the UI and driven by the **Mode** dropdown.
 - **`separator`** (`STRING`, *Advanced*, default `", "`): Joins positive/negative prompts when several cards are used.
 - **`match_mode`** (`COMBO`, *Advanced*): `Whole Word` (default), `Contains`, or `Exact`. No regular expressions.
 - **`match_all`** (`BOOLEAN`, *Advanced*, default `False`): Off = the first trigger found in the text wins; on = every matching card is used.
 - **`case_sensitive`** (`BOOLEAN`, *Advanced*, default `False`).
 - **`include_disabled`** (`BOOLEAN`, *Advanced*, default `False`): Also show cards marked as disabled.
-- **`sort_presets_by`** (`COMBO`, *Advanced*): Name, usage count, or date modified (both directions).
+- **`sort_presets_by`** (`COMBO`, *Advanced*): Name, usage count, or date modified (both directions). Hidden in the UI and driven by the **Sort** dropdown.
 - **`folder_position`** (`COMBO`, *Advanced*): `Folders First` or `Root Presets First`.
-- **`display_mode`** (`COMBO`, *Advanced*): `Scrollable` (fixed height grid) or `Show All` (taller node).
+- **`display_mode`** (`COMBO`, *Advanced*): `Scrollable` (fixed height grid) or `Show All` (taller node). Hidden in the UI and driven by the **Scroll / Show All** buttons.
 - **`text`** (`STRING`, optional input socket): The prompt text scanned for trigger words. While it carries text, detection is active and the clicked selection is ignored; when it is empty or unconnected, the clicked cards are used instead.
 
 #### Outputs
@@ -399,8 +399,10 @@ Cards are plain JSON files with an optional sidecar image, stored in `ComfyUI/us
 - **`names`** (`STRING`): Names of the used cards.
 
 #### Picker UI
+The card grid mirrors the **Visual LoRA Loader**: a compact control bar, collapsible folder groups, and fixed-width `3:4` tiles that wrap instead of stretching with the node width.
+- **Folder groups**: cards are grouped under their folder name with a card count, a collapse arrow, and a select-all checkbox. Collapse state is remembered per folder.
+- **Control bar**: **Mode** (run behavior), **Sort** (per-folder ordering), **Folder** (filter to one folder instead of `All presets`), **View** (`Scroll` / `Show All`), the search field, and the **New / Import / Refresh / Folder** actions.
 - **Click** a card to select it (green ring + selection-order number), **double-click** to edit it, or use the hover buttons to edit / duplicate / delete.
-- **New** creates a card, **Import** bulk-creates cards from installed LoRAs, **Folder** opens the presets directory, **Refresh** rescans it.
 - Manual selection is shown with a green ring and a numbered badge in click order; connected-text matches are shown with a green wash and a `MATCH` pill, and the grid stops accepting clicks.
 - After every run the cards that were actually used flash on the canvas, so you can see what detection picked.
 
