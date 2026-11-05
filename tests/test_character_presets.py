@@ -509,6 +509,32 @@ class TestLoraImport(CharacterPresetTestCase):
         self.assertNotIn("krea2/Other/Unrelated.safetensors", loras)
         self.assertEqual(len(entries), 4)
 
+    def test_scan_accepts_a_loader_style_wildcard(self):
+        _, entries = scan_lora_import("krea2/*", target_folder="")
+        loras = {entry["lora"] for entry in entries}
+        self.assertIn("krea2/Celebrity/Actresses/krea2_Ana-De-Armas_v1.safetensors", loras)
+        self.assertIn("krea2/Other/Unrelated.safetensors", loras)
+
+    def test_import_overrides_name_triggers_and_snippet(self):
+        lora = "krea2/Celebrity/Men/krea2_Hero.safetensors"
+        result = import_lora_cards(
+            "krea2/Celebrity/Men",
+            target_folder="Celebrity",
+            overrides=[{
+                "lora": lora,
+                "name": "Hero Prime",
+                "triggers": ["Hero Prime", "hero_prime"],
+                "snippet": "A long appearance prompt",
+            }],
+        )
+        self.assertEqual(len(result["created"]), 1)
+        saved = load_card("Celebrity/Hero Prime")
+        self.assertIsNotNone(saved)
+        self.assertEqual(saved["triggers"], ["Hero Prime", "hero_prime"])
+        self.assertEqual(saved["trigger"], "Hero Prime")
+        self.assertEqual(saved["positive"], "A long appearance prompt")
+        self.assertEqual(saved["loras"][0]["name"], lora)
+
     def test_scan_builds_cards_under_the_target_folder(self):
         _, entries = scan_lora_import("krea2/Celebrity", target_folder="Celebrity")
         ids = {entry["id"] for entry in entries}

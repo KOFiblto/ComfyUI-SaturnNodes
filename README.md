@@ -12,7 +12,7 @@ A unified workflow control and productivity suite for **ComfyUI**. Both **Fronte
 - **Stereoscopic 3D & Cross-Eye Generator**: Convert 2D artwork and renders into 3D stereograms, parallel views, and red-cyan anaglyphs with automatic Depth Anything V2 fallback.
 - **Batch Prompting & Iteration**: Queue multiple prompts automatically with delimiter splits, regex blocks, and persistent queue state tracking.
 - **Visual Thumbnail Browsing**: Browse LoRAs and image folders with auto-scraped Civitai & TMDB previews, ranking badges, and multi-selection.
-- **Character Preset Cards**: Save characters as visual cards (thumbnail, trigger word, prompts, LoRA stack) and either click them or let a connected prompt text pick them by trigger word.
+- **Character Preset Cards**: Save characters as visual cards (thumbnail, multiple trigger words, prompt snippet, LoRA stack) and either click them or let a connected prompt text pick them by trigger word.
 - **Real-Time Queue & Pause Controls**: Pause, resume, or cleanly cancel execution mid-generation, with automatic crash recovery for interrupted queues.
 - **Aspect Ratio & Resolution Utilities**: Find exact matching aspect ratios, crop dimensions, and visual sizing helpers.
 - **Safe Local Script Execution**: Run local scripts and executables strictly confined to `ComfyUI/scripts/` with interactive operator authorization.
@@ -371,19 +371,20 @@ Inspired by Stereonix, this node transforms any 2D image into stereoscopic 3D pa
 <summary><b>🪐 🧑‍🎤 Character Preset Picker</b> (<code>CharacterPresetPicker</code>)</summary>
 
 #### Overview
-A visual browser for **character preset cards**. Each card stores a thumbnail, a trigger word, a positive prompt, a negative prompt, and a stack of LoRAs (each with its own model/clip strength). Pick cards by clicking them, or connect a prompt text to the `text` input and let the node find the character by its trigger word instead.
+A visual browser for **character preset cards**. Each card stores a thumbnail, one or more trigger words, a prompt snippet, a negative prompt, and a stack of LoRAs (each with its own model/clip strength). Pick cards by clicking them, or connect a prompt text to the `text` input and let the node find the character by any of its triggers instead.
 
 Cards are plain JSON files with an optional sidecar image, stored in `ComfyUI/user/default/SaturnNodes/character_presets/` (subfolders act as categories). The node only outputs data — use the companion **Apply Character LoRAs** node to patch `MODEL`/`CLIP`.
 
 > [!TIP]
-> Trigger words are **not** added to the prompt automatically. Type the trigger in your prompt yourself; the picker only uses it to find the card when text is connected.
+> The card's **prompt snippet** is emitted as the `positive` output. Trigger words are only used to find the card when text is connected; they are not injected into the prompt. A card with an empty snippet falls back to its display name.
 
 #### Inputs & Widgets
-- **`folder`** (`STRING`): Folder filter. Hidden in the UI and driven by the **Folder** dropdown in the picker control bar.
+- **`folder`** (`STRING`): Native folder filter widget, matching the **Visual LoRA Loader**. Leave it empty for all presets or enter a subfolder such as `Celebrity`.
+- **`tile_size`** (slider, `50`–`180`, default `80`): Native slider that sets the card tile width. Saved per node and remembered across sessions.
 - **`selection_mode`** (`COMBO`): How the clicked cards are used — `Sequential` (one per run, in order), `Random` (one random card), `Random (No Replace)` (shuffles and uses every clicked card before repeating), `All` (every clicked card in one run), `None` (emits nothing). Hidden in the UI and driven by the **Mode** dropdown.
 - **`separator`** (`STRING`, *Advanced*, default `", "`): Joins positive/negative prompts when several cards are used.
 - **`match_mode`** (`COMBO`, *Advanced*): `Whole Word` (default), `Contains`, or `Exact`. No regular expressions.
-- **`match_all`** (`BOOLEAN`, *Advanced*, default `False`): Off = the first trigger found in the text wins; on = every matching card is used.
+- **`match_all`** (`BOOLEAN`, *Advanced*, default `False`): Off = the earliest matching card wins; on = every card with any trigger found in the text is used.
 - **`case_sensitive`** (`BOOLEAN`, *Advanced*, default `False`).
 - **`include_disabled`** (`BOOLEAN`, *Advanced*, default `False`): Also show cards marked as disabled.
 - **`sort_presets_by`** (`COMBO`, *Advanced*): Name, usage count, or date modified (both directions). Hidden in the UI and driven by the **Sort** dropdown.
@@ -394,28 +395,31 @@ Cards are plain JSON files with an optional sidecar image, stored in `ComfyUI/us
 #### Outputs
 - **`loras`** (`SATURN_LORA_STACK`): The resolved LoRA stack, with per-entry model/clip strength.
 - **`loras_json`** (`STRING`): The same stack serialized as JSON (connect to **Apply Character LoRAs**).
-- **`positive`** (`STRING`): Joined positive prompts of the used cards.
+- **`positive`** (`STRING`): Joined prompt snippets of the used cards (the display name is used when a card has no snippet).
 - **`negative`** (`STRING`): Joined negative prompts of the used cards.
 - **`names`** (`STRING`): Names of the used cards.
 
 #### Picker UI
 The card grid mirrors the **Visual LoRA Loader**: a compact control bar, collapsible folder groups, and fixed-width `3:4` tiles that wrap instead of stretching with the node width.
 - **Folder groups**: cards are grouped under their folder name with a card count, a collapse arrow, and a select-all checkbox. Collapse state is remembered per folder.
-- **Control bar**: **Mode** (run behavior), **Sort** (per-folder ordering), **Folder** (filter to one folder instead of `All presets`), **View** (`Scroll` / `Show All`), the search field, and the **New / Import / Refresh / Folder** actions.
-- **Click** a card to select it (green ring + selection-order number), **double-click** to edit it, or use the hover buttons to edit / duplicate / delete.
+- **Control bar**: **Mode** (run behavior), **Sort** (per-folder ordering), **View** (`Scroll` / `Show All`), the search field, and the **New / Import / Refresh / Folder** actions. The folder filter and tile-size slider are native node widgets below the picker, like the **Visual LoRA Loader**.
+- **Click** a card to select it (green ring + selection-order number), **double-click** to edit it, or use the **Edit / Duplicate / Delete** buttons in the tile's top row.
+- **Duplicate** opens the editor prefilled with a copy whose id gets a `(1)` suffix; adjust it before saving.
 - Manual selection is shown with a green ring and a numbered badge in click order; connected-text matches are shown with a green wash and a `MATCH` pill, and the grid stops accepting clicks.
 - After every run the cards that were actually used flash on the canvas, so you can see what detection picked.
+
+**Card editor:** set the card id, a comma-separated **Triggers** list (for example `Madison Beer, madison_beer`), the **Prompt snippet** that becomes the `positive` output, a negative prompt, and any number of LoRAs with per-entry model/clip strengths. The editor uses a wide black modal; LoRA names may use either `/` or `\` and are matched against the installed list. The image panel offers **Upload image**, **Fetch CivitAI Image**, and **Remove image**.
 
 #### Bulk import from LoRAs
 **Import** turns an installed LoRA folder into cards in one shot:
 
-1. Enter the LoRA folder relative to the ComfyUI `loras` directory (for example `Krea2/Celebrity`).
+1. Enter the LoRA folder relative to the ComfyUI `loras` directory (for example `Krea2/Celebrity`). Wildcards work like the **Visual LoRA Loader**, so `krea2/*` scans every subfolder of `krea2`.
 2. Set **Card folder** to the prefix the cards should live under (prefilled from the last folder name, e.g. `Celebrity`). Subfolders below the scanned folder are kept, so `Krea2/Celebrity/Actresses` becomes `Celebrity/Actresses`.
-3. Pick the **Trigger word** source: `From the file name` (e.g. `krea2_Ana-De-Armas_v1` → `Ana De Armas`), `From LoRA metadata` (reads `ss_tag_frequency` and similar safetensors metadata, ignoring generic placeholders such as `sks woman`, and falls back to the file name), or `None`.
-4. **Scan** lists every LoRA with its card id and whether a preview image was found; untick anything you do not want. Existing cards are marked `exists` and skipped unless **Overwrite existing cards** is enabled.
-5. **Import** writes the selected cards. Prompts are left empty for you to fill in, the LoRA is preloaded at strength 1.0, and the card thumbnail is inherited from the LoRA's sidecar image (`.png`, `.jpg`, `.jpeg` or `.webp` next to the safetensors file), so nothing is duplicated on disk.
+3. Pick the **Trigger word** source: `From the file name` (e.g. `krea2_Ana-De-Armas_v1` → `Ana De Armas`, also used as the prompt snippet), `From LoRA metadata` (reads `ss_tag_frequency` and similar safetensors metadata, ignoring generic placeholders such as `sks woman`, and falls back to the file name), or `None`.
+4. **Scan** lists every LoRA with whether a preview image was found; untick anything you do not want. Every row has editable **Card name** and **Prompt snippet** fields, so you can set a short name and a long appearance snippet before importing. Existing cards are marked `exists` and skipped unless **Overwrite existing cards** is enabled.
+5. **Import** writes the selected cards. The LoRA is preloaded at strength 1.0, and the card thumbnail is inherited from the LoRA's sidecar image (`.png`, `.jpg`, `.jpeg` or `.webp` next to the safetensors file), so nothing is duplicated on disk.
 
-Overwrite mode merges instead of clobbering: a card that is imported again keeps its existing prompts and trigger and only gets the LoRA added if it is missing.
+Overwrite mode merges instead of clobbering: a card that is imported again keeps its existing prompts and triggers and only gets the LoRA added if it is missing.
 </details>
 
 <details>

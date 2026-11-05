@@ -234,11 +234,18 @@ assert.ok(hidden, "the hidden selection widget must exist");
 assert.equal(hidden.value, "[]");
 assert.ok(hidden.hidden, "the selection widget must stay hidden");
 
-// The original folder widget is replaced by the picker toolbar.
-assert.ok(node.widgets.find((widget) => widget.name === "folder").hidden, "the folder widget is hidden");
+// The folder filter is a native widget, matching the visual LoRA loader.
+const folderWidget = node.widgets.find((widget) => widget.name === "folder");
+assert.ok(folderWidget && !folderWidget.hidden, "the folder widget stays visible");
+assert.equal(ui.folderWidget, folderWidget, "the picker drives the native folder widget");
+
+// The tile size slider is a native widget too.
+assert.ok(node.widgets.find((widget) => widget.name === "tile_size"), "the picker adds a tile_size slider");
 
 const tiles = ui.grid.querySelectorAll(".saturn-char-tile");
 assert.equal(tiles.length, 3, "every card renders a tile");
+assert.equal(ui.grid.querySelectorAll(".saturn-char-trigger").length, 0, "tiles no longer show a trigger line");
+assert.ok(tiles[0].querySelector(".saturn-char-actions"), "tile actions live in the top overlay");
 assert.ok(ui.grid.classList.contains("scrollable"), "default display mode scrolls");
 assert.equal(ui.grid.querySelectorAll(".saturn-char-folder-grid").length, 2, "tiles live in folder groups");
 
@@ -247,7 +254,7 @@ assert.equal(ui.grid.querySelectorAll(".saturn-char-folder-grid").length, 2, "ti
 const controlLabels = ui.container
     .querySelectorAll(".saturn-char-control-label")
     .map((node) => node.textContent);
-assert.deepEqual(controlLabels, ["Mode:", "Sort:", "Folder:", "View:"], "the control bar exposes the loader-style controls");
+assert.deepEqual(controlLabels, ["Mode:", "Sort:", "View:"], "the control bar exposes the loader-style controls");
 const toggleLabels = ui.container
     .querySelectorAll(".saturn-char-toggle-btn")
     .map((node) => node.textContent);
@@ -474,10 +481,16 @@ assert.ok(checkboxIn(rows[0]).checked, "new candidates are ticked by default");
 assert.ok(!checkboxIn(rows[1]).checked, "already imported cards stay unticked");
 assert.ok(rows[1].classList.contains("exists"), "existing cards are marked in the list");
 assert.match(
-    importModal.querySelector(".saturn-char-hint").textContent,
+    importModal.querySelectorAll(".saturn-char-hint").map((node) => node.textContent).join(" "),
     /2 LoRA\(s\) found/,
     "the summary reports how many candidates were found"
 );
+
+// Names and snippets can be edited per row before importing.
+const firstRowInputs = rows[0].querySelectorAll("input").filter((input) => input.type === "text");
+assert.equal(firstRowInputs.length, 2, "import rows expose editable name and snippet fields");
+firstRowInputs[0].value = "Hero Renamed";
+firstRowInputs[1].value = "a custom hero snippet";
 
 const importAction = findModalButton("Import 1");
 assert.ok(importAction, "the import button counts the ticked candidates");
@@ -489,6 +502,16 @@ assert.deepEqual(
     importCall.body.loras,
     ["krea2/Celebrity/Men/krea2_Hero.safetensors"],
     "only the ticked LoRA is imported"
+);
+assert.deepEqual(
+    importCall.body.overrides,
+    [{
+        lora: "krea2/Celebrity/Men/krea2_Hero.safetensors",
+        name: "Hero Renamed",
+        triggers: ["Hero Renamed"],
+        snippet: "a custom hero snippet",
+    }],
+    "per-row names, triggers and snippets are sent to the importer"
 );
 assert.equal(ui.modal, null, "the modal closes after importing");
 assert.match(ui.statusEl.textContent, /Imported 1 card/, "the picker reports the import result");

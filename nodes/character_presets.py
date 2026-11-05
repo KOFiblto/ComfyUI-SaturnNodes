@@ -245,6 +245,33 @@ def normalize_lora_entry(raw):
     }
 
 
+def parse_triggers(raw):
+    """Normalize a card's trigger words into a de-duplicated list.
+
+    Accepts the current ``triggers`` list/string and the legacy single
+    ``trigger`` string, so older cards keep working.
+    """
+    items = []
+    value = raw.get("triggers") if isinstance(raw, dict) else None
+    if isinstance(value, str):
+        items.extend(part.strip() for part in value.split(","))
+    elif isinstance(value, (list, tuple)):
+        items.extend(str(item).strip() for item in value if str(item).strip())
+    legacy = str(raw.get("trigger") or "").strip() if isinstance(raw, dict) else ""
+    if legacy:
+        items.insert(0, legacy)
+
+    triggers = []
+    seen = set()
+    for item in items:
+        cleaned = " ".join(str(item).split())
+        if not cleaned or cleaned.lower() in seen:
+            continue
+        seen.add(cleaned.lower())
+        triggers.append(cleaned)
+    return triggers
+
+
 def normalize_card(data, card_id):
     """Coerce a raw JSON card into the canonical shape used everywhere."""
     cid = normalize_card_id(card_id)
@@ -252,8 +279,8 @@ def normalize_card(data, card_id):
     default_name = cid.rsplit("/", 1)[-1]
 
     name = str(raw.get("name") or default_name).strip() or default_name
-    trigger = str(raw.get("trigger") or "").strip()
-    positive = str(raw.get("positive") or raw.get("prompt") or "").strip()
+    triggers = parse_triggers(raw)
+    positive = str(raw.get("positive") or raw.get("prompt") or raw.get("snippet") or "").strip()
     negative = str(raw.get("negative") or raw.get("negative_prompt") or "").strip()
 
     loras = []
@@ -274,7 +301,8 @@ def normalize_card(data, card_id):
         "id": cid,
         "name": name,
         "folder": cid.rsplit("/", 1)[0] if "/" in cid else "",
-        "trigger": trigger,
+        "triggers": triggers,
+        "trigger": triggers[0] if triggers else "",
         "positive": positive,
         "negative": negative,
         "loras": loras,
@@ -305,6 +333,7 @@ def save_card(card_id, card):
     normalized = normalize_card(card, card_id)
     payload = {
         "name": normalized["name"],
+        "triggers": normalized["triggers"],
         "trigger": normalized["trigger"],
         "positive": normalized["positive"],
         "negative": normalized["negative"],
@@ -491,6 +520,36 @@ _GENERIC_TRIGGER_TOKENS = {
     "person",
 }
 
+# Words that describe an appearance rather than name a character. A file name
+# such as ``krea2_xfibii-blonde-hair-curtain-bangs`` is imported as "Xfibii".
+_NAME_DESCRIPTOR_WORDS = {
+    "hair",
+    "haired",
+    "blonde",
+    "blond",
+    "brunette",
+    "redhead",
+    "bangs",
+    "fringe",
+    "freckles",
+    "freckled",
+    "slender",
+    "petite",
+    "busty",
+    "curvy",
+    "plump",
+    "tattoo",
+    "tattoos",
+    "tattooed",
+    "piercings",
+    "ponytail",
+    "braids",
+    "makeup",
+    "cups",
+    "breasts",
+    "cleavage",
+}
+
 
 def lora_roots():
     """Every configured ``loras`` directory as an absolute path."""
@@ -584,7 +643,12 @@ def lora_trigger_from_metadata(lora_path):
 
 
 def humanize_lora_name(filename):
-    """Readable character name from a LoRA file name."""
+    """Readable character name from a LoRA file name.
+
+    Descriptive suffixes (e.g. ``..._blonde-hair-curtain-bangs-...``) are not
+    part of the character's name, so they are dropped; the full text can still
+    be entered as the card's prompt snippet.
+    """
     stem = os.path.splitext(os.path.basename(str(filename or "")))[0].strip()
     if not stem:
         return ""
@@ -595,7 +659,16 @@ def humanize_lora_name(filename):
         name = match.group(2)
     name = re.sub(r"(?i)[_-](onetrainer|large|small|final)$", "", name)
     name = re.sub(r"(?i)[_-]v\d+(?:[_-](?:large|small|final))?$", "", name)
-    name = re.sub(r"[_-]+", " ", name)
+
+    tokens = [token for token in re.split(r"[_-]+", name) if token]
+    for index, token in enumerate(tokens):
+        if index == 0:
+            continue
+        if token.lower() in _NAME_DESCRIPTOR_WORDS:
+            tokens = tokens[:index]
+            break
+    # Capitalise all-lowercase file-name slugs without touching real casing.
+    name = " ".join(token[:1].upper() + token[1:] if token.islower() else token for token in tokens)
     name = re.sub(r"\s+", " ", name).strip()
     return name or stem
 
@@ -631,17 +704,34 @@ def scan_lora_import(
     overwrite=False,
     include_subfolders=True,
     only_loras=None,
+    name_overrides=None,
 ):
     """Candidates for turning installed LoRAs below ``folder`` into cards."""
     if trigger_mode not in _IMPORT_TRIGGER_MODES:
         trigger_mode = "name"
-    root_dir = resolve_lora_folder(folder)
-    if not root_dir:
-        raise ValueError("LoRA folder not found. Use a path below the ComfyUI loras directory.")
+    overrides = {}
+    if isinstance(name_overrides, dict):
+        for key, value in name_overrides.items():
+            cleaned = str(value or "").strip()
+            if str(key).strip() and cleaned:
+                overrides[str(key).replace("\\", "/").lower()] = cleaned
 
+    # The LoRA loader's folder widget accepts a trailing wildcard ("krea2/*")
+    # and an empty value for every LoRA folder.
     prefix = str(folder or "").replace("\\", "/").strip().strip("/")
+    if prefix.endswith("*"):
+        prefix = prefix.rstrip("*").rstrip("/")
+    root_dir = resolve_lora_folder(prefix) if prefix else None
+    if not root_dir and prefix:
+        raise ValueError("LoRA folder not found. Use a path below the ComfyUI loras directory.")
+    if not root_dir:
+        roots = lora_roots()
+        root_dir = roots[0] if roots else None
+    if not root_dir:
+        raise ValueError("No LoRA folder is configured.")
+
     prefix_length = len(prefix)
-    prefix_lower = (prefix + "/").lower()
+    prefix_lower = (prefix + "/").lower() if prefix else ""
     wanted = None
     if only_loras is not None:
         wanted = {str(name).replace("\\", "/").lower() for name in only_loras if str(name).strip()}
@@ -649,9 +739,9 @@ def scan_lora_import(
     loras = []
     for name in available_loras():
         normalized = str(name).replace("\\", "/")
-        if not normalized.lower().startswith(prefix_lower):
+        if prefix_lower and not normalized.lower().startswith(prefix_lower):
             continue
-        relative = normalized[prefix_length + 1:]
+        relative = normalized[prefix_length + 1:] if prefix_length else normalized
         if not relative or (not include_subfolders and "/" in relative):
             continue
         if wanted is not None and normalized.lower() not in wanted:
@@ -671,10 +761,10 @@ def scan_lora_import(
 
     entries = []
     for lora_name in loras:
-        relative = lora_name[prefix_length + 1:]
+        relative = lora_name[prefix_length + 1:] if prefix_length else lora_name
         directory = relative.rsplit("/", 1)[0] if "/" in relative else ""
         subfolder_parts = [part for part in directory.split("/") if part]
-        display_name = humanize_lora_name(relative)
+        display_name = overrides.get(lora_name.lower()) or humanize_lora_name(relative)
         version = lora_version_tag(relative)
 
         full_path = None
@@ -710,6 +800,8 @@ def scan_lora_import(
                 "name": card_id.rsplit("/", 1)[-1],
                 "folder": card_id.rsplit("/", 1)[0] if "/" in card_id else "",
                 "trigger": trigger,
+                "triggers": [trigger] if trigger else [],
+                "snippet": card_id.rsplit("/", 1)[-1],
                 "has_preview": bool(lora_preview_path(lora_name)),
                 "exists": bool(card_id.lower() in existing),
             }
@@ -717,7 +809,7 @@ def scan_lora_import(
     return root_dir, entries
 
 
-def _merge_import_card(card, lora_name, trigger):
+def _merge_import_card(card, lora_name, triggers, snippet):
     """Keep an existing card's prompts when re-importing the same LoRA."""
     loras = list(card.get("loras") or [])
     lowered = {entry["name"].replace("\\", "/").lower() for entry in loras}
@@ -731,9 +823,34 @@ def _merge_import_card(card, lora_name, trigger):
             }
         )
     card["loras"] = loras
-    if trigger and not card.get("trigger"):
-        card["trigger"] = trigger
+    merged = parse_triggers(card)
+    known = {trigger.lower() for trigger in merged}
+    for trigger in triggers or []:
+        if trigger and trigger.lower() not in known:
+            merged.append(trigger)
+            known.add(trigger.lower())
+    card["triggers"] = merged
+    card["trigger"] = merged[0] if merged else ""
+    if snippet and not card.get("positive"):
+        card["positive"] = snippet
     return card
+
+
+def _normalize_overrides(overrides):
+    """Index import overrides by lowercased LoRA name."""
+    indexed = {}
+    items = []
+    if isinstance(overrides, list):
+        items = overrides
+    elif isinstance(overrides, dict):
+        items = [dict(value, lora=key) for key, value in overrides.items() if isinstance(value, dict)]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        lora = str(item.get("lora") or "").replace("\\", "/").strip()
+        if lora:
+            indexed[lora.lower()] = item
+    return indexed
 
 
 def import_lora_cards(
@@ -743,11 +860,18 @@ def import_lora_cards(
     trigger_mode="name",
     overwrite=False,
     include_subfolders=True,
+    overrides=None,
 ):
     """Create cards for the selected LoRAs. Returns a summary dict."""
     wanted = None
     if loras is not None:
         wanted = [str(name).replace("\\", "/") for name in loras if str(name).strip()]
+    override_map = _normalize_overrides(overrides)
+    name_overrides = {
+        lora: str(entry.get("name") or "").strip()
+        for lora, entry in override_map.items()
+        if str(entry.get("name") or "").strip()
+    }
     _, entries = scan_lora_import(
         folder,
         target_folder=target_folder,
@@ -755,6 +879,7 @@ def import_lora_cards(
         overwrite=overwrite,
         include_subfolders=include_subfolders,
         only_loras=wanted,
+        name_overrides=name_overrides,
     )
     if not entries:
         raise ValueError("No LoRA files found in that folder")
@@ -763,19 +888,29 @@ def import_lora_cards(
     skipped = []
     failed = []
     for entry in entries:
+        override = override_map.get(entry["lora"].lower(), {})
+        if "triggers" in override or "trigger" in override:
+            triggers = parse_triggers(override)
+        else:
+            triggers = list(entry.get("triggers") or [])
+        snippet = override.get("snippet")
+        if snippet is None:
+            snippet = entry.get("snippet", entry["name"])
+        snippet = str(snippet)
         if entry["exists"] and not overwrite:
             skipped.append({"id": entry["id"], "reason": "exists"})
             continue
         try:
             if entry["exists"]:
                 existing = load_card(entry["id"]) or {}
-                payload = normalize_card(_merge_import_card(existing, entry["lora"], entry["trigger"]), entry["id"])
+                merged = _merge_import_card(existing, entry["lora"], triggers, snippet)
+                payload = normalize_card(merged, entry["id"])
             else:
                 payload = normalize_card(
                     {
                         "name": entry["name"],
-                        "trigger": entry["trigger"],
-                        "positive": "",
+                        "triggers": triggers,
+                        "positive": snippet,
                         "negative": "",
                         "loras": [entry["lora"]],
                         "tags": [],
@@ -849,23 +984,31 @@ def _trigger_match(text_lowered, trigger_lowered, match_mode):
 
 
 def match_cards(text, cards, match_mode="Whole Word", case_sensitive=False, match_all=False):
-    """Find cards whose trigger appears in ``text``.
+    """Find cards whose triggers appear in ``text``.
 
-    Matches are ordered by their position in the text, so the first trigger
-    written wins when ``match_all`` is disabled.
+    Every trigger of a card is checked, and the earliest hit is used. Matches
+    are ordered by their position in the text, so the first trigger written
+    wins when ``match_all`` is disabled.
     """
     if not text:
         return []
     haystack = text if case_sensitive else text.lower()
     hits = []
     for card in cards:
-        trigger = card.get("trigger") or ""
-        if not trigger:
-            continue
-        needle = trigger if case_sensitive else trigger.lower()
-        index = _trigger_match(haystack, needle, match_mode)
-        if index >= 0:
-            hits.append((index, card["id"], card))
+        triggers = card.get("triggers")
+        if not triggers:
+            triggers = [card.get("trigger") or ""]
+        best = -1
+        for trigger in triggers:
+            trigger = str(trigger or "").strip()
+            if not trigger:
+                continue
+            needle = trigger if case_sensitive else trigger.lower()
+            index = _trigger_match(haystack, needle, match_mode)
+            if index >= 0 and (best < 0 or index < best):
+                best = index
+        if best >= 0:
+            hits.append((best, card["id"], card))
     hits.sort(key=lambda item: (item[0], item[1]))
     matched = [card for _, _, card in hits]
     if not matched:
@@ -1053,8 +1196,12 @@ def build_outputs(cards, separator=", ", available=None):
     available = available if available is not None else available_loras()
 
     for card in cards:
-        if card.get("positive"):
-            positives.append(card["positive"])
+        # The prompt snippet is what downstream prompt nodes receive. Imported
+        # cards default to just their display name, so an empty snippet falls
+        # back to the name instead of emitting nothing.
+        snippet = card.get("positive") or card.get("name") or card.get("id", "")
+        if snippet:
+            positives.append(snippet)
         if card.get("negative"):
             negatives.append(card["negative"])
         names.append(card.get("name") or card.get("id", ""))
@@ -1343,7 +1490,10 @@ def _content_type(path):
 async def get_loras_endpoint(request):
     if not _read_allowed(request):
         return web.json_response({"error": "Forbidden: Local access only"}, status=403)
-    return web.json_response({"loras": sorted(available_loras())})
+    # Card LoRA names are stored with forward slashes; normalize so the editor
+    # can match them instead of flagging every entry as missing on Windows.
+    names = sorted({str(name).replace("\\", "/") for name in available_loras()}, key=str.lower)
+    return web.json_response({"loras": names})
 
 
 @routes.post("/saturnnodes/character_presets/save")
@@ -1566,6 +1716,7 @@ async def import_scan_endpoint(request):
             trigger_mode=payload.get("trigger_mode", "name"),
             overwrite=bool(payload.get("overwrite", False)),
             include_subfolders=payload.get("include_subfolders", True) is not False,
+            name_overrides=payload.get("name_overrides"),
         )
     except ValueError as exc:
         return web.json_response({"error": str(exc)}, status=400)
@@ -1600,6 +1751,7 @@ async def import_loras_endpoint(request):
             trigger_mode=payload.get("trigger_mode", "name"),
             overwrite=bool(payload.get("overwrite", False)),
             include_subfolders=payload.get("include_subfolders", True) is not False,
+            overrides=payload.get("overrides"),
         )
     except ValueError as exc:
         return web.json_response({"error": str(exc)}, status=400)

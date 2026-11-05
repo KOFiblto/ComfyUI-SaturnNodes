@@ -92,9 +92,10 @@ const PICKER_CSS = `
     background: #252525;
     border: 1px solid #353535;
     color: #aaa;
-    font-size: 9px;
+    /* 125% of the visual LoRA loader's .lora-toggle-btn (9px / 3px 8px). */
+    font-size: 11.25px;
     font-weight: bold;
-    padding: 3px 8px;
+    padding: 3.75px 10px;
     border-radius: 4px;
     cursor: pointer;
     transition: all 0.15s ease-in-out;
@@ -405,18 +406,21 @@ const PICKER_CSS = `
 }
 .saturn-char-actions {
     position: absolute;
-    inset: 0 0 20px 0;
+    top: 0;
+    left: 0;
+    right: 0;
     display: none;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-end;
     gap: 3px;
-    background: rgba(0, 0, 0, 0.45);
+    padding: 3px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0));
     z-index: 4;
 }
 .saturn-char-tile:hover .saturn-char-actions { display: flex; }
 .saturn-char-actions button {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     padding: 0;
     border: 1px solid #353535;
     border-radius: 4px;
@@ -446,127 +450,143 @@ const PICKER_CSS = `
     z-index: 100000;
 }
 .saturn-char-modal {
-    width: min(720px, 94vw);
-    max-height: 90vh;
+    width: min(1080px, 96vw);
+    max-height: 92vh;
     display: flex;
     flex-direction: column;
-    background: #241509;
-    color: #f2e6da;
-    border: 1px solid #6a3f20;
+    background: #111;
+    color: #eee;
+    border: 1px solid #2c2c2c;
     border-radius: 8px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.75);
     font-size: 12px;
 }
 .saturn-char-modal-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
-    border-bottom: 1px solid #4a2c18;
+    padding: 10px 14px;
+    border-bottom: 1px solid #262626;
+    font-size: 13px;
     font-weight: 600;
 }
 .saturn-char-modal-body {
-    padding: 10px 12px;
+    padding: 12px 14px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
 }
 .saturn-char-modal-foot {
     display: flex;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
-    padding: 8px 12px;
-    border-top: 1px solid #4a2c18;
+    padding: 10px 14px;
+    border-top: 1px solid #262626;
 }
 .saturn-char-modal-foot .spacer { flex: 1 1 auto; }
 .saturn-char-modal-foot .error { color: #ff8a8a; font-size: 11px; }
-.saturn-char-field { display: flex; flex-direction: column; gap: 2px; }
-.saturn-char-field > label { font-size: 10.5px; color: #c9b3a0; }
+.saturn-char-modal .saturn-char-btn {
+    /* 150% of the picker's base .saturn-char-btn (10px / 3px 9px). */
+    font-size: 15px;
+    padding: 5px 14px;
+}
+.saturn-char-field { display: flex; flex-direction: column; gap: 3px; }
+.saturn-char-field > label { font-size: 11px; color: #999; }
 .saturn-char-field input[type="text"],
 .saturn-char-field textarea,
 .saturn-char-field select,
 .saturn-char-lora-row select,
 .saturn-char-lora-row input[type="number"] {
-    background: #1b110a;
-    color: #f2e6da;
-    border: 1px solid #4a2c18;
+    background: #1b1b1b;
+    color: #eee;
+    border: 1px solid #333;
     border-radius: 4px;
-    padding: 4px 6px;
+    padding: 5px 7px;
     font-size: 12px;
     font-family: inherit;
 }
-.saturn-char-field textarea { min-height: 52px; resize: vertical; }
-.saturn-char-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.saturn-char-field textarea { min-height: 56px; resize: vertical; }
+.saturn-char-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .saturn-char-lora-head,
 .saturn-char-lora-row {
     display: grid;
-    grid-template-columns: 1fr 62px 62px 34px 24px;
-    gap: 4px;
+    grid-template-columns: 1fr 76px 76px 42px 30px;
+    gap: 6px;
     align-items: center;
 }
-.saturn-char-lora-head { font-size: 10px; color: #9c8471; }
+.saturn-char-lora-head { font-size: 10.5px; color: #888; }
 .saturn-char-lora-row button {
-    background: #3d2413;
-    border: 1px solid #6a3f20;
-    color: #f2e6da;
+    background: #252525;
+    border: 1px solid #353535;
+    color: #ddd;
     border-radius: 4px;
     cursor: pointer;
-    height: 24px;
+    height: 28px;
 }
+.saturn-char-lora-row button:hover { background: #303030; color: #fff; }
 .saturn-char-thumb-editor {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     align-items: flex-start;
-    border: 1px solid #4a2c18;
+    border: 1px solid #2c2c2c;
     border-radius: 6px;
-    padding: 8px;
+    padding: 10px;
 }
 .saturn-char-thumb-editor img {
-    width: 96px;
-    height: 96px;
+    width: 128px;
+    height: 128px;
     object-fit: cover;
     border-radius: 4px;
-    background: #120b06;
+    background: #1b1b1b;
 }
 .saturn-char-thumb-editor .no-image {
-    width: 96px;
-    height: 96px;
+    width: 128px;
+    height: 128px;
     border-radius: 4px;
-    background: #120b06;
+    background: #1b1b1b;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #6d5443;
+    color: #666;
     font-size: 10px;
 }
-.saturn-char-thumb-buttons { display: flex; flex-direction: column; gap: 5px; }
+.saturn-char-thumb-buttons { display: flex; flex-direction: column; gap: 8px; }
 .saturn-char-thumb-buttons .saturn-char-btn { text-align: center; }
-.saturn-char-hint { font-size: 10px; color: #9c8471; }
+.saturn-char-hint { font-size: 10px; color: #888; }
 .saturn-char-import-list {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    max-height: 42vh;
+    gap: 3px;
+    max-height: 46vh;
     overflow: auto;
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid #2c2c2c;
     border-radius: 6px;
     padding: 4px;
-    background: rgba(0, 0, 0, 0.18);
+    background: #161616;
 }
 .saturn-char-import-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 18px 240px 1fr auto;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 11px;
-    padding: 2px 4px;
+    padding: 3px 4px;
     border-radius: 4px;
 }
 .saturn-char-import-row:hover { background: rgba(255, 255, 255, 0.05); }
-.saturn-char-import-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.saturn-char-import-row .path { opacity: 0.55; font-size: 9.5px; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.saturn-char-import-row .tag { font-size: 9px; padding: 0 4px; border-radius: 6px; background: rgba(0, 255, 102, 0.18); color: #7bffb0; }
-.saturn-char-import-row.exists { opacity: 0.55; }
+.saturn-char-import-row input[type="text"] {
+    background: #1b1b1b;
+    color: #eee;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 11px;
+    font-family: inherit;
+    min-width: 0;
+}
+.saturn-char-import-row .tag { font-size: 9px; padding: 1px 5px; border-radius: 6px; background: rgba(0, 255, 102, 0.16); color: #7bffb0; }
+.saturn-char-import-row.exists { opacity: 0.62; }
 `;
 
 function injectStyles() {
@@ -593,6 +613,10 @@ function normalizeCardId(value) {
     text = text.replace(/\/{2,}/g, "/");
     if (text.toLowerCase().endsWith(".json")) text = text.slice(0, -5);
     return text;
+}
+
+function normalizeLoraName(value) {
+    return String(value || "").replace(/\\/g, "/").trim();
 }
 
 function isSafeCardId(value) {
@@ -635,14 +659,25 @@ function triggerIndex(text, trigger, mode, caseSensitive) {
     return haystack.indexOf(needle);
 }
 
+function cardTriggers(card) {
+    if (!card) return [];
+    if (Array.isArray(card.triggers)) {
+        return card.triggers.map((value) => String(value || "").trim()).filter(Boolean);
+    }
+    const legacy = String(card.trigger || "").trim();
+    return legacy ? [legacy] : [];
+}
+
 function computeMatches(cards, text, mode, caseSensitive, matchAll) {
     if (!text) return [];
     const hits = [];
     for (const card of cards) {
-        const trigger = (card.trigger || "").trim();
-        if (!trigger) continue;
-        const index = triggerIndex(text, trigger, mode, caseSensitive);
-        if (index >= 0) hits.push({ index, id: card.id, card });
+        let best = -1;
+        for (const trigger of cardTriggers(card)) {
+            const index = triggerIndex(text, trigger, mode, caseSensitive);
+            if (index >= 0 && (best < 0 || index < best)) best = index;
+        }
+        if (best >= 0) hits.push({ index: best, id: card.id, card });
     }
     hits.sort((a, b) => (a.index - b.index) || a.id.localeCompare(b.id));
     const ordered = hits.map((hit) => hit.card);
@@ -863,24 +898,6 @@ class CharacterPickerUI {
         sortGroup.appendChild(this.sortSelect);
         controlBar.appendChild(sortGroup);
 
-        // Folder filter: replaces the hidden native folder widget.
-        const folderGroup = el("div", "saturn-char-control-group");
-        folderGroup.appendChild(el("span", "saturn-char-control-label", "Folder:"));
-        this.folderSelect = el("select");
-        this.folderSelect.title = "Character preset folder";
-        const allOption = el("option", null, "All presets");
-        allOption.value = "";
-        this.folderSelect.appendChild(allOption);
-        this.folderSelect.addEventListener("change", () => {
-            if (this.folderWidget) {
-                this.folderWidget.value = this.folderSelect.value;
-                if (this.folderWidget.callback) this.folderWidget.callback(this.folderWidget.value);
-            }
-            this.refresh();
-        });
-        folderGroup.appendChild(this.folderSelect);
-        controlBar.appendChild(folderGroup);
-
         // View: drives the hidden display_mode widget.
         const viewGroup = el("div", "saturn-char-control-group");
         viewGroup.appendChild(el("span", "saturn-char-control-label", "View:"));
@@ -896,7 +913,7 @@ class CharacterPickerUI {
         const searchGroup = el("div", "saturn-char-control-group");
         this.searchInput = el("input");
         this.searchInput.type = "text";
-        this.searchInput.placeholder = "Search name, trigger or tag";
+        this.searchInput.placeholder = "Search name, trigger or snippet";
         this.searchInput.addEventListener("input", () => {
             this.search = this.searchInput.value.trim().toLowerCase();
             this.render();
@@ -943,6 +960,20 @@ class CharacterPickerUI {
 
         container.append(controlBar, this.statusEl, this.grid);
 
+        // Tile size slider, added as a native ComfyUI widget like the visual
+        // LoRA loader so it is saved per node and drawn under the node body.
+        this.node.properties = this.node.properties || {};
+        const storedTileSize = readStoredValue("saturn_char_picker_tile_size");
+        const initialTileSize = parseInt(
+            this.node.properties["tile_size"] != null
+                ? this.node.properties["tile_size"]
+                : (storedTileSize || "80"),
+            10
+        );
+        const tileSize = Number.isFinite(initialTileSize) && initialTileSize > 0 ? initialTileSize : 80;
+        this.node.properties["tile_size"] = tileSize;
+        container.style.setProperty("--saturn-char-tile-size", `${tileSize}px`);
+
         this.domWidget = this.node.addDOMWidget("character_picker", "HTML", container, {
             getValue: () => (this.hiddenWidget ? this.hiddenWidget.value : "[]"),
             setValue: (value) => {
@@ -955,7 +986,26 @@ class CharacterPickerUI {
         this.domWidget.computeLayoutSize = () => ({ minHeight: 180, maxHeight: undefined, minWidth: 320 });
         delete this.domWidget.computeSize;
 
-        this.hideWidget(this.folderWidget);
+        // Add the slider after the DOM widget so it renders below the picker,
+        // exactly like the Visual LoRA Loader's tile_size slider.
+        if (typeof this.node.addWidget === "function") {
+            this.tileWidget = this.node.addWidget(
+                "slider",
+                "tile_size",
+                tileSize,
+                (value) => {
+                    const size = parseInt(value, 10) || 80;
+                    this.node.properties["tile_size"] = size;
+                    this.container?.style.setProperty("--saturn-char-tile-size", `${size}px`);
+                    this.grid?.style.setProperty("--saturn-char-tile-size", `${size}px`);
+                    writeStoredValue("saturn_char_picker_tile_size", String(size));
+                    app.graph?.setDirtyCanvas?.(true, true);
+                },
+                { min: 50, max: 180, step: 1 }
+            );
+            this.tileWidget.serialize = false;
+        }
+
         this.hideWidget(getWidget(this.node, "separator"));
         this.hideWidget(this.selectionWidget);
         this.hideWidget(this.sortWidget);
@@ -1008,6 +1058,9 @@ class CharacterPickerUI {
         });
         if (this.includeDisabledWidget) {
             this.includeDisabledWidget.callback = () => this.refresh();
+        }
+        if (this.folderWidget) {
+            this.folderWidget.callback = () => this.refresh();
         }
 
         if (this.sortWidget && this.sortSelect) this.sortSelect.value = this.sortWidget.value || SORT_PRESETS[0];
@@ -1079,24 +1132,10 @@ class CharacterPickerUI {
             if (this.destroyed) return;
             this.cards = Array.isArray(data.cards) ? data.cards : [];
             this.folders = Array.isArray(data.folders) ? data.folders : [];
-            this.rebuildFolderSelect(folder);
             this.render();
         } catch (error) {
             this.setStatus(`Could not load character presets: ${error.message || error}`, "error");
         }
-    }
-
-    rebuildFolderSelect(current) {
-        this.folderSelect.innerHTML = "";
-        const rootOption = el("option", null, "All presets");
-        rootOption.value = "";
-        this.folderSelect.appendChild(rootOption);
-        this.folders.forEach((folder) => {
-            const option = el("option", null, folder);
-            option.value = folder;
-            this.folderSelect.appendChild(option);
-        });
-        this.folderSelect.value = this.folders.includes(current) ? current : "";
     }
 
     visibleCards() {
@@ -1104,7 +1143,8 @@ class CharacterPickerUI {
         if (this.search) {
             const needle = this.search;
             cards = cards.filter((card) => {
-                const haystack = [card.name, card.trigger, card.id, ...(card.tags || [])]
+                const triggers = cardTriggers(card);
+                const haystack = [card.name, card.id, ...triggers, ...(card.tags || [])]
                     .join(" ")
                     .toLowerCase();
                 return haystack.includes(needle);
@@ -1263,8 +1303,10 @@ class CharacterPickerUI {
 
         const loras = (card.loras || []).filter((entry) => entry.enabled !== false);
         const missing = card.missing_loras || [];
+        const triggers = cardTriggers(card);
         const tooltip = [`${card.name}${card.folder ? ` (${card.folder})` : ""}`];
-        tooltip.push(`Trigger: ${card.trigger || "none"}`);
+        if (triggers.length) tooltip.push(`Triggers: ${triggers.join(", ")}`);
+        if (card.positive && card.positive !== card.name) tooltip.push(`Snippet: ${card.positive}`);
         if (loras.length) tooltip.push(`${loras.length} LoRA${loras.length > 1 ? "s" : ""}`);
         if (missing.length) tooltip.push(`Missing: ${missing.join(", ")}`);
         if (card.enabled === false) tooltip.push("Disabled");
@@ -1302,12 +1344,6 @@ class CharacterPickerUI {
 
         const label = el("div", "saturn-char-label");
         label.appendChild(el("div", "saturn-char-name", card.name));
-        const trigger = String(card.trigger || "").trim();
-        if (trigger && trigger !== card.name) {
-            const triggerEl = el("div", "saturn-char-trigger", trigger);
-            triggerEl.title = `Trigger: ${trigger}`;
-            label.appendChild(triggerEl);
-        }
 
         const actions = el("div", "saturn-char-actions");
         const editButton = el("button", null, "\u270e");
@@ -1444,20 +1480,28 @@ class CharacterPickerUI {
     }
 
     async duplicateCard(card) {
-        const suggested = `${card.id} Copy`;
-        const newId = normalizeCardId(window.prompt("New card id (folders allowed)", suggested) || "");
-        if (!newId) return;
-        if (!isSafeCardId(newId)) {
-            this.setStatus("That card id is not valid.", "error");
-            return;
+        // Open the editor prefilled with a copy instead of writing immediately,
+        // so the duplicate can be renamed and tweaked before saving.
+        const existing = new Set(this.cards.map((item) => item.id.toLowerCase()));
+        let suffix = 1;
+        let newId = `${card.id} (${suffix})`;
+        while (existing.has(newId.toLowerCase())) {
+            suffix += 1;
+            newId = `${card.id} (${suffix})`;
         }
-        try {
-            await postJson("duplicate", { id: card.id, new_id: newId });
-            await this.refresh();
-            this.setStatus(`Duplicated as ${newId}.`, "ok");
-        } catch (error) {
-            this.setStatus(String(error.message || error), "error");
-        }
+        const copy = {
+            ...card,
+            id: newId,
+            name: newId.split("/").pop(),
+            has_preview: false,
+            mtime: 0,
+            usage: 0,
+            missing_loras: [],
+            loras: (card.loras || []).map((entry) => ({ ...entry })),
+            triggers: cardTriggers(card),
+            tags: [...(card.tags || [])],
+        };
+        this.openEditor(copy, { duplicate: true, sourceName: card.name });
     }
 
     async deleteCard(card) {
@@ -1486,11 +1530,12 @@ class CharacterPickerUI {
         const body = el("div", "saturn-char-modal-body");
 
         const folderField = el("div", "saturn-char-field");
-        folderField.appendChild(el("label", null, "LoRA folder (relative to the ComfyUI loras directory)"));
+        folderField.appendChild(el("label", null, "LoRA folder (relative to the ComfyUI loras directory, wildcards allowed)"));
         const folderInput = el("input");
         folderInput.type = "text";
-        folderInput.placeholder = "e.g. krea2/Celebrity";
+        folderInput.placeholder = "e.g. krea2/* or krea2/Celebrity";
         folderField.appendChild(folderInput);
+        folderField.appendChild(el("div", "saturn-char-hint", "Use krea2/* to include every subfolder of krea2."));
 
         const targetField = el("div", "saturn-char-field");
         targetField.appendChild(el("label", null, "Card folder (prefix for the imported cards)"));
@@ -1584,19 +1629,26 @@ class CharacterPickerUI {
             candidates.forEach((entry) => {
                 const row = el("div", "saturn-char-import-row");
                 if (entry.exists) row.classList.add("exists");
+                row.title = entry.lora;
                 const checkbox = el("input");
                 checkbox.type = "checkbox";
                 checkbox.checked = !entry.exists || overwriteInput.checked;
                 checkbox.addEventListener("change", updateImportState);
-                const name = el("span", "name", entry.name);
-                name.title = entry.id;
-                const path = el("span", "path", entry.lora);
-                path.title = entry.lora;
-                row.append(checkbox, name, path);
+                const nameInput = el("input");
+                nameInput.type = "text";
+                nameInput.value = entry.name || "";
+                nameInput.placeholder = "Card name";
+                nameInput.title = "Card name (edit before importing)";
+                const snippetInput = el("input");
+                snippetInput.type = "text";
+                snippetInput.value = entry.snippet || entry.name || "";
+                snippetInput.placeholder = "Prompt snippet";
+                snippetInput.title = "Prompt snippet emitted by this card";
+                row.append(checkbox, nameInput, snippetInput);
                 if (entry.exists) row.appendChild(el("span", "tag", "exists"));
-                if (entry.has_preview) row.appendChild(el("span", "tag", "preview"));
+                else if (entry.has_preview) row.appendChild(el("span", "tag", "preview"));
                 listEl.appendChild(row);
-                rows.push({ checkbox, entry });
+                rows.push({ checkbox, entry, nameInput, snippetInput });
             });
             updateImportState();
         };
@@ -1638,20 +1690,36 @@ class CharacterPickerUI {
         });
 
         importButton.addEventListener("click", async () => {
-            const selected = rows.filter((row) => row.checkbox.checked).map((row) => row.entry.lora);
-            if (!selected.length) {
+            const chosen = rows.filter((row) => row.checkbox.checked);
+            if (!chosen.length) {
                 errorEl.textContent = "Select at least one LoRA to import.";
                 return;
             }
+            const triggerMode = triggerSelect.value;
+            const overrides = chosen.map((row) => {
+                const name = row.nameInput.value.trim() || row.entry.name;
+                const triggers = triggerMode === "none"
+                    ? []
+                    : triggerMode === "metadata" && row.entry.trigger
+                        ? [row.entry.trigger]
+                        : [name];
+                return {
+                    lora: row.entry.lora,
+                    name,
+                    triggers,
+                    snippet: row.snippetInput.value,
+                };
+            });
             errorEl.textContent = "";
             importButton.disabled = true;
             try {
                 const data = await postJson("import_loras", {
                     folder: folderInput.value.trim(),
                     target_folder: targetInput.value.trim(),
-                    trigger_mode: triggerSelect.value,
+                    trigger_mode: triggerMode,
                     overwrite: overwriteInput.checked,
-                    loras: selected,
+                    loras: chosen.map((row) => row.entry.lora),
+                    overrides,
                 });
                 const created = Array.isArray(data.created) ? data.created.length : 0;
                 const failed = Array.isArray(data.failed) ? data.failed.length : 0;
@@ -1669,15 +1737,16 @@ class CharacterPickerUI {
         });
     }
 
-    async openEditor(card) {
+    async openEditor(card, options = {}) {
         if (this.modal) return;
 
-        const isNew = !card;
+        const isNew = !card || options.duplicate === true;
         const loraList = await fetchLoras().catch(() => []);
         const backdrop = el("div", "saturn-char-modal-backdrop");
         const modal = el("div", "saturn-char-modal");
         const head = el("div", "saturn-char-modal-head");
-        head.appendChild(el("span", null, isNew ? "New character preset" : `Edit ${card.name}`));
+        const title = options.duplicate ? `Duplicate of ${options.sourceName || card.name}` : (isNew ? "New character preset" : `Edit ${card.name}`);
+        head.appendChild(el("span", null, title));
         const closeButton = el("button", "saturn-char-btn", "Close");
         head.appendChild(closeButton);
 
@@ -1691,15 +1760,16 @@ class CharacterPickerUI {
         idField.appendChild(idInput);
 
         const triggerField = el("div", "saturn-char-field");
-        triggerField.appendChild(el("label", null, "Trigger word (matched in the prompt text)"));
+        triggerField.appendChild(el("label", null, "Triggers (comma separated, matched in the prompt text)"));
         const triggerInput = el("input");
         triggerInput.type = "text";
-        triggerInput.value = card?.trigger || "";
+        triggerInput.value = cardTriggers(card).join(", ");
+        triggerInput.placeholder = "e.g. Madison Beer, madison_beer";
         triggerField.appendChild(triggerInput);
 
         const prompts = el("div", "saturn-char-cols");
         const positiveField = el("div", "saturn-char-field");
-        positiveField.appendChild(el("label", null, "Positive prompt"));
+        positiveField.appendChild(el("label", null, "Prompt snippet (emitted as the positive output)"));
         const positiveInput = el("textarea");
         positiveInput.value = card?.positive || "";
         positiveField.appendChild(positiveInput);
@@ -1710,27 +1780,6 @@ class CharacterPickerUI {
         negativeInput.value = card?.negative || "";
         negativeField.appendChild(negativeInput);
         prompts.append(positiveField, negativeField);
-
-        const tagsField = el("div", "saturn-char-field");
-        tagsField.appendChild(el("label", null, "Tags (comma separated, used for search)"));
-        const tagsInput = el("input");
-        tagsInput.type = "text";
-        tagsInput.value = (card?.tags || []).join(", ");
-        tagsField.appendChild(tagsInput);
-
-        const notesField = el("div", "saturn-char-field");
-        notesField.appendChild(el("label", null, "Notes (optional)"));
-        const notesInput = el("textarea");
-        notesInput.value = card?.notes || "";
-        notesField.appendChild(notesInput);
-
-        const enabledField = el("div", "saturn-char-field");
-        const enabledLabel = el("label");
-        const enabledInput = el("input");
-        enabledInput.type = "checkbox";
-        enabledInput.checked = card ? card.enabled !== false : true;
-        enabledLabel.append(enabledInput, document.createTextNode(" Enabled (visible to the picker)"));
-        enabledField.appendChild(enabledLabel);
 
         const loraSection = el("div", "saturn-char-field");
         loraSection.appendChild(el("label", null, "LoRAs"));
@@ -1750,23 +1799,14 @@ class CharacterPickerUI {
         uploadInput.accept = "image/png,image/jpeg,image/webp";
         uploadInput.style.display = "none";
         uploadLabel.appendChild(uploadInput);
-        const useLoraButton = el("button", "saturn-char-btn", "Use LoRA preview");
-        useLoraButton.title = "Copy the preview image of this card's single LoRA";
+        const useLoraButton = el("button", "saturn-char-btn", "Fetch CivitAI Image");
+        useLoraButton.title = "Copy the CivitAI preview image of this card's single LoRA";
         const removeThumbButton = el("button", "saturn-char-btn", "Remove image");
         const thumbHint = el("div", "saturn-char-hint", "PNG, JPEG or WebP, max 12 MB.");
         thumbButtons.append(uploadLabel, useLoraButton, removeThumbButton, thumbHint);
         thumbSection.append(thumbPreviewWrap, thumbButtons);
 
-        body.append(
-            idField,
-            triggerField,
-            prompts,
-            tagsField,
-            notesField,
-            enabledField,
-            loraSection,
-            thumbSection
-        );
+        body.append(idField, triggerField, prompts, loraSection, thumbSection);
 
         const foot = el("div", "saturn-char-modal-foot");
         const errorEl = el("span", "error");
@@ -1823,18 +1863,36 @@ class CharacterPickerUI {
         const addLoraRow = (entry) => {
             const row = el("div", "saturn-char-lora-row");
             const select = el("select");
-            const known = new Set(loraList);
-            const optionNames = [...loraList];
-            if (entry.name && !known.has(entry.name)) optionNames.unshift(entry.name);
+            // Card LoRA names are stored with forward slashes while the server
+            // also normalizes them; compare case-insensitively on that form so
+            // Windows entries with "\" are not flagged as missing.
+            const known = new Set(loraList.map((name) => normalizeLoraName(name).toLowerCase()));
+            const optionNames = [];
+            const seen = new Set();
+            loraList.forEach((name) => {
+                const normalized = normalizeLoraName(name);
+                const key = normalized.toLowerCase();
+                if (!normalized || seen.has(key)) return;
+                seen.add(key);
+                optionNames.push(normalized);
+            });
+            const entryName = normalizeLoraName(entry.name);
+            const entryKey = entryName.toLowerCase();
+            if (entryName && !known.has(entryKey)) {
+                optionNames.unshift(entryName);
+                seen.add(entryKey);
+            }
             const emptyOption = el("option", null, "\u2014 none \u2014");
             emptyOption.value = "";
             select.appendChild(emptyOption);
             optionNames.forEach((name) => {
-                const option = el("option", null, entry.name && name === entry.name && !known.has(name) ? `${name} (missing)` : name);
+                const key = name.toLowerCase();
+                const missing = entryKey && key === entryKey && !known.has(key);
+                const option = el("option", null, missing ? `${name} (missing)` : name);
                 option.value = name;
                 select.appendChild(option);
             });
-            select.value = entry.name || "";
+            select.value = entryName;
 
             const modelInput = el("input");
             modelInput.type = "number";
@@ -1926,17 +1984,21 @@ class CharacterPickerUI {
             const loras = Array.from(loraRows.children)
                 .map((row) => row._read())
                 .filter((entry) => entry.name);
+            const triggers = triggerInput.value
+                .split(",")
+                .map((value) => value.trim())
+                .filter(Boolean);
             const payload = {
                 id: cardId,
                 original_id: card ? card.id : cardId,
                 card: {
                     name: cardId.split("/").pop(),
-                    trigger: triggerInput.value.trim(),
+                    triggers,
                     positive: positiveInput.value,
                     negative: negativeInput.value,
-                    tags: tagsInput.value,
-                    notes: notesInput.value,
-                    enabled: enabledInput.checked,
+                    tags: [],
+                    notes: "",
+                    enabled: true,
                     loras,
                 },
                 thumbnail_data_url: pendingThumb || null,
