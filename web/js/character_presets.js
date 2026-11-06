@@ -520,6 +520,13 @@ const PICKER_CSS = `
 }
 .saturn-char-field textarea { min-height: 56px; resize: vertical; }
 .saturn-char-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; min-width: 0; }
+.saturn-char-editor-fields .saturn-char-cols { flex: 1; min-height: 150px; }
+.saturn-char-cols .saturn-char-field { min-height: 0; }
+.saturn-char-cols .saturn-char-field textarea {
+    flex: 1;
+    min-height: 0;
+    resize: none;
+}
 .saturn-char-lora-head,
 .saturn-char-lora-row {
     display: grid;
@@ -543,7 +550,7 @@ const PICKER_CSS = `
     display: grid;
     grid-template-columns: minmax(220px, 30%) minmax(0, 1fr);
     gap: 14px;
-    align-items: start;
+    align-items: stretch;
     min-width: 0;
 }
 .saturn-char-editor-fields {
@@ -551,6 +558,7 @@ const PICKER_CSS = `
     flex-direction: column;
     gap: 10px;
     min-width: 0;
+    height: 100%;
 }
 .saturn-char-thumb-editor {
     display: flex;
@@ -564,21 +572,22 @@ const PICKER_CSS = `
 .saturn-char-thumb-preview {
     position: relative;
     width: 100%;
+    aspect-ratio: 3 / 4;
     border-radius: 4px;
     overflow: hidden;
     background: #1b1b1b;
 }
-.saturn-char-thumb-content { width: 100%; }
+.saturn-char-thumb-content { width: 100%; height: 100%; }
 .saturn-char-thumb-preview img {
     display: block;
     width: 100%;
-    height: 220px;
+    height: 100%;
     object-fit: cover;
     background: #1b1b1b;
 }
 .saturn-char-thumb-preview .no-image {
     width: 100%;
-    height: 220px;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -609,7 +618,8 @@ const PICKER_CSS = `
 }
 .saturn-char-icon-btn:hover { background: #007acc; border-color: #0098ff; }
 .saturn-char-fetch-btn { width: 100%; text-align: center; }
-.saturn-char-fetch-status { font-size: 10.5px; color: #888; min-height: 14px; }
+.saturn-char-fetch-status { font-size: 10.5px; color: #888; }
+.saturn-char-fetch-status:empty { display: none; }
 .saturn-char-fetch-status.ok { color: #6dff9a; }
 .saturn-char-fetch-status.warn { color: #ffcf70; }
 .saturn-char-fetch-status.error { color: #ff8a8a; }
@@ -1917,7 +1927,6 @@ class CharacterPickerUI {
         prompts.append(positiveField, negativeField);
 
         const loraSection = el("div", "saturn-char-field");
-        loraSection.appendChild(el("label", null, "LoRAs"));
         const loraHead = el("div", "saturn-char-lora-head");
         ["LoRA", "Model", "Clip", "On", ""].forEach((label) => loraHead.appendChild(el("span", null, label)));
         const loraRows = el("div");

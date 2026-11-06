@@ -271,6 +271,16 @@ assert.deepEqual(
 const styleText = document.getElementById("saturn-character-presets-style").textContent;
 assert.match(styleText, /width:\s*var\(--saturn-char-tile-size, 80px\)/, "tiles use a fixed width");
 assert.match(styleText, /aspect-ratio:\s*3 \/ 4/, "tiles keep the LoRA loader card ratio");
+assert.match(
+    styleText,
+    /\.saturn-char-thumb-preview \{[^}]*aspect-ratio:\s*3 \/ 4/s,
+    "the editor preview uses the same 3:4 ratio as the tiles"
+);
+assert.match(
+    styleText,
+    /\.saturn-char-editor-fields \.saturn-char-cols \{[^}]*flex:\s*1/s,
+    "the prompt fields grow into the remaining editor height"
+);
 assert.doesNotMatch(styleText, /minmax\(96px/, "the width-stretched grid is gone");
 
 // Manual selection mirrors the Visual LoRA Loader: a plain click selects only
