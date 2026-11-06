@@ -1875,6 +1875,14 @@ class CharacterPickerUI {
         idInput.value = card ? card.id : this.suggestNewCardId();
         idField.appendChild(idInput);
 
+        const nameField = el("div", "saturn-char-field");
+        nameField.appendChild(el("label", null, "Display name (shown on the node)"));
+        const nameInput = el("input");
+        nameInput.type = "text";
+        nameInput.value = card?.name || (idInput.value.split("/").pop() || "");
+        nameInput.placeholder = "e.g. Madison Beer";
+        nameField.appendChild(nameInput);
+
         const triggerField = el("div", "saturn-char-field");
         triggerField.appendChild(el("label", null, "Triggers (comma separated, matched in the prompt text)"));
         const triggerInput = el("input");
@@ -1882,6 +1890,17 @@ class CharacterPickerUI {
         triggerInput.value = cardTriggers(card).join(", ");
         triggerInput.placeholder = "e.g. Madison Beer, madison_beer";
         triggerField.appendChild(triggerInput);
+
+        // Keep the default display name in sync with the card id until the user
+        // types a custom name.
+        let nameTouched = Boolean(card?.name);
+        nameInput.addEventListener("input", () => {
+            nameTouched = nameInput.value.trim() !== "";
+        });
+        idInput.addEventListener("input", () => {
+            if (nameTouched) return;
+            nameInput.value = normalizeCardId(idInput.value).split("/").pop() || "";
+        });
 
         const prompts = el("div", "saturn-char-cols");
         const positiveField = el("div", "saturn-char-field");
@@ -1935,12 +1954,12 @@ class CharacterPickerUI {
         thumbSection.append(thumbFrame, fetchButton, fetchStatus, thumbHint);
 
         const editorFields = el("div", "saturn-char-editor-fields");
-        editorFields.append(idField, triggerField);
+        editorFields.append(idField, nameField, triggerField, prompts);
 
         const editorTop = el("div", "saturn-char-editor-top");
         editorTop.append(thumbSection, editorFields);
 
-        body.append(editorTop, prompts, loraSection);
+        body.append(editorTop, loraSection);
 
         const foot = el("div", "saturn-char-modal-foot");
         const errorEl = el("span", "error");
@@ -2149,7 +2168,7 @@ class CharacterPickerUI {
                 id: cardId,
                 original_id: card ? card.id : cardId,
                 card: {
-                    name: cardId.split("/").pop(),
+                    name: nameInput.value.trim() || cardId.split("/").pop(),
                     triggers,
                     positive: positiveInput.value,
                     negative: negativeInput.value,

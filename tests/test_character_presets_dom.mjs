@@ -559,14 +559,25 @@ assert.deepEqual(
 assert.equal(ui.modal, null, "the modal closes after importing");
 assert.match(ui.statusEl.textContent, /Imported 1 card/, "the picker reports the import result");
 
-// Card editor: wide two-column top row with the image on the left, id and
-// triggers beside it, icon image actions and an inline fetch status.
+// Card editor: wide two-column top row with the image on the left, id, name,
+// triggers and prompts beside it, icon image actions and an inline fetch status.
 await ui.openEditor(null);
 assert.ok(ui.modal, "the card editor opens");
 assert.ok(ui.modal.querySelector(".saturn-char-editor-top"), "the editor uses the two-column top row");
-assert.ok(ui.modal.querySelector(".saturn-char-editor-fields"), "id and triggers sit beside the image");
-const editorIdInput = ui.modal.querySelector(".saturn-char-editor-fields input");
+const editorFields = ui.modal.querySelector(".saturn-char-editor-fields");
+assert.ok(editorFields, "id and triggers sit beside the image");
+const editorFieldInputs = editorFields.querySelectorAll("input");
+const editorIdInput = editorFieldInputs[0];
+const editorNameInput = editorFieldInputs[1];
+const editorTriggerInput = editorFieldInputs[2];
 assert.equal(editorIdInput.value, "New Character", "new cards get a normalized default id");
+assert.equal(editorNameInput.value, "New Character", "the display name follows the card id by default");
+assert.equal(editorFieldInputs.length, 3, "the editor exposes id, display name and triggers");
+assert.equal(
+    editorFields.querySelectorAll(".saturn-char-cols").length,
+    1,
+    "the prompt and negative prompt sit under the triggers beside the image"
+);
 assert.equal(
     ui.modal.querySelectorAll(".saturn-char-icon-btn").length,
     2,
@@ -579,13 +590,31 @@ assert.equal(fetchButton.textContent, "Fetch CivitAI Image", "the fetch action k
 fetchButton.click();
 assert.match(fetchStatus.textContent, /Save the card first/, "fetching before saving reports a hint");
 
+editorIdInput.value = "Krea2/Hero";
+editorIdInput.dispatchEvent({ type: "input" });
+assert.equal(editorNameInput.value, "Hero", "the display name follows id edits until it is customized");
+editorNameInput.value = "Hero Display";
+editorNameInput.dispatchEvent({ type: "input" });
+editorTriggerInput.value = "Hero";
+editorIdInput.value = "Krea2/Hero Display";
+editorIdInput.dispatchEvent({ type: "input" });
+assert.equal(editorNameInput.value, "Hero Display", "a custom display name survives later id edits");
+
+const editorSave = ui.modal
+    .querySelectorAll("button")
+    .find((button) => button.textContent === "Save");
+editorSave.click();
+await sleep(40);
+const saveCall = importCalls.find((call) => call.url.includes("/character_presets/save"));
+assert.ok(saveCall, "saving posts the card");
+assert.equal(saveCall.body.card.name, "Hero Display", "the display name is saved separately from the card id");
+assert.equal(saveCall.body.id, "Krea2/Hero Display", "the card id is saved from the id field");
+assert.equal(ui.modal, null, "the editor closes after saving");
+
 ui.allCardIds.add("New Character");
 assert.equal(ui.suggestNewCardId(), "New Character 2", "repeated new cards get a unique id");
 ui.folderWidget.value = "Krea2\\";
 assert.equal(ui.suggestNewCardId(), "Krea2/New Character", "new ids normalize the folder slashes");
-
-ui.modal.querySelector(".saturn-char-modal-head button").click();
-assert.equal(ui.modal, null, "the editor closes");
 
 ui.destroy();
 assert.equal(intervals.length, 1, "the detect watcher is registered once");
