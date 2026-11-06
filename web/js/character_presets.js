@@ -1442,8 +1442,7 @@ class CharacterPickerUI {
 
     visualCardOrder() {
         if (!this.grid) return [];
-        return this.grid
-            .querySelectorAll(".saturn-char-tile")
+        return Array.from(this.grid.querySelectorAll(".saturn-char-tile"))
             .map((tile) => tile.getAttribute("data-card-id"))
             .filter(Boolean);
     }
