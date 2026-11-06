@@ -112,6 +112,11 @@ const PICKER_CSS = `
     box-shadow: 0 0 5px rgba(0, 122, 204, 0.4);
 }
 .saturn-char-toggle-btn:disabled { opacity: 0.45; cursor: default; }
+.saturn-char-toggle-btn.icon {
+    min-width: 30px;
+    padding: 3.75px 8px;
+    font-size: 13px;
+}
 .saturn-char-btn {
     background: #252525;
     border: 1px solid #353535;
@@ -450,10 +455,12 @@ const PICKER_CSS = `
     z-index: 100000;
 }
 .saturn-char-modal {
-    width: min(1080px, 96vw);
+    width: min(1440px, 97vw);
+    max-width: 97vw;
     max-height: 92vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
     background: #111;
     color: #eee;
     border: 1px solid #2c2c2c;
@@ -473,9 +480,11 @@ const PICKER_CSS = `
 .saturn-char-modal-body {
     padding: 12px 14px;
     overflow-y: auto;
+    overflow-x: hidden;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    min-width: 0;
 }
 .saturn-char-modal-foot {
     display: flex;
@@ -505,17 +514,22 @@ const PICKER_CSS = `
     padding: 5px 7px;
     font-size: 12px;
     font-family: inherit;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
 }
 .saturn-char-field textarea { min-height: 56px; resize: vertical; }
-.saturn-char-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.saturn-char-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; min-width: 0; }
 .saturn-char-lora-head,
 .saturn-char-lora-row {
     display: grid;
-    grid-template-columns: 1fr 76px 76px 42px 30px;
+    grid-template-columns: minmax(0, 1fr) 70px 70px 40px 30px;
     gap: 6px;
     align-items: center;
+    min-width: 0;
 }
 .saturn-char-lora-head { font-size: 10.5px; color: #888; }
+.saturn-char-lora-row select { width: 100%; min-width: 0; }
 .saturn-char-lora-row button {
     background: #252525;
     border: 1px solid #353535;
@@ -525,34 +539,80 @@ const PICKER_CSS = `
     height: 28px;
 }
 .saturn-char-lora-row button:hover { background: #303030; color: #fff; }
+.saturn-char-editor-top {
+    display: grid;
+    grid-template-columns: minmax(220px, 30%) minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+    min-width: 0;
+}
+.saturn-char-editor-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
 .saturn-char-thumb-editor {
     display: flex;
-    gap: 12px;
-    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
     border: 1px solid #2c2c2c;
     border-radius: 6px;
     padding: 10px;
+    min-width: 0;
 }
-.saturn-char-thumb-editor img {
-    width: 128px;
-    height: 128px;
+.saturn-char-thumb-preview {
+    position: relative;
+    width: 100%;
+    border-radius: 4px;
+    overflow: hidden;
+    background: #1b1b1b;
+}
+.saturn-char-thumb-content { width: 100%; }
+.saturn-char-thumb-preview img {
+    display: block;
+    width: 100%;
+    height: 220px;
     object-fit: cover;
-    border-radius: 4px;
     background: #1b1b1b;
 }
-.saturn-char-thumb-editor .no-image {
-    width: 128px;
-    height: 128px;
-    border-radius: 4px;
-    background: #1b1b1b;
+.saturn-char-thumb-preview .no-image {
+    width: 100%;
+    height: 220px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #666;
-    font-size: 10px;
+    font-size: 11px;
 }
-.saturn-char-thumb-buttons { display: flex; flex-direction: column; gap: 8px; }
-.saturn-char-thumb-buttons .saturn-char-btn { text-align: center; }
+.saturn-char-thumb-actions {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    display: flex;
+    gap: 4px;
+}
+.saturn-char-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    background: rgba(20, 20, 20, 0.86);
+    color: #fff;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+}
+.saturn-char-icon-btn:hover { background: #007acc; border-color: #0098ff; }
+.saturn-char-fetch-btn { width: 100%; text-align: center; }
+.saturn-char-fetch-status { font-size: 10.5px; color: #888; min-height: 14px; }
+.saturn-char-fetch-status.ok { color: #6dff9a; }
+.saturn-char-fetch-status.warn { color: #ffcf70; }
+.saturn-char-fetch-status.error { color: #ff8a8a; }
 .saturn-char-hint { font-size: 10px; color: #888; }
 .saturn-char-import-list {
     display: flex;
@@ -811,9 +871,10 @@ class CharacterPickerUI {
         this.cards = [];
         this.folders = [];
         this.matchedIds = new Set();
+        this.allCardIds = new Set();
+        this.selectionAnchor = null;
         this.detectActive = false;
         this.lastDetectSignature = null;
-        this.search = "";
         this.destroyed = false;
         this.modal = null;
 
@@ -910,32 +971,20 @@ class CharacterPickerUI {
         viewGroup.append(this.scrollButton, this.showAllButton);
         controlBar.appendChild(viewGroup);
 
-        const searchGroup = el("div", "saturn-char-control-group");
-        this.searchInput = el("input");
-        this.searchInput.type = "text";
-        this.searchInput.placeholder = "Search name, trigger or snippet";
-        this.searchInput.addEventListener("input", () => {
-            this.search = this.searchInput.value.trim().toLowerCase();
-            this.render();
-        });
-        searchGroup.appendChild(this.searchInput);
-        controlBar.appendChild(searchGroup);
-
         const actionGroup = el("div", "saturn-char-control-group");
-        this.newButton = el("button", "saturn-char-toggle-btn", "New");
+        this.newButton = el("button", "saturn-char-toggle-btn icon", "\uFF0B");
         this.newButton.title = "Create a new character preset card";
+        this.newButton.setAttribute?.("aria-label", "New character preset");
         this.newButton.addEventListener("click", () => this.openEditor(null));
 
-        this.importButton = el("button", "saturn-char-toggle-btn", "Import");
-        this.importButton.title = "Create cards from installed LoRAs";
-        this.importButton.addEventListener("click", () => this.openImportModal());
-
-        this.refreshButton = el("button", "saturn-char-toggle-btn", "Refresh");
+        this.refreshButton = el("button", "saturn-char-toggle-btn icon", "\u21BB");
         this.refreshButton.title = "Rescan the presets folder";
+        this.refreshButton.setAttribute?.("aria-label", "Refresh presets");
         this.refreshButton.addEventListener("click", () => this.refresh());
 
-        this.openFolderButton = el("button", "saturn-char-toggle-btn", "Folder");
+        this.openFolderButton = el("button", "saturn-char-toggle-btn icon", "\uD83D\uDCC2");
         this.openFolderButton.title = "Open the character presets folder";
+        this.openFolderButton.setAttribute?.("aria-label", "Open presets folder");
         this.openFolderButton.addEventListener("click", async () => {
             try {
                 await postJson("open_folder", {});
@@ -944,7 +993,7 @@ class CharacterPickerUI {
             }
         });
 
-        actionGroup.append(this.newButton, this.importButton, this.refreshButton, this.openFolderButton);
+        actionGroup.append(this.newButton, this.refreshButton, this.openFolderButton);
         controlBar.appendChild(actionGroup);
 
         this.statusEl = el("div", "saturn-char-status", "");
@@ -1121,7 +1170,7 @@ class CharacterPickerUI {
 
     async refresh() {
         if (this.destroyed) return;
-        const folder = this.folderWidget?.value || "";
+        const folder = String(this.folderWidget?.value || "").replace(/\\/g, "/").trim();
         const includeDisabled = this.includeDisabledWidget?.value === true;
         try {
             const response = await api.fetchApi(
@@ -1132,25 +1181,37 @@ class CharacterPickerUI {
             if (this.destroyed) return;
             this.cards = Array.isArray(data.cards) ? data.cards : [];
             this.folders = Array.isArray(data.folders) ? data.folders : [];
+            const ids = Array.isArray(data.ids)
+                ? data.ids.map(String)
+                : this.cards.map((card) => card.id);
+            this.allCardIds = new Set(ids);
+            const removed = this.pruneSelection(this.allCardIds);
             this.render();
+            if (removed) {
+                this.setStatus(
+                    `Removed ${removed} selection${removed === 1 ? "" : "s"} that no longer exist${removed === 1 ? "s" : ""}.`,
+                    "warn"
+                );
+            }
         } catch (error) {
             this.setStatus(`Could not load character presets: ${error.message || error}`, "error");
         }
     }
 
-    visibleCards() {
-        let cards = this.cards;
-        if (this.search) {
-            const needle = this.search;
-            cards = cards.filter((card) => {
-                const triggers = cardTriggers(card);
-                const haystack = [card.name, card.id, ...triggers, ...(card.tags || [])]
-                    .join(" ")
-                    .toLowerCase();
-                return haystack.includes(needle);
-            });
+    pruneSelection(validIds) {
+        const selected = readSelected(this.hiddenWidget);
+        const next = selected.filter((id) => validIds.has(id));
+        if (next.length === selected.length) return 0;
+        if (this.selectionAnchor && !validIds.has(this.selectionAnchor)) {
+            this.selectionAnchor = null;
         }
-        return sortCards(cards, this.sortWidget?.value || SORT_PRESETS[0], this.folderPositionWidget?.value);
+        writeSelected(this.hiddenWidget, next);
+        this.updateSelectionStyles();
+        return selected.length - next.length;
+    }
+
+    visibleCards() {
+        return sortCards(this.cards, this.sortWidget?.value || SORT_PRESETS[0], this.folderPositionWidget?.value);
     }
 
     groupCards(cards) {
@@ -1202,9 +1263,7 @@ class CharacterPickerUI {
             const empty = el(
                 "div",
                 "saturn-char-empty",
-                this.cards.length
-                    ? "No presets match your search."
-                    : "No character presets yet. Use New to create one, or drop <Name>.json cards into the presets folder."
+                "No character presets in this folder. Use the + button to create one, or clear the folder filter."
             );
             this.grid.appendChild(empty);
             this.updateDetectPreview();
@@ -1373,7 +1432,7 @@ class CharacterPickerUI {
         if (selected.has(card.id)) tile.classList.add("selected");
         if (this.matchedIds.has(card.id)) tile.classList.add("matched");
 
-        tile.addEventListener("click", () => this.toggleSelection(card.id));
+        tile.addEventListener("click", (event) => this.handleCardClick(card.id, event));
         tile.addEventListener("dblclick", (event) => {
             event.preventDefault();
             this.openEditor(card);
@@ -1381,15 +1440,59 @@ class CharacterPickerUI {
         return tile;
     }
 
-    toggleSelection(cardId) {
+    visualCardOrder() {
+        if (!this.grid) return [];
+        return this.grid
+            .querySelectorAll(".saturn-char-tile")
+            .map((tile) => tile.getAttribute("data-card-id"))
+            .filter(Boolean);
+    }
+
+    handleCardClick(cardId, event = {}) {
         if (this.detectActive) {
             this.setStatus("The connected text picks the cards. Disconnect it to click cards.", "warn");
             return;
         }
         const selected = readSelected(this.hiddenWidget);
-        const index = selected.indexOf(cardId);
-        if (index >= 0) selected.splice(index, 1);
-        else selected.push(cardId);
+        const order = this.visualCardOrder();
+
+        if (event.shiftKey) {
+            const anchor = this.selectionAnchor && order.includes(this.selectionAnchor)
+                ? this.selectionAnchor
+                : null;
+            const from = anchor ? order.indexOf(anchor) : -1;
+            const to = order.indexOf(cardId);
+            if (from < 0 || to < 0) {
+                selected.length = 0;
+                selected.push(cardId);
+            } else {
+                const range = order.slice(Math.min(from, to), Math.max(from, to) + 1);
+                const existing = new Set(selected);
+                range.forEach((id) => {
+                    if (!existing.has(id)) {
+                        selected.push(id);
+                        existing.add(id);
+                    }
+                });
+            }
+            this.selectionAnchor = cardId;
+        } else if (event.ctrlKey || event.metaKey) {
+            const index = selected.indexOf(cardId);
+            if (index >= 0) selected.splice(index, 1);
+            else selected.push(cardId);
+            this.selectionAnchor = cardId;
+        } else {
+            // Plain click always replaces the selection with this single card,
+            // matching the Visual LoRA Loader. Clicking the only selected card
+            // again clears the selection.
+            if (selected.length === 1 && selected[0] === cardId) selected.length = 0;
+            else {
+                selected.length = 0;
+                selected.push(cardId);
+            }
+            this.selectionAnchor = cardId;
+        }
+
         writeSelected(this.hiddenWidget, selected);
         this.updateSelectionStyles();
         this.node.triggerSlotEvent?.(0);
@@ -1436,7 +1539,7 @@ class CharacterPickerUI {
         const matchMode = this.matchModeWidget?.value || "Whole Word";
         const caseSensitive = this.caseWidget?.value === true;
         const matchAll = this.matchAllWidget?.value === true;
-        const signature = JSON.stringify([text, matchMode, caseSensitive, matchAll, this.search]);
+        const signature = JSON.stringify([text, matchMode, caseSensitive, matchAll]);
         if (signature === this.lastDetectSignature) return;
         this.lastDetectSignature = signature;
 
@@ -1479,10 +1582,24 @@ class CharacterPickerUI {
         this.setStatus(`Used: ${names.join(", ") || cardIds.join(", ")}`, "ok");
     }
 
+    suggestNewCardId() {
+        const folder = normalizeCardId(this.folderWidget?.value || "");
+        const base = folder ? `${folder}/New Character` : "New Character";
+        const existing = new Set([...this.allCardIds].map((id) => id.toLowerCase()));
+        let candidate = base;
+        let suffix = 2;
+        while (existing.has(candidate.toLowerCase())) {
+            candidate = `${base} ${suffix}`;
+            suffix += 1;
+        }
+        return candidate;
+    }
+
     async duplicateCard(card) {
         // Open the editor prefilled with a copy instead of writing immediately,
         // so the duplicate can be renamed and tweaked before saving.
-        const existing = new Set(this.cards.map((item) => item.id.toLowerCase()));
+        const existing = new Set([...this.allCardIds, ...this.cards.map((item) => item.id)]
+            .map((id) => String(id).toLowerCase()));
         let suffix = 1;
         let newId = `${card.id} (${suffix})`;
         while (existing.has(newId.toLowerCase())) {
@@ -1756,7 +1873,7 @@ class CharacterPickerUI {
         idField.appendChild(el("label", null, "Card id (use Folder/Name for categories)"));
         const idInput = el("input");
         idInput.type = "text";
-        idInput.value = card ? card.id : (this.folderWidget?.value ? `${this.folderWidget.value}/New Character` : "New Character");
+        idInput.value = card ? card.id : this.suggestNewCardId();
         idField.appendChild(idInput);
 
         const triggerField = el("div", "saturn-char-field");
@@ -1791,22 +1908,40 @@ class CharacterPickerUI {
         loraSection.append(loraHead, loraRows, addLoraButton);
 
         const thumbSection = el("div", "saturn-char-thumb-editor");
-        const thumbPreviewWrap = el("div");
-        const thumbButtons = el("div", "saturn-char-thumb-buttons");
-        const uploadLabel = el("label", "saturn-char-btn", "Upload image");
+        const thumbFrame = el("div", "saturn-char-thumb-preview");
+        const thumbPreviewWrap = el("div", "saturn-char-thumb-content");
+        const thumbActions = el("div", "saturn-char-thumb-actions");
+
+        const uploadLabel = el("label", "saturn-char-icon-btn", "\u2B06");
+        uploadLabel.title = "Upload image";
+        uploadLabel.setAttribute?.("aria-label", "Upload image");
         const uploadInput = el("input");
         uploadInput.type = "file";
         uploadInput.accept = "image/png,image/jpeg,image/webp";
         uploadInput.style.display = "none";
         uploadLabel.appendChild(uploadInput);
-        const useLoraButton = el("button", "saturn-char-btn", "Fetch CivitAI Image");
-        useLoraButton.title = "Copy the CivitAI preview image of this card's single LoRA";
-        const removeThumbButton = el("button", "saturn-char-btn", "Remove image");
-        const thumbHint = el("div", "saturn-char-hint", "PNG, JPEG or WebP, max 12 MB.");
-        thumbButtons.append(uploadLabel, useLoraButton, removeThumbButton, thumbHint);
-        thumbSection.append(thumbPreviewWrap, thumbButtons);
 
-        body.append(idField, triggerField, prompts, loraSection, thumbSection);
+        const removeThumbButton = el("button", "saturn-char-icon-btn", "\u2715");
+        removeThumbButton.title = "Remove image";
+        removeThumbButton.setAttribute?.("aria-label", "Remove image");
+
+        thumbActions.append(uploadLabel, removeThumbButton);
+        thumbFrame.append(thumbPreviewWrap, thumbActions);
+
+        const fetchButton = el("button", "saturn-char-btn saturn-char-fetch-btn", "Fetch CivitAI Image");
+        fetchButton.title = "Copy the CivitAI preview image of this card's single LoRA";
+        const fetchStatus = el("div", "saturn-char-fetch-status");
+        const thumbHint = el("div", "saturn-char-hint", "PNG, JPEG or WebP, max 12 MB.");
+
+        thumbSection.append(thumbFrame, fetchButton, fetchStatus, thumbHint);
+
+        const editorFields = el("div", "saturn-char-editor-fields");
+        editorFields.append(idField, triggerField);
+
+        const editorTop = el("div", "saturn-char-editor-top");
+        editorTop.append(thumbSection, editorFields);
+
+        body.append(editorTop, prompts, loraSection);
 
         const foot = el("div", "saturn-char-modal-foot");
         const errorEl = el("span", "error");
@@ -1823,6 +1958,11 @@ class CharacterPickerUI {
 
         let pendingThumb = null;
         let removeThumb = false;
+
+        const setFetchStatus = (text, kind) => {
+            fetchStatus.textContent = text || "";
+            fetchStatus.className = "saturn-char-fetch-status" + (kind ? ` ${kind}` : "");
+        };
 
         const renderThumbPreview = (src) => {
             thumbPreviewWrap.innerHTML = "";
@@ -1948,26 +2088,44 @@ class CharacterPickerUI {
             pendingThumb = null;
             removeThumb = true;
             renderThumbPreview(null);
+            setFetchStatus("Image removed. Save to apply.", "warn");
         });
 
-        useLoraButton.addEventListener("click", async () => {
+        fetchButton.addEventListener("click", async () => {
             if (!card) {
-                errorEl.textContent = "Save the card first, then copy the LoRA preview.";
+                setFetchStatus("Save the card first, then fetch its LoRA image.", "warn");
                 return;
             }
+            setFetchStatus("Fetching LoRA image\u2026");
+            fetchButton.disabled = true;
             try {
                 await postJson("use_lora_preview", { id: card.id });
                 removeThumb = false;
                 pendingThumb = null;
                 await this.refresh();
                 const updated = this.cards.find((item) => item.id === card.id);
+                if (!updated || !updated.has_preview) {
+                    setFetchStatus("Image not found.", "warn");
+                    return;
+                }
                 renderThumbPreview(
                     `${API_BASE}/get_preview?id=${encodeURIComponent(card.id)}&full=true&v=${Date.now()}`
                 );
-                if (!updated || !updated.has_preview) errorEl.textContent = "No preview was copied.";
-                else errorEl.textContent = "";
+                setFetchStatus("Image applied!", "ok");
             } catch (error) {
-                errorEl.textContent = String(error.message || error);
+                const message = String(error.message || error);
+                const lower = message.toLowerCase();
+                if (lower.includes("lora not found")) {
+                    setFetchStatus("LoRA not found.", "error");
+                } else if (lower.includes("no preview") || lower.includes("image not found")) {
+                    setFetchStatus("Image not found.", "error");
+                } else if (lower.includes("exactly one lora")) {
+                    setFetchStatus("Add exactly one LoRA to fetch its image.", "warn");
+                } else {
+                    setFetchStatus(message, "error");
+                }
+            } finally {
+                fetchButton.disabled = false;
             }
         });
 

@@ -22,6 +22,7 @@ const BACKEND_SETTING_MAP = {
     "SaturnNodes.🖼️ Visual Loaders.03_TMDBApiKey": "tmdb_api_key",
     "SaturnNodes.🖼️ Visual Loaders.04_EnableTMDBScraping": "enable_tmdb_scraping",
     "SaturnNodes.🖼️ Visual Loaders.05_EnableLoraUsage": "enable_lora_usage",
+    "SaturnNodes.🖼️ Visual Loaders.05_EnableCharacterUsage": "enable_character_usage",
     "SaturnNodes.🖼️ Visual Loaders.08_ImageMetadataScanLimit": "image_loader_metadata_limit",
     "SaturnNodes.⏸️ Pause Controls.01_DefaultStateOnLaunch": "default_pause_state",
     "SaturnNodes.⏸️ Pause Controls.02_DefaultPauseAction": "default_pause_mode",
@@ -940,6 +941,18 @@ app.registerExtension({
             tooltip: "Toggles tracking and displaying LoRA usage counts & visual rank badges (🔥, Gold, Silver, Bronze) in the LoRA picker. Existing usage history is preserved when disabled.",
             onChange(value) {
                 postSaturnNodesSettings({ enable_lora_usage: value ? "true" : "false" });
+            }
+        });
+
+        // 1.5b Enable Character Preset Usage Tracking (default: true)
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.🖼️ Visual Loaders.05_EnableCharacterUsage",
+            name: "Enable Character Preset Usage Tracking",
+            type: "boolean",
+            defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.05_EnableCharacterUsage", true),
+            tooltip: "Toggles tracking and displaying Character Preset Picker usage counts, badges and 'Usage' sorting. Existing usage history is preserved when disabled.",
+            onChange(value) {
+                postSaturnNodesSettings({ enable_character_usage: value ? "true" : "false" });
             }
         });
 

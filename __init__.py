@@ -317,6 +317,7 @@ async def get_settings(request):
         "enable_civitai_scraping": _env_bool("ENABLE_CIVITAI_SCRAPING", False),
         "enable_tmdb_scraping": _env_bool("ENABLE_TMDB_SCRAPING", False),
         "enable_lora_usage": _env_bool("ENABLE_LORA_USAGE", True),
+        "enable_character_usage": _env_bool("ENABLE_CHARACTER_USAGE", True),
         "enable_persistent_queue": _env_bool("ENABLE_PERSISTENT_QUEUE", True),
         "persistent_queue_restored_state": get_env_setting("PERSISTENT_QUEUE_RESTORED_STATE", "Match Default"),
         "persistent_queue_max_retries": _env_int("PERSISTENT_QUEUE_MAX_RETRIES", 0),
@@ -353,6 +354,7 @@ async def save_settings(request):
         enable_civitai = _clean_env_val(data.get("enable_civitai_scraping"))
         enable_tmdb = _clean_env_val(data.get("enable_tmdb_scraping"))
         enable_lora_usage = _clean_env_val(data.get("enable_lora_usage"))
+        enable_character_usage = _clean_env_val(data.get("enable_character_usage"))
         enable_tray_icon = _clean_env_val(data.get("enable_tray_icon"))
         enable_assets_restore = _clean_env_val(data.get("enable_assets_restore"))
         restore_assets_count = _clean_env_val(data.get("restore_assets_count"))
@@ -383,6 +385,7 @@ async def save_settings(request):
         has_civ_enable = False
         has_tmdb_enable = False
         has_lora_usage = False
+        has_character_usage = False
         has_tray_enable = False
         has_assets_restore = False
         has_restore_count = False
@@ -421,6 +424,9 @@ async def save_settings(request):
             elif line.strip().startswith("ENABLE_LORA_USAGE=") and enable_lora_usage is not None:
                 new_lines.append(f"ENABLE_LORA_USAGE={enable_lora_usage}\n")
                 has_lora_usage = True
+            elif line.strip().startswith("ENABLE_CHARACTER_USAGE=") and enable_character_usage is not None:
+                new_lines.append(f"ENABLE_CHARACTER_USAGE={enable_character_usage}\n")
+                has_character_usage = True
             elif line.strip().startswith("ENABLE_TRAY_ICON=") and enable_tray_icon is not None:
                 new_lines.append(f"ENABLE_TRAY_ICON={enable_tray_icon}\n")
                 has_tray_enable = True
@@ -479,6 +485,8 @@ async def save_settings(request):
             new_lines.append(f"ENABLE_TMDB_SCRAPING={enable_tmdb}\n")
         if not has_lora_usage and enable_lora_usage is not None:
             new_lines.append(f"ENABLE_LORA_USAGE={enable_lora_usage}\n")
+        if not has_character_usage and enable_character_usage is not None:
+            new_lines.append(f"ENABLE_CHARACTER_USAGE={enable_character_usage}\n")
         if not has_tray_enable and enable_tray_icon is not None:
             new_lines.append(f"ENABLE_TRAY_ICON={enable_tray_icon}\n")
         if not has_assets_restore and enable_assets_restore is not None:
@@ -517,6 +525,8 @@ async def save_settings(request):
             os.environ["TMDB_API_KEY"] = tmdb_key
         if enable_lora_usage is not None:
             os.environ["ENABLE_LORA_USAGE"] = enable_lora_usage
+        if enable_character_usage is not None:
+            os.environ["ENABLE_CHARACTER_USAGE"] = enable_character_usage
         if enable_tray_icon is not None:
             os.environ["ENABLE_TRAY_ICON"] = str(enable_tray_icon)
             tray_enabled_bool = str(enable_tray_icon).lower() in ["true", "1", "yes"]
@@ -664,6 +674,7 @@ async def export_debug_profile(request):
                 "enable_civitai_scraping": get_env_setting("ENABLE_CIVITAI_SCRAPING", "false"),
                 "enable_tmdb_scraping": get_env_setting("ENABLE_TMDB_SCRAPING", "false"),
                 "enable_lora_usage": get_env_setting("ENABLE_LORA_USAGE", "true"),
+                "enable_character_usage": get_env_setting("ENABLE_CHARACTER_USAGE", "true"),
                 "enable_tray_icon": get_env_setting("ENABLE_TRAY_ICON", "false"),
                 "enable_assets_restore": get_env_setting("ENABLE_ASSETS_RESTORE", "true"),
                 "restore_assets_count": get_env_setting("RESTORE_ASSETS_COUNT", "64"),

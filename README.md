@@ -402,22 +402,13 @@ Cards are plain JSON files with an optional sidecar image, stored in `ComfyUI/us
 #### Picker UI
 The card grid mirrors the **Visual LoRA Loader**: a compact control bar, collapsible folder groups, and fixed-width `3:4` tiles that wrap instead of stretching with the node width.
 - **Folder groups**: cards are grouped under their folder name with a card count, a collapse arrow, and a select-all checkbox. Collapse state is remembered per folder.
-- **Control bar**: **Mode** (run behavior), **Sort** (per-folder ordering), **View** (`Scroll` / `Show All`), the search field, and the **New / Import / Refresh / Folder** actions. The folder filter and tile-size slider are native node widgets below the picker, like the **Visual LoRA Loader**.
-- **Click** a card to select it (green ring + selection-order number), **double-click** to edit it, or use the **Edit / Duplicate / Delete** buttons in the tile's top row.
+- **Control bar**: **Mode** (run behavior), **Sort** (per-folder ordering), **View** (`Scroll` / `Show All`), and icon-only **New** (`＋`), **Refresh** (`↻`) and **Open folder** (`📂`) actions. The folder filter and tile-size slider are native node widgets below the picker, like the **Visual LoRA Loader**.
+- **Click** a card to select only it (green ring + selection-order number), **Ctrl/Cmd+click** to add or remove individual cards, and **Shift+click** to select every card visually between the last clicked card and the one clicked. Clicking the only selected card again clears the selection; **double-click** edits a card, or use the **Edit / Duplicate / Delete** buttons in the tile's top row.
 - **Duplicate** opens the editor prefilled with a copy whose id gets a `(1)` suffix; adjust it before saving.
 - Manual selection is shown with a green ring and a numbered badge in click order; connected-text matches are shown with a green wash and a `MATCH` pill, and the grid stops accepting clicks.
 - After every run the cards that were actually used flash on the canvas, so you can see what detection picked.
 
-**Card editor:** set the card id, a comma-separated **Triggers** list (for example `Madison Beer, madison_beer`), the **Prompt snippet** that becomes the `positive` output, a negative prompt, and any number of LoRAs with per-entry model/clip strengths. The editor uses a wide black modal; LoRA names may use either `/` or `\` and are matched against the installed list. The image panel offers **Upload image**, **Fetch CivitAI Image**, and **Remove image**.
-
-#### Bulk import from LoRAs
-**Import** turns an installed LoRA folder into cards in one shot:
-
-1. Enter the LoRA folder relative to the ComfyUI `loras` directory (for example `Krea2/Celebrity`). Wildcards work like the **Visual LoRA Loader**, so `krea2/*` scans every subfolder of `krea2`.
-2. Set **Card folder** to the prefix the cards should live under (prefilled from the last folder name, e.g. `Celebrity`). Subfolders below the scanned folder are kept, so `Krea2/Celebrity/Actresses` becomes `Celebrity/Actresses`.
-3. Pick the **Trigger word** source: `From the file name` (e.g. `krea2_Ana-De-Armas_v1` → `Ana De Armas`, also used as the prompt snippet), `From LoRA metadata` (reads `ss_tag_frequency` and similar safetensors metadata, ignoring generic placeholders such as `sks woman`, and falls back to the file name), or `None`.
-4. **Scan** lists every LoRA with whether a preview image was found; untick anything you do not want. Every row has editable **Card name** and **Prompt snippet** fields, so you can set a short name and a long appearance snippet before importing. Existing cards are marked `exists` and skipped unless **Overwrite existing cards** is enabled.
-5. **Import** writes the selected cards. The LoRA is preloaded at strength 1.0, and the card thumbnail is inherited from the LoRA's sidecar image (`.png`, `.jpg`, `.jpeg` or `.webp` next to the safetensors file), so nothing is duplicated on disk.
+**Card editor:** set the card id, a comma-separated **Triggers** list (for example `Madison Beer, madison_beer`), the **Prompt snippet** that becomes the `positive` output, a negative prompt, and any number of LoRAs with per-entry model/clip strengths. The editor is a wide modal with a 30%-wide image column and the card id / trigger fields beside it. Icon buttons upload or remove the image, and **Fetch CivitAI Image** reports its result inline (`LoRA not found`, `Image not found`, `Image applied!`). LoRA names may use either `/` or `\` and are matched against the installed list.
 
 Overwrite mode merges instead of clobbering: a card that is imported again keeps its existing prompts and triggers and only gets the LoRA added if it is missing.
 </details>
@@ -457,6 +448,7 @@ Configure options directly under ComfyUI Settings (⚙ gear icon):
 - **`TMDB Access Token`** (`text`): Optional key or v4 Read Access Token (`eyJ...`) for actor / media preview search.
 - **`Enable TMDB Auto-Scraping`** (`boolean`, *Default: false*): Automatically download media preview images from TMDB.
 - **`Enable LoRA Usage Tracking`** (`boolean`, *Default: true*): Toggle LoRA usage counting and visual rank badges (🔥, Gold, Silver, Bronze) in the picker.
+- **`Enable Character Preset Usage Tracking`** (`boolean`, *Default: true*): Track and display Character Preset Picker usage counts, tile badges and the `Usage` sort options. Existing history is preserved when disabled.
 - **`Reset Failed Scrapes Cache`** (*Button: `🗑️ Clear Scrapes Cache`*): Clears failed scrape history so Civitai/TMDB can retry downloading missing preview images.
 - **`Disable Thumbnail Downscaling (Serve Raw)`** (`boolean`, *Default: false*): Serves full-resolution original preview images instead of generating downscaled WebP thumbnails (downscaled WebP thumbnails render faster in the picker and are recommended).
 - **`Image Loader Metadata Scan Limit`** (`number`, *Default: 128*, 0–2000): Number of newest images in a folder scanned for embedded prompts by the Visual Image Loader (`0` disables extraction).

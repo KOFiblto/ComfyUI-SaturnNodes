@@ -91,24 +91,15 @@ Tired of guessing what a LoRA does based on its filename?
 Keep characters as **cards** instead of remembering LoRA filenames and trigger words.
 
 1. Add **`🪐 🧑‍🎤 Character Preset Picker`** and click **New** in its toolbar. Give the card an id (`Folder/Name` for categories), a comma-separated list of **Triggers** (e.g. `Madison Beer, madison_beer`), a **Prompt snippet**, a negative prompt, and one or more LoRAs with their own model/clip strengths.
-2. Drop a thumbnail in with **Upload image**, or click **Fetch CivitAI Image** to copy the preview of a card that has exactly one LoRA.
+2. Drop a thumbnail in with the **⬆ upload** icon, or click **Fetch CivitAI Image** to copy the preview of a card that has exactly one LoRA. The fetch button reports its result inline (`LoRA not found`, `Image not found`, `Image applied!`), and the **✕ remove** icon clears the image.
 3. Connect the picker's `loras` (or `loras_json`) output to **`🪐 🧬 Apply Character LoRAs`**, and route `positive`/`negative` into your prompt encoder. The picker itself never touches `MODEL`/`CLIP`, so it can sit anywhere in the graph.
-4. **Clicking cards**: click cards to add them to the run — each selected card shows a numbered badge with its click order. Cards are grouped by folder; click a folder header to collapse it, or its checkbox to select the whole folder at once. Choose how cards are consumed with the **Mode** dropdown in the control bar — `Sequential` cycles through the clicked cards, `Random` picks one, `Random (No Replace)` uses all of them before repeating, `All` uses every clicked card at once (in click order).
-5. **Finding cards**: use the native **folder** widget below the picker (empty = every preset), the search field for a name/trigger/snippet, and **Scroll / Show All** to switch between a fixed-height scrolling grid and a node that grows to fit every card. The native **tile_size** slider changes the card size, and the tiles keep a fixed `3:4` ratio, so resizing the node only changes how many cards fit per row.
+4. **Clicking cards**: a normal click selects only that card; hold **Ctrl/Cmd** to add or remove individual cards, or **Shift** to select every card visually between the last clicked card and the one you click (same as the Visual LoRA Loader). Clicking the only selected card again clears the selection. Each selected card shows a numbered badge with its selection order. Cards are grouped by folder; click a folder header to collapse it, or its checkbox to select the whole folder at once. Choose how cards are consumed with the **Mode** dropdown in the control bar — `Sequential` cycles through the clicked cards, `Random` picks one, `Random (No Replace)` uses all of them before repeating, `All` uses every clicked card at once (in click order).
+5. **Finding cards**: use the native **folder** widget below the picker (empty = every preset) and **Scroll / Show All** to switch between a fixed-height scrolling grid and a node that grows to fit every card. The native **tile_size** slider changes the card size, and the tiles keep a fixed `3:4` ratio, so resizing the node only changes how many cards fit per row.
 6. **Prompt-driven picking**: wire your prompt text into the `text` input and the picker highlights the card whose trigger appears in it (the earliest trigger in the text wins; enable `match_all` for several). While text is connected the grid is read-only; disconnect it or clear the text and your clicked cards are used again. After each run the card that was actually used flashes on the canvas.
 7. The card's **prompt snippet** is what the `positive` output emits. Triggers are only used for detection; they are not injected into the prompt. A card without a snippet falls back to its display name.
 
 > [!NOTE]
-> Cards live in `ComfyUI/user/default/SaturnNodes/character_presets/` as `<Name>.json` plus an optional sidecar image. Use the **Folder** button to open that directory and back it up or share cards.
-
-#### Bulk importing existing character LoRAs
-Already have a folder full of character LoRAs (for example `Krea2/Celebrity`)? Open the picker, click **Import**, enter that folder and scan. Wildcards work like the Visual LoRA Loader, so `krea2/*` scans every subfolder.
-
-1. **Card folder** is prefilled with the last folder name, so the cards land under `Celebrity/…` and keep the LoRA subfolders (`Celebrity/Actresses`, `Celebrity/Marvel`, …).
-2. **Trigger word**: `From LoRA metadata` uses the training captions when they contain something specific (generic tokens like `sks woman` are ignored) and otherwise falls back to the humanised file name — usually the character's name, which is exactly what you type in the prompt anyway.
-3. Each scanned row has editable **Card name** and **Prompt snippet** fields. Set a short name such as `xFibii` and paste a long appearance snippet before importing; the snippet defaults to the card name.
-4. Untick anything you do not want, then **Import**. Each card gets the LoRA at 1.0 and inherits the LoRA's sidecar preview image.
-5. Re-importing later with **Overwrite existing cards** keeps the prompts and triggers you already wrote and only refreshes the LoRA link.
+> Cards live in `ComfyUI/user/default/SaturnNodes/character_presets/` as `<Name>.json` plus an optional sidecar image. Use the **📂 folder** icon to open that directory and back it up or share cards.
 
 ### 🪐 ⏱️ Recent Outputs
 Want to quickly reference your recent generations without digging through Windows Explorer? The **`🪐 ⏱️ Recent Outputs`** node cycles chronologically through your `output/` directory, pulling your freshest creations right back into the workflow canvas.
@@ -143,6 +134,7 @@ Several nodes across this suite (e.g. *Load Image From Folder*, *Recent Outputs*
 
 Click the standard ComfyUI Settings gear ⚙️ and search for `SaturnNodes` to access the suite's configurations. Here you can:
 - Safely enter and mask API Keys for Civitai and TMDB scraping.
+- Toggle LoRA and Character Preset usage tracking (counts, badges and `Usage` sorting); disabling either keeps the existing history.
 - Change the colors of the Pause Queue buttons via built-in color pickers.
 - Adjust the default boot behavior for the Persistent Queue (e.g., forcing ComfyUI to always boot in a Paused state), retry limits for failed queue restores, and whether the last manual pause state survives a restart.
 - Tune the Visual Image Loader metadata scan limit, restore nested output folders, show recorded generation times on restored assets, and trigger **Restore Now** without restarting.

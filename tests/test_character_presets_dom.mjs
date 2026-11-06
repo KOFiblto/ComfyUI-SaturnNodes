@@ -260,8 +260,8 @@ const toggleLabels = ui.container
     .map((node) => node.textContent);
 assert.deepEqual(
     toggleLabels,
-    ["Scroll", "Show All", "New", "Import", "Refresh", "Folder"],
-    "the extra picker actions use the loader button style"
+    ["Scroll", "Show All", "\uFF0B", "\u21BB", "\uD83D\uDCC2"],
+    "the extra picker actions use icon buttons"
 );
 ["selection_mode", "sort_presets_by", "display_mode"].forEach((name) => {
     const widget = node.widgets.find((item) => item.name === name);
@@ -273,29 +273,72 @@ assert.match(styleText, /width:\s*var\(--saturn-char-tile-size, 80px\)/, "tiles 
 assert.match(styleText, /aspect-ratio:\s*3 \/ 4/, "tiles keep the LoRA loader card ratio");
 assert.doesNotMatch(styleText, /minmax\(96px/, "the width-stretched grid is gone");
 
-// Manual selection: click toggles the card and the hidden widget.
-const char1Tile = ui.grid.querySelector('[data-card-id="char1"]');
-char1Tile.click();
-assert.deepEqual(JSON.parse(hidden.value), ["char1"], "clicking a tile stores the card id");
-assert.ok(char1Tile.classList.contains("selected"), "selected tiles get the green ring state");
+// Manual selection mirrors the Visual LoRA Loader: a plain click selects only
+// that card, Ctrl/Cmd toggles, and Shift selects the visual range.
+const clickCard = (cardId, init = {}) =>
+    ui.grid
+        .querySelector(`[data-card-id="${cardId}"]`)
+        .dispatchEvent({ type: "click", preventDefault() {}, stopPropagation() {}, ...init });
+
+clickCard("char1");
+assert.deepEqual(JSON.parse(hidden.value), ["char1"], "a plain click selects the card");
+assert.ok(
+    ui.grid.querySelector('[data-card-id="char1"]').classList.contains("selected"),
+    "selected tiles get the green ring state"
+);
 assert.equal(
-    char1Tile.querySelector(".saturn-char-check").textContent,
+    ui.grid.querySelector('[data-card-id="char1"] .saturn-char-check').textContent,
     "1",
     "the badge shows the selection order"
 );
 
-const char3Tile = ui.grid.querySelector('[data-card-id="folder/char3"]');
-char3Tile.click();
-assert.deepEqual(JSON.parse(hidden.value), ["char1", "folder/char3"], "cards keep click order");
-assert.equal(char1Tile.querySelector(".saturn-char-check").textContent, "1", "first pick stays 1");
-assert.equal(char3Tile.querySelector(".saturn-char-check").textContent, "2", "second pick becomes 2");
+clickCard("folder/char3", { ctrlKey: true });
+assert.deepEqual(JSON.parse(hidden.value), ["char1", "folder/char3"], "Ctrl-click adds a card");
+assert.equal(
+    ui.grid.querySelector('[data-card-id="char1"] .saturn-char-check').textContent,
+    "1",
+    "first pick stays 1"
+);
+assert.equal(
+    ui.grid.querySelector('[data-card-id="folder/char3"] .saturn-char-check').textContent,
+    "2",
+    "second pick becomes 2"
+);
 
-char3Tile.click();
-assert.equal(char3Tile.querySelector(".saturn-char-check").textContent, "", "deselecting clears the badge");
+clickCard("folder/char3", { ctrlKey: true });
+assert.deepEqual(JSON.parse(hidden.value), ["char1"], "Ctrl-clicking a selected card removes it");
+assert.equal(
+    ui.grid.querySelector('[data-card-id="folder/char3"] .saturn-char-check').textContent,
+    "",
+    "Ctrl-deselecting clears the badge"
+);
 
-char1Tile.click();
-assert.deepEqual(JSON.parse(hidden.value), [], "clicking again deselects");
-assert.equal(char1Tile.querySelector(".saturn-char-check").textContent, "", "the badge clears on deselect");
+clickCard("char1");
+assert.deepEqual(JSON.parse(hidden.value), [], "clicking the only selected card clears the selection");
+assert.equal(
+    ui.grid.querySelector('[data-card-id="char1"] .saturn-char-check').textContent,
+    "",
+    "the badge clears on deselect"
+);
+
+clickCard("char1");
+clickCard("char2", { shiftKey: true });
+assert.deepEqual(
+    JSON.parse(hidden.value),
+    ["char1", "char2"],
+    "Shift-click adds every card visually between the anchor and the click"
+);
+
+clickCard("char2");
+assert.deepEqual(JSON.parse(hidden.value), ["char2"], "a plain click replaces a multi-selection");
+clickCard("char2");
+assert.deepEqual(JSON.parse(hidden.value), [], "plain click clears the only selected card again");
+
+// Stale selections from deleted or moved cards are pruned on refresh.
+hidden.value = JSON.stringify(["char1", "ghost"]);
+assert.equal(ui.pruneSelection(new Set(["char1"])), 1, "pruneSelection reports removed ids");
+assert.deepEqual(JSON.parse(hidden.value), ["char1"], "only surviving cards stay selected");
+hidden.value = "[]";
 
 // Sorting: usage sort puts the most used card first (within the root group).
 node.widgets.find((widget) => widget.name === "folder_position").value = "Root Presets First";
@@ -515,6 +558,34 @@ assert.deepEqual(
 );
 assert.equal(ui.modal, null, "the modal closes after importing");
 assert.match(ui.statusEl.textContent, /Imported 1 card/, "the picker reports the import result");
+
+// Card editor: wide two-column top row with the image on the left, id and
+// triggers beside it, icon image actions and an inline fetch status.
+await ui.openEditor(null);
+assert.ok(ui.modal, "the card editor opens");
+assert.ok(ui.modal.querySelector(".saturn-char-editor-top"), "the editor uses the two-column top row");
+assert.ok(ui.modal.querySelector(".saturn-char-editor-fields"), "id and triggers sit beside the image");
+const editorIdInput = ui.modal.querySelector(".saturn-char-editor-fields input");
+assert.equal(editorIdInput.value, "New Character", "new cards get a normalized default id");
+assert.equal(
+    ui.modal.querySelectorAll(".saturn-char-icon-btn").length,
+    2,
+    "upload and remove are icon buttons"
+);
+const fetchStatus = ui.modal.querySelector(".saturn-char-fetch-status");
+assert.ok(fetchStatus, "the fetch action has an inline status element");
+const fetchButton = ui.modal.querySelector(".saturn-char-fetch-btn");
+assert.equal(fetchButton.textContent, "Fetch CivitAI Image", "the fetch action keeps its label");
+fetchButton.click();
+assert.match(fetchStatus.textContent, /Save the card first/, "fetching before saving reports a hint");
+
+ui.allCardIds.add("New Character");
+assert.equal(ui.suggestNewCardId(), "New Character 2", "repeated new cards get a unique id");
+ui.folderWidget.value = "Krea2\\";
+assert.equal(ui.suggestNewCardId(), "Krea2/New Character", "new ids normalize the folder slashes");
+
+ui.modal.querySelector(".saturn-char-modal-head button").click();
+assert.equal(ui.modal, null, "the editor closes");
 
 ui.destroy();
 assert.equal(intervals.length, 1, "the detect watcher is registered once");

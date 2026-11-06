@@ -26,6 +26,7 @@ from aiohttp import web
 from server import PromptServer
 
 from .utils import (
+    get_env_setting,
     get_saturnnodes_user_dir,
     is_authenticated_local_request,
     is_local_request,
@@ -446,7 +447,7 @@ def list_cards(folder="", include_disabled=False, use_cache=True):
     if not include_disabled:
         cards = [card for card in cards if card.get("enabled", True)]
 
-    usage = load_usage()
+    usage = load_usage() if usage_tracking_enabled() else {}
     available = available_loras()
     for card in cards:
         card["usage"] = usage.get(card["id"], 0)
@@ -936,6 +937,10 @@ def import_lora_cards(
 # Usage counters
 # ---------------------------------------------------------------------------
 
+def usage_tracking_enabled():
+    return str(get_env_setting("ENABLE_CHARACTER_USAGE", "true")).lower() in ("true", "1", "yes", "on")
+
+
 def load_usage():
     try:
         if not os.path.exists(USAGE_FILE):
@@ -950,7 +955,7 @@ def load_usage():
 
 
 def increment_usage(card_ids):
-    if not card_ids:
+    if not card_ids or not usage_tracking_enabled():
         return
     with _USAGE_LOCK:
         usage = load_usage()
@@ -1437,10 +1442,14 @@ async def get_presets_endpoint(request):
         folder = request.query.get("folder", "")
         include_disabled = request.query.get("include_disabled", "false").lower() == "true"
         cards = list_cards(folder=folder, include_disabled=include_disabled, use_cache=False)
+        # Every card id, independent of the folder filter, so the picker can
+        # drop selections that were deleted or moved outside the current folder.
+        all_ids = [card["id"] for card in list_cards(folder="", include_disabled=True, use_cache=False)]
         return web.json_response(
             {
                 "cards": cards,
                 "folders": list_folders(),
+                "ids": all_ids,
                 "root": PRESETS_DIR,
             }
         )
@@ -1678,9 +1687,11 @@ async def use_lora_preview_endpoint(request):
     if len(enabled) != 1:
         return web.json_response({"error": "Card needs exactly one LoRA to inherit its preview"}, status=400)
     resolved = resolve_lora(enabled[0].get("name", ""))
-    source = lora_preview_path(resolved) if resolved else None
+    if not resolved:
+        return web.json_response({"error": "LoRA not found"}, status=404)
+    source = lora_preview_path(resolved)
     if not source:
-        return web.json_response({"error": "That LoRA has no preview image"}, status=404)
+        return web.json_response({"error": "Image not found"}, status=404)
 
     card_path = card_json_path(card_id)
     if not card_path:

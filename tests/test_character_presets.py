@@ -612,5 +612,28 @@ class TestLoraImport(CharacterPresetTestCase):
         self.assertEqual(os.path.normcase(preview), os.path.normcase(image))
 
 
+class TestCharacterUsage(CharacterPresetTestCase):
+    def test_increment_usage_respects_setting(self):
+        with patch.object(cp, "get_env_setting", return_value="false"):
+            cp.increment_usage(["char1"])
+        self.assertEqual(cp.load_usage(), {}, "disabled tracking records nothing")
+
+        with patch.object(cp, "get_env_setting", return_value="true"):
+            cp.increment_usage(["char1"])
+        self.assertEqual(cp.load_usage(), {"char1": 1}, "enabled tracking increments the counter")
+
+    def test_usage_is_hidden_when_tracking_is_disabled(self):
+        save_card("Hero", card("Hero", "hero"))
+        with open(cp.USAGE_FILE, "w", encoding="utf-8") as handle:
+            json.dump({"Hero": 7}, handle)
+        with patch.object(cp, "get_env_setting", return_value="false"):
+            cards = cp.list_cards(folder="", use_cache=False)
+        self.assertEqual(cards[0]["usage"], 0, "disabled tracking hides stored counts")
+
+        with patch.object(cp, "get_env_setting", return_value="true"):
+            cards = cp.list_cards(folder="", use_cache=False)
+        self.assertEqual(cards[0]["usage"], 7, "enabled tracking shows stored counts")
+
+
 if __name__ == "__main__":
     unittest.main()
