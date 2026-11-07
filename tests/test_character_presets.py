@@ -399,7 +399,7 @@ class TestApplierNode(CharacterPresetTestCase):
         loader = MagicMock(return_value=("MODEL_LORA", "CLIP_LORA"))
         with patch("folder_paths.get_full_path", return_value=lora_file), patch.object(
             cp.comfy.sd, "load_lora_for_models", loader
-        ):
+        ), patch.object(cp, "increment_lora_usage") as usage:
             applied_model, applied_clip = ApplyCharacterLoRAs().apply(
                 model, clip, loras_json=json.dumps(stack)
             )
@@ -408,16 +408,20 @@ class TestApplierNode(CharacterPresetTestCase):
         args = loader.call_args[0]
         self.assertEqual(args[3], 0.7)
         self.assertEqual(args[4], 0.4)
+        usage.assert_called_once_with("krea2/Chey.safetensors")
 
     def test_applier_skips_zero_strength_entries(self):
         loader = MagicMock()
-        with patch.object(cp.comfy.sd, "load_lora_for_models", loader):
+        with patch.object(cp.comfy.sd, "load_lora_for_models", loader), patch.object(
+            cp, "increment_lora_usage"
+        ) as usage:
             ApplyCharacterLoRAs().apply(
                 "MODEL",
                 "CLIP",
                 loras=[{"name": "krea2/Chey.safetensors", "strength_model": 0, "strength_clip": 0}],
             )
         loader.assert_not_called()
+        usage.assert_called_once_with("krea2/Chey.safetensors")
 
 
 class TestReadAuthorization(CharacterPresetTestCase):

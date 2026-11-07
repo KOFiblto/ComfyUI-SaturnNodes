@@ -33,6 +33,12 @@ from .utils import (
     is_same_origin_or_direct,
 )
 
+try:  # Keep the applier independent if the LoRA loader module is unavailable.
+    from .lora_loader import increment_lora_usage
+except Exception:  # pragma: no cover - test stubs
+    def increment_lora_usage(*_args, **_kwargs):
+        return None
+
 try:  # ComfyUI runtime
     import comfy.sd
     from comfy.utils import load_torch_file
@@ -1403,6 +1409,7 @@ class ApplyCharacterLoRAs:
                 strength_model = strength_clip = 1.0
 
             if strength_model == 0 and strength_clip == 0:
+                increment_lora_usage(resolved)
                 continue
 
             try:
@@ -1414,6 +1421,9 @@ class ApplyCharacterLoRAs:
                 current_model, current_clip = comfy.sd.load_lora_for_models(
                     current_model, current_clip, lora_data, strength_model, strength_clip
                 )
+                # A character card counts as LoRA usage too, so the Visual LoRA
+                # Loader badges stay in sync with character-driven renders.
+                increment_lora_usage(resolved)
             except Exception as exc:
                 print(f"[SaturnNodes] Apply Character LoRAs: failed to load '{resolved}': {exc}")
 

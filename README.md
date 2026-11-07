@@ -417,7 +417,7 @@ Overwrite mode merges instead of clobbering: a card that is imported again keeps
 <summary><b>🪐 🧬 Apply Character LoRAs</b> (<code>ApplyCharacterLoRAs</code>)</summary>
 
 #### Overview
-Applies the LoRA stack produced by **Character Preset Picker** to a `MODEL`/`CLIP` pair, using each card entry's own model and clip strength. Missing LoRA files are skipped with a console warning instead of failing the run.
+Applies the LoRA stack produced by **Character Preset Picker** to a `MODEL`/`CLIP` pair, using each card entry's own model and clip strength. Missing LoRA files are skipped with a console warning instead of failing the run. Successfully applied LoRAs also increment the same usage counters shown by the **Visual LoRA Loader**.
 
 #### Inputs & Widgets
 - **`model`** (`MODEL`): Input model.
