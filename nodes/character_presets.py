@@ -64,6 +64,13 @@ SORT_PRESETS = [
     "Date Modified (Newest First)",
     "Date Modified (Oldest First)",
 ]
+SORT_FOLDERS = [
+    "Name (A-Z)",
+    "Name (Z-A)",
+    "Total Usage (High to Low)",
+    "Average Usage (High to Low)",
+    "Total LoRAs (Most First)",
+]
 
 _IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp")
 _MAX_THUMBNAIL_BYTES = 12 * 1024 * 1024
@@ -1277,6 +1284,7 @@ class CharacterPresetPicker:
                 "case_sensitive": ("BOOLEAN", {"default": False, "advanced": True}),
                 "include_disabled": ("BOOLEAN", {"default": False, "advanced": True}),
                 "sort_presets_by": (SORT_PRESETS, {"default": "Name (A-Z)", "advanced": True}),
+                "sort_folders_by": (SORT_FOLDERS, {"default": "Name (A-Z)", "advanced": True}),
                 "folder_position": (
                     ["Folders First", "Root Presets First"],
                     {"default": "Folders First", "advanced": True},
@@ -1322,6 +1330,7 @@ class CharacterPresetPicker:
         case_sensitive=False,
         include_disabled=False,
         sort_presets_by="Name (A-Z)",
+        sort_folders_by="Name (A-Z)",
         folder_position="Folders First",
         display_mode="Scrollable",
         text="",

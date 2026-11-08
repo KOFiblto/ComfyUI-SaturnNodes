@@ -213,6 +213,7 @@ function makeNode() {
         ["case_sensitive", false],
         ["include_disabled", false],
         ["sort_presets_by", "Name (A-Z)"],
+        ["sort_folders_by", "Name (A-Z)"],
         ["folder_position", "Folders First"],
         ["display_mode", "Scrollable"],
     ];
@@ -254,7 +255,7 @@ assert.equal(ui.grid.querySelectorAll(".saturn-char-folder-grid").length, 2, "ti
 const controlLabels = ui.container
     .querySelectorAll(".saturn-char-control-label")
     .map((node) => node.textContent);
-assert.deepEqual(controlLabels, ["Mode:", "Sort:", "View:"], "the control bar exposes the loader-style controls");
+assert.deepEqual(controlLabels, ["Mode:", "Sort:", "Folders:", "View:"], "the control bar exposes the loader-style controls");
 const toggleLabels = ui.container
     .querySelectorAll(".saturn-char-toggle-btn")
     .map((node) => node.textContent);
@@ -263,7 +264,7 @@ assert.deepEqual(
     ["Scroll", "Show All", "\uFF0B", "\u21BB", "\uD83D\uDCC2"],
     "the extra picker actions use icon buttons"
 );
-["selection_mode", "sort_presets_by", "display_mode"].forEach((name) => {
+["selection_mode", "sort_presets_by", "sort_folders_by", "display_mode"].forEach((name) => {
     const widget = node.widgets.find((item) => item.name === name);
     assert.ok(widget.hidden, `${name} is replaced by the in-node control bar`);
 });
@@ -367,6 +368,25 @@ assert.equal(
     "folder/char3",
     "folders-first grouping puts folder cards on top"
 );
+
+// Folder sorting: the folder-level sort reorders groups independently of the
+// per-card sort, matching the Visual LoRA Loader's sort_folders_by options.
+const originalCards = ui.cards;
+ui.cards = [
+    ...originalCards,
+    { id: "zebra/char4", name: "Char4", folder: "zebra", loras: [], usage: 50, mtime: 4 },
+];
+node.widgets.find((widget) => widget.name === "sort_folders_by").value = "Total Usage (High to Low)";
+ui.render();
+const sortedHeaders = ui.grid.querySelectorAll(".saturn-char-folder-header");
+assert.equal(
+    sortedHeaders[0].getAttribute("data-folder"),
+    "zebra",
+    "total usage folder sort puts the busiest folder first"
+);
+node.widgets.find((widget) => widget.name === "sort_folders_by").value = "Name (A-Z)";
+ui.cards = originalCards;
+ui.render();
 
 // Folder groups: headers, counts, collapse state and select-all.
 const rootHeader = ui.grid.querySelector('.saturn-char-folder-header[data-folder="Root"]');

@@ -15,6 +15,13 @@ const SORT_PRESETS = [
     "Date Modified (Newest First)",
     "Date Modified (Oldest First)",
 ];
+const SORT_FOLDERS = [
+    "Name (A-Z)",
+    "Name (Z-A)",
+    "Total Usage (High to Low)",
+    "Average Usage (High to Low)",
+    "Total LoRAs (Most First)",
+];
 const MATCH_MODES = ["Whole Word", "Contains", "Exact"];
 
 const MODE_HINTS = {
@@ -891,6 +898,7 @@ class CharacterPickerUI {
         this.folderWidget = getWidget(node, "folder");
         this.selectionWidget = getWidget(node, "selection_mode");
         this.sortWidget = getWidget(node, "sort_presets_by");
+        this.sortFoldersWidget = getWidget(node, "sort_folders_by");
         this.folderPositionWidget = getWidget(node, "folder_position");
         this.displayWidget = getWidget(node, "display_mode");
         this.matchModeWidget = getWidget(node, "match_mode");
@@ -968,6 +976,24 @@ class CharacterPickerUI {
         });
         sortGroup.appendChild(this.sortSelect);
         controlBar.appendChild(sortGroup);
+
+        // Sort folders: drives the hidden sort_folders_by widget, mirroring the
+        // Visual LoRA Loader's folder ordering options.
+        const folderSortGroup = el("div", "saturn-char-control-group");
+        folderSortGroup.appendChild(el("span", "saturn-char-control-label", "Folders:"));
+        this.sortFoldersSelect = el("select");
+        this.sortFoldersSelect.title = "Sort folder groups";
+        SORT_FOLDERS.forEach((option) => {
+            const item = el("option", null, option);
+            item.value = option;
+            this.sortFoldersSelect.appendChild(item);
+        });
+        this.sortFoldersSelect.addEventListener("change", () => {
+            if (this.sortFoldersWidget) this.sortFoldersWidget.value = this.sortFoldersSelect.value;
+            this.render();
+        });
+        folderSortGroup.appendChild(this.sortFoldersSelect);
+        controlBar.appendChild(folderSortGroup);
 
         // View: drives the hidden display_mode widget.
         const viewGroup = el("div", "saturn-char-control-group");
@@ -1068,6 +1094,7 @@ class CharacterPickerUI {
         this.hideWidget(getWidget(this.node, "separator"));
         this.hideWidget(this.selectionWidget);
         this.hideWidget(this.sortWidget);
+        this.hideWidget(this.sortFoldersWidget);
         this.hideWidget(this.displayWidget);
         this.applyDisplayMode();
 
@@ -1101,6 +1128,12 @@ class CharacterPickerUI {
                 this.render();
             };
         }
+        if (this.sortFoldersWidget) {
+            this.sortFoldersWidget.callback = () => {
+                if (this.sortFoldersSelect) this.sortFoldersSelect.value = this.sortFoldersWidget.value;
+                this.render();
+            };
+        }
         if (this.folderPositionWidget) {
             this.folderPositionWidget.callback = () => this.render();
         }
@@ -1123,6 +1156,9 @@ class CharacterPickerUI {
         }
 
         if (this.sortWidget && this.sortSelect) this.sortSelect.value = this.sortWidget.value || SORT_PRESETS[0];
+        if (this.sortFoldersWidget && this.sortFoldersSelect) {
+            this.sortFoldersSelect.value = this.sortFoldersWidget.value || SORT_FOLDERS[0];
+        }
         if (this.selectionWidget) {
             this.selectionWidget.value = this.selectionWidget.value || "Sequential";
             if (this.modeSelect) this.modeSelect.value = this.selectionWidget.value;
@@ -1233,9 +1269,38 @@ class CharacterPickerUI {
             groups.get(folder).push(card);
         });
 
-        const keys = [...groups.keys()].sort((a, b) =>
-            a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" })
-        );
+        const folderSortBy = this.sortFoldersWidget?.value || SORT_FOLDERS[0];
+        const folderStats = (folder) => {
+            const items = groups.get(folder) || [];
+            const totalUsage = items.reduce((sum, card) => sum + (card.usage || 0), 0);
+            const loraCount = items.reduce(
+                (sum, card) => sum + (card.loras || []).filter((entry) => entry.enabled !== false).length,
+                0
+            );
+            return {
+                totalUsage,
+                loraCount,
+                averageUsage: items.length ? totalUsage / items.length : 0,
+            };
+        };
+        const byName = (a, b) =>
+            a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
+        const keys = [...groups.keys()].sort((a, b) => {
+            const statsA = folderStats(a);
+            const statsB = folderStats(b);
+            switch (folderSortBy) {
+                case "Name (Z-A)":
+                    return byName(b, a);
+                case "Total Usage (High to Low)":
+                    return statsB.totalUsage - statsA.totalUsage || byName(a, b);
+                case "Average Usage (High to Low)":
+                    return statsB.averageUsage - statsA.averageUsage || byName(a, b);
+                case "Total LoRAs (Most First)":
+                    return statsB.loraCount - statsA.loraCount || byName(a, b);
+                default:
+                    return byName(a, b);
+            }
+        });
         const rootFirst = (this.folderPositionWidget?.value || "Folders First") === "Root Presets First";
         const rootIndex = keys.indexOf("Root");
         if (rootIndex >= 0) {

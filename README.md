@@ -388,6 +388,7 @@ Cards are plain JSON files with an optional sidecar image, stored in `ComfyUI/us
 - **`case_sensitive`** (`BOOLEAN`, *Advanced*, default `False`).
 - **`include_disabled`** (`BOOLEAN`, *Advanced*, default `False`): Also show cards marked as disabled.
 - **`sort_presets_by`** (`COMBO`, *Advanced*): Name, usage count, or date modified (both directions). Hidden in the UI and driven by the **Sort** dropdown.
+- **`sort_folders_by`** (`COMBO`, *Advanced*): `Name (A-Z)`, `Name (Z-A)`, `Total Usage (High to Low)`, `Average Usage (High to Low)` or `Total LoRAs (Most First)`. Hidden in the UI and driven by the **Folders** dropdown.
 - **`folder_position`** (`COMBO`, *Advanced*): `Folders First` or `Root Presets First`.
 - **`display_mode`** (`COMBO`, *Advanced*): `Scrollable` (fixed height grid) or `Show All` (taller node). Hidden in the UI and driven by the **Scroll / Show All** buttons.
 - **`text`** (`STRING`, optional input socket): The prompt text scanned for trigger words. While it carries text, detection is active and the clicked selection is ignored; when it is empty or unconnected, the clicked cards are used instead.
@@ -402,7 +403,7 @@ Cards are plain JSON files with an optional sidecar image, stored in `ComfyUI/us
 #### Picker UI
 The card grid mirrors the **Visual LoRA Loader**: a compact control bar, collapsible folder groups, and fixed-width `3:4` tiles that wrap instead of stretching with the node width.
 - **Folder groups**: cards are grouped under their folder name with a card count, a collapse arrow, and a select-all checkbox. Collapse state is remembered per folder.
-- **Control bar**: **Mode** (run behavior), **Sort** (per-folder ordering), **View** (`Scroll` / `Show All`), and icon-only **New** (`＋`), **Refresh** (`↻`) and **Open folder** (`📂`) actions. The folder filter and tile-size slider are native node widgets below the picker, like the **Visual LoRA Loader**.
+- **Control bar**: **Mode** (run behavior), **Sort** (per-folder ordering), **Folders** (folder-group ordering: name, total usage, average usage or LoRA count), **View** (`Scroll` / `Show All`), and icon-only **New** (`＋`), **Refresh** (`↻`) and **Open folder** (`📂`) actions. The folder filter and tile-size slider are native node widgets below the picker, like the **Visual LoRA Loader**.
 - **Click** a card to select only it (green ring + selection-order number), **Ctrl/Cmd+click** to add or remove individual cards, and **Shift+click** to select every card visually between the last clicked card and the one clicked. Clicking the only selected card again clears the selection; **double-click** edits a card, or use the **Edit / Duplicate / Delete** buttons in the tile's top row.
 - **Duplicate** opens the editor prefilled with a copy whose id gets a `(1)` suffix; adjust it before saving.
 - Manual selection is shown with a green ring and a numbered badge in click order; connected-text matches are shown with a green wash and a `MATCH` pill, and the grid stops accepting clicks.
