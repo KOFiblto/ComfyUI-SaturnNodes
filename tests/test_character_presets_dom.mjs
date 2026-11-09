@@ -235,6 +235,16 @@ assert.ok(hidden, "the hidden selection widget must exist");
 assert.equal(hidden.value, "[]");
 assert.ok(hidden.hidden, "the selection widget must stay hidden");
 
+// Shifted workflow widget values (e.g. a positional mismatch) must be repaired
+// before ComfyUI validates the prompt, otherwise display_mode errors out.
+node.widgets.find((widget) => widget.name === "display_mode").value = "[]";
+ui.normalizeWidgetValues();
+assert.equal(
+    node.widgets.find((widget) => widget.name === "display_mode").value,
+    "Scrollable",
+    "invalid display_mode values self-heal to the default"
+);
+
 // The folder filter is a native widget, matching the visual LoRA loader.
 const folderWidget = node.widgets.find((widget) => widget.name === "folder");
 assert.ok(folderWidget && !folderWidget.hidden, "the folder widget stays visible");

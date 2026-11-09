@@ -907,11 +907,27 @@ class CharacterPickerUI {
         this.includeDisabledWidget = getWidget(node, "include_disabled");
         this.hiddenWidget = this.ensureHiddenWidget();
 
+        this.normalizeWidgetValues();
         this.build();
         this.bindWidgets();
         this.updateSelectionHint();
         this.refresh();
         this.startDetectWatcher();
+    }
+
+    normalizeWidgetValues() {
+        // Widget values are positional in saved workflows, so a workflow saved
+        // with a mismatched widget list can carry e.g. "[]" into display_mode.
+        // Repair every combo here before ComfyUI validates the prompt.
+        const fix = (widget, allowed, fallback) => {
+            if (widget && !allowed.includes(widget.value)) widget.value = fallback;
+        };
+        fix(this.displayWidget, ["Scrollable", "Show All"], "Scrollable");
+        fix(this.selectionWidget, SELECTION_MODES, "Sequential");
+        fix(this.sortWidget, SORT_PRESETS, SORT_PRESETS[0]);
+        fix(this.sortFoldersWidget, SORT_FOLDERS, SORT_FOLDERS[0]);
+        fix(this.folderPositionWidget, ["Folders First", "Root Presets First"], "Folders First");
+        fix(this.matchModeWidget, MATCH_MODES, "Whole Word");
     }
 
     ensureHiddenWidget() {
