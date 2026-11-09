@@ -816,6 +816,48 @@ function reapplyQueueHeightToMountedLists(overlay, heightPx, applyFn) {
     return false;
 }
 
+const QUEUE_HEIGHT_MIN = 120;
+const QUEUE_HEIGHT_MAX = 1200;
+
+/**
+ * Clamp a queue overlay height to a sane range and to the space available in
+ * the current viewport. `availableHeight` is the usable viewport limit; pass 0
+ * when the viewport is unknown (then only the absolute range applies).
+ */
+function clampQueueHeight(value, availableHeight = 0) {
+    let parsed = NaN;
+    if (typeof value === "number") {
+        parsed = value;
+    } else if (value !== null && value !== undefined && value !== "Native") {
+        const match = String(value).match(/\d+/);
+        if (match) parsed = parseInt(match[0], 10);
+    }
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+
+    const viewport = Number(availableHeight) || 0;
+    const ceiling = viewport > 0
+        ? Math.max(QUEUE_HEIGHT_MIN, Math.min(QUEUE_HEIGHT_MAX, Math.round(viewport)))
+        : QUEUE_HEIGHT_MAX;
+    return Math.max(QUEUE_HEIGHT_MIN, Math.min(ceiling, Math.round(parsed)));
+}
+
+/**
+ * Largest queue height that still fits the viewport. When the overlay's top is
+ * known, the free space below it is used so the panel never runs off screen.
+ */
+function getQueueHeightViewportLimit(viewportHeight, overlayTop = null) {
+    const viewport = Number(viewportHeight) || 0;
+    if (viewport <= 0) return QUEUE_HEIGHT_MAX;
+
+    // Leave room for browser chrome / the ComfyUI toolbar when the overlay
+    // top is not measurable yet (for example during extension setup).
+    let available = viewport - 120;
+    if (Number.isFinite(overlayTop) && overlayTop > 0 && overlayTop < viewport) {
+        available = viewport - overlayTop - 16;
+    }
+    return Math.max(QUEUE_HEIGHT_MIN, Math.min(QUEUE_HEIGHT_MAX, Math.round(available)));
+}
+
 app.registerExtension({
     name: "ComfyUI.SaturnNodes.Settings",
     async setup() {
@@ -1323,6 +1365,18 @@ app.registerExtension({
             return 0;
         };
 
+        const getAvailableQueueHeight = (overlay) => {
+            let top = null;
+            try {
+                const rect = overlay?.getBoundingClientRect?.();
+                if (rect && Number.isFinite(rect.top)) top = rect.top;
+            } catch (_) {}
+            return getQueueHeightViewportLimit(
+                (typeof window !== "undefined" ? window.innerHeight : 0),
+                top
+            );
+        };
+
         let saturnQueueHeightPx = 0;
 
         const ensureQueueHandleStyles = () => {
@@ -1369,16 +1423,12 @@ app.registerExtension({
         // Rewriting a <style> element's text on every pointermove forced a full-document
         // style recalculation and made resizing extremely laggy.
         const applyQueueOverlayHeight = (val) => {
-            let px = 0;
-            if (typeof val === "number") {
-                px = val;
-            } else if (val && val !== "Native") {
-                const match = String(val).match(/\d+/);
-                if (match) px = parseInt(match[0], 10);
-            }
-            saturnQueueHeightPx = (px && px > 0) ? Math.min(1200, Math.round(px)) : 0;
-
             const overlay = document.querySelector('[data-testid="queue-progress-overlay"]');
+            // Never allow a stored height from a larger monitor/window to
+            // overflow the current viewport. The available space is measured
+            // from the overlay's own top edge when it is already mounted.
+            saturnQueueHeightPx = clampQueueHeight(val, getAvailableQueueHeight(overlay));
+
             const lists = overlay
                 ? Array.from(overlay.querySelectorAll(".comfy-list"))
                 : Array.from(document.querySelectorAll(".comfy-list"));
@@ -1421,7 +1471,10 @@ app.registerExtension({
                 e.stopPropagation();
 
                 const startY = e.clientY;
-                const startH = overlay.offsetHeight || saturnQueueHeightPx || getEffectiveQueueHeight() || 360;
+                const startH = clampQueueHeight(
+                    overlay.offsetHeight || saturnQueueHeightPx || getEffectiveQueueHeight() || 360,
+                    getAvailableQueueHeight(overlay)
+                ) || 360;
                 handle.classList.add("active");
                 document.body.style.cursor = "ns-resize";
 
@@ -1443,7 +1496,13 @@ app.registerExtension({
 
                 const onPointerMove = (me) => {
                     const dy = me.clientY - startY;
-                    currentH = Math.max(120, Math.min(1200, Math.round(startH + dy)));
+                    currentH = Math.max(
+                        QUEUE_HEIGHT_MIN,
+                        Math.min(
+                            getAvailableQueueHeight(overlay),
+                            Math.round(startH + dy)
+                        )
+                    );
                     if (!rafPending) {
                         rafPending = true;
                         rafId = requestAnimationFrame(applyFrame);
@@ -1469,6 +1528,10 @@ app.registerExtension({
 
                     handle.classList.remove("active");
                     document.body.style.cursor = "";
+
+                    // Clamp once more in case the viewport changed mid-drag.
+                    currentH = clampQueueHeight(currentH, getAvailableQueueHeight(overlay));
+                    applyQueueOverlayHeight(currentH);
 
                     const screenKey = getScreenProfileKey();
                     try {
@@ -1511,19 +1574,36 @@ app.registerExtension({
         });
         queueOverlayObserver.observe(document.body, { childList: true, subtree: true });
 
-        // Listen for screen resolution changes when moving between laptop and 4K display
+        // Listen for screen/window size changes. The height is clamped to the
+        // new available space, and the per-screen value is restored when the
+        // window moves to another monitor.
         let lastScreenKey = getScreenProfileKey();
+        let queueResizeFrame = 0;
+        const scheduleQueueHeightReapply = () => {
+            if (queueResizeFrame) return;
+            const run = () => {
+                queueResizeFrame = 0;
+                applyQueueOverlayHeight(getEffectiveQueueHeight());
+            };
+            queueResizeFrame = (typeof requestAnimationFrame === "function")
+                ? requestAnimationFrame(run)
+                : setTimeout(run, 16);
+        };
         window.addEventListener("resize", () => {
             const currentKey = getScreenProfileKey();
             if (currentKey !== lastScreenKey) {
                 lastScreenKey = currentKey;
-                applyQueueOverlayHeight(getEffectiveQueueHeight());
             }
+            scheduleQueueHeightReapply();
         });
 
         const initialQueueHeight = getEffectiveQueueHeight();
         applyQueueOverlayHeight(initialQueueHeight);
 
+        // ComfyUI may invoke a setting's onChange while registering it. Ignore
+        // that initial call so a global value from another monitor cannot
+        // overwrite this screen's saved height.
+        let queueSettingsReady = false;
         app.ui.settings.addSetting({
             id: "SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight",
             name: "Visible Queue Items (Height)",
@@ -1532,6 +1612,7 @@ app.registerExtension({
             defaultValue: initialQueueHeight,
             tooltip: "Limits the visible height of the queue overlay panel in pixels (e.g. 360 ≈ 10 items, 500 ≈ 15 items) with a scrollbar. You can also drag the bottom edge of the queue overlay directly on screen (remembers size per monitor). Set to 0 for Native.",
             onChange(value) {
+                if (!queueSettingsReady) return;
                 const num = parseInt(value, 10) || 0;
                 const screenKey = getScreenProfileKey();
                 if (typeof localStorage !== "undefined") {
@@ -1539,12 +1620,17 @@ app.registerExtension({
                         localStorage.setItem("Comfy.Settings.SaturnNodes.⏸️ Pause Controls.08_QueueOverlayMaxHeight", JSON.stringify(num));
                         if (num > 0) {
                             localStorage.setItem(`Comfy.SaturnNodes.QueueHeight.${screenKey}`, String(num));
+                        } else {
+                            localStorage.removeItem(`Comfy.SaturnNodes.QueueHeight.${screenKey}`);
                         }
                     } catch (_) {}
                 }
                 applyQueueOverlayHeight(num);
             }
         });
+        setTimeout(() => {
+            queueSettingsReady = true;
+        }, 0);
 
         // =========================================================================
         // GROUP: 💾 Persistent Queue

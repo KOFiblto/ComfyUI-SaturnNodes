@@ -28,7 +28,7 @@ const app = {
 };
 
 let source = stripImports(fs.readFileSync(sourcePath, "utf8"));
-source += "\nglobalThis.__settingsTest = { reapplyQueueHeightToMountedLists };\n";
+source += "\nglobalThis.__settingsTest = { reapplyQueueHeightToMountedLists, clampQueueHeight, getQueueHeightViewportLimit };\n";
 
 const context = vm.createContext({
     console,
@@ -65,7 +65,31 @@ const context = vm.createContext({
 vm.runInContext(source, context, { filename: sourcePath });
 
 assert.equal(typeof extension.setup, "function", "settings extension must register");
-const { reapplyQueueHeightToMountedLists } = context.__settingsTest;
+const { reapplyQueueHeightToMountedLists, clampQueueHeight, getQueueHeightViewportLimit } = context.__settingsTest;
+
+// Startup clamping: a height saved on a bigger monitor/window must never
+// exceed the space available in the current viewport.
+assert.equal(clampQueueHeight(2000, 800), 800, "stored height is capped to the viewport");
+assert.equal(clampQueueHeight("540px", 800), 540, "string values keep their pixel number");
+assert.equal(clampQueueHeight(500, 300), 300, "small viewports cap large heights");
+assert.equal(clampQueueHeight(50, 800), 120, "heights never drop below the usable minimum");
+assert.equal(clampQueueHeight(0, 800), 0, "0 keeps Native height");
+assert.equal(clampQueueHeight("Native", 800), 0, "Native never gets a max-height");
+assert.equal(
+    getQueueHeightViewportLimit(900),
+    780,
+    "without an overlay top, room is left for browser chrome and the toolbar"
+);
+assert.equal(
+    getQueueHeightViewportLimit(900, 100),
+    784,
+    "the overlay top is used to measure the free space below it"
+);
+assert.equal(
+    getQueueHeightViewportLimit(200, 190),
+    120,
+    "the viewport limit never goes below the minimum usable height"
+);
 
 const overlay = document.createElement("div");
 overlay.setAttribute("data-testid", "queue-progress-overlay");

@@ -1284,12 +1284,14 @@ class CharacterPresetPicker:
                 "case_sensitive": ("BOOLEAN", {"default": False, "advanced": True}),
                 "include_disabled": ("BOOLEAN", {"default": False, "advanced": True}),
                 "sort_presets_by": (SORT_PRESETS, {"default": "Name (A-Z)", "advanced": True}),
-                "sort_folders_by": (SORT_FOLDERS, {"default": "Name (A-Z)", "advanced": True}),
                 "folder_position": (
                     ["Folders First", "Root Presets First"],
                     {"default": "Folders First", "advanced": True},
                 ),
                 "display_mode": (["Scrollable", "Show All"], {"default": "Scrollable", "advanced": True}),
+                # Appended last on purpose: shifting widget positions would
+                # corrupt the saved widget_values of existing workflows.
+                "sort_folders_by": (SORT_FOLDERS, {"default": "Name (A-Z)", "advanced": True}),
             },
             "optional": {
                 "text": ("STRING", {"forceInput": True}),
