@@ -1129,6 +1129,19 @@ class CharacterPickerUI {
             }
             return [width, Math.max(360, ui.node.size?.[1] || 540)];
         };
+
+        // Widget values are applied *after* nodeCreated. Re-validate them once
+        // the workflow/config has been loaded so a positional mismatch can
+        // never leave display_mode or another combo with an unsupported value.
+        const originalConfigure = this.node.onConfigure;
+        this.node.onConfigure = function (info) {
+            const result = originalConfigure ? originalConfigure.apply(this, arguments) : undefined;
+            ui.normalizeWidgetValues();
+            ui.syncControlBar();
+            ui.updateSelectionHint();
+            ui.refresh();
+            return result;
+        };
     }
 
     bindWidgets() {
@@ -1171,14 +1184,20 @@ class CharacterPickerUI {
             this.folderWidget.callback = () => this.refresh();
         }
 
-        if (this.sortWidget && this.sortSelect) this.sortSelect.value = this.sortWidget.value || SORT_PRESETS[0];
+        this.syncControlBar();
+    }
+
+    syncControlBar() {
+        if (this.selectionWidget && this.modeSelect) {
+            this.modeSelect.value = this.selectionWidget.value || "Sequential";
+        }
+        if (this.sortWidget && this.sortSelect) {
+            this.sortSelect.value = this.sortWidget.value || SORT_PRESETS[0];
+        }
         if (this.sortFoldersWidget && this.sortFoldersSelect) {
             this.sortFoldersSelect.value = this.sortFoldersWidget.value || SORT_FOLDERS[0];
         }
-        if (this.selectionWidget) {
-            this.selectionWidget.value = this.selectionWidget.value || "Sequential";
-            if (this.modeSelect) this.modeSelect.value = this.selectionWidget.value;
-        }
+        this.applyDisplayMode();
     }
 
     setDisplayMode(mode) {

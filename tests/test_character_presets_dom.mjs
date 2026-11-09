@@ -245,6 +245,22 @@ assert.equal(
     "invalid display_mode values self-heal to the default"
 );
 
+// Workflow values are applied after nodeCreated, so onConfigure must repair
+// the shifted positional values as well.
+node.widgets.find((widget) => widget.name === "display_mode").value = "Folders First";
+node.widgets.find((widget) => widget.name === "folder_position").value = "Name (A-Z)";
+node.onConfigure?.({});
+assert.equal(
+    node.widgets.find((widget) => widget.name === "display_mode").value,
+    "Scrollable",
+    "onConfigure repairs an invalid display_mode"
+);
+assert.equal(
+    node.widgets.find((widget) => widget.name === "folder_position").value,
+    "Folders First",
+    "onConfigure repairs an invalid folder_position"
+);
+
 // The folder filter is a native widget, matching the visual LoRA loader.
 const folderWidget = node.widgets.find((widget) => widget.name === "folder");
 assert.ok(folderWidget && !folderWidget.hidden, "the folder widget stays visible");
