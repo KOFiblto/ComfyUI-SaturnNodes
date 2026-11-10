@@ -998,6 +998,24 @@ app.registerExtension({
             }
         });
 
+        // 1.5c Character Preset Rank Borders (default: true)
+        app.ui.settings.addSetting({
+            id: "SaturnNodes.🖼️ Visual Loaders.05b_CharacterRankBorders",
+            name: "Enable Character Preset Rank Borders",
+            type: "boolean",
+            defaultValue: getInitialSetting("SaturnNodes.🖼️ Visual Loaders.05b_CharacterRankBorders", true),
+            tooltip: "Replaces Character Preset Picker usage badges with gold/silver/bronze borders for the 3 most-used cards and an animated RGB border at 1,000+ uses. Turn off to show plain usage count badges again.",
+            onChange() {
+                const nodes = app.graph?._nodes || app.graph?.nodes || [];
+                nodes.forEach((node) => {
+                    const picker = node?._saturnCharacterPicker;
+                    if (picker && typeof picker.refreshRankBorders === "function") {
+                        picker.render?.();
+                    }
+                });
+            }
+        });
+
         // 1.6 Reset Scrapes Cache Button
         const renderScrapesCacheBtn = renderSettingButton("🗑️ Clear Scrapes Cache", "⏳ Clearing...", "✅ Cache Reset!", async () => {
             const resp = await authenticatedFetch("/saturnnodes/scrapes/clear", { method: "POST" });

@@ -1292,12 +1292,17 @@ class CharacterPresetPicker:
                 # Appended last on purpose: shifting widget positions would
                 # corrupt the saved widget_values of existing workflows.
                 "sort_folders_by": (SORT_FOLDERS, {"default": "Name (A-Z)", "advanced": True}),
+                "content_alignment": (
+                    ["Left Aligned", "Right Aligned"],
+                    {"default": "Left Aligned", "advanced": True},
+                ),
             },
             "optional": {
                 "text": ("STRING", {"forceInput": True}),
             },
             "hidden": {
                 "_selected_presets": ("STRING", {"default": "[]"}),
+                "_scrape_on_new": ("STRING", {"default": "true"}),
                 "unique_id": "UNIQUE_ID",
             },
         }
@@ -1335,8 +1340,10 @@ class CharacterPresetPicker:
         sort_folders_by="Name (A-Z)",
         folder_position="Folders First",
         display_mode="Scrollable",
+        content_alignment="Left Aligned",
         text="",
         _selected_presets="[]",
+        _scrape_on_new="true",
         unique_id="default",
         **kwargs,
     ):
@@ -1455,6 +1462,76 @@ def _read_allowed(request):
     return is_local_request(request) and is_same_origin_or_direct(request)
 
 
+def _maybe_start_scraping(payload):
+    """Start the shared LoRA preview scraper when the hidden picker flag allows it."""
+    if str((payload or {}).get("scrape_on_new", "false")).lower() != "true":
+        return False
+    try:
+        from .lora_loader import start_async_scraping
+
+        start_async_scraping()
+        return True
+    except Exception:
+        return False
+
+
+def reset_cycle_state(node_id=""):
+    """Delete the cycle counters for one picker node (or every node)."""
+    node_id = str(node_id or "").strip()
+    with _STATE_LOCK:
+        state = _load_cycle_state()
+        if node_id and node_id != "all":
+            prefixes = (
+                f"card_seq_{node_id}_",
+                f"card_rand_{node_id}_",
+                f"card_noreplace_{node_id}_",
+            )
+            removed = 0
+            for key in list(state.keys()):
+                if key.startswith(prefixes):
+                    del state[key]
+                    removed += 1
+        else:
+            removed = len(state)
+            state = {}
+        _save_cycle_state(state)
+    return removed
+
+
+def reset_usage_file():
+    """Empty character_usage.json (usage badges, rank borders and sorting)."""
+    with _USAGE_LOCK:
+        os.makedirs(USER_DIR, exist_ok=True)
+        temp_path = USAGE_FILE + ".tmp"
+        with open(temp_path, "w", encoding="utf-8") as handle:
+            json.dump({}, handle, indent=2)
+        os.replace(temp_path, USAGE_FILE)
+
+
+def clear_thumbnail_cache():
+    """Delete cached WebP thumbnails and return how many files were removed."""
+    from .lora_loader import THUMBNAILS_DIR
+
+    cache_dir = os.path.realpath(THUMBNAILS_DIR)
+    canonical_user = os.path.realpath(USER_DIR)
+    try:
+        if os.path.commonpath([canonical_user, cache_dir]) != canonical_user:
+            raise PermissionError("Security: cache path escapes user directory")
+    except ValueError as exc:
+        raise PermissionError("Security path validation error") from exc
+    removed = 0
+    if os.path.isdir(cache_dir):
+        for name in os.listdir(cache_dir):
+            entry = os.path.join(cache_dir, name)
+            if os.path.isfile(entry):
+                try:
+                    os.remove(entry)
+                    removed += 1
+                except Exception:
+                    pass
+    return removed
+
+
 @routes.get("/saturnnodes/character_presets/get_presets")
 async def get_presets_endpoint(request):
     if not _read_allowed(request):
@@ -1462,6 +1539,13 @@ async def get_presets_endpoint(request):
     try:
         folder = request.query.get("folder", "")
         include_disabled = request.query.get("include_disabled", "false").lower() == "true"
+        if request.query.get("scrape_on_new", "false").lower() == "true":
+            try:
+                from .lora_loader import start_async_scraping
+
+                start_async_scraping()
+            except Exception:
+                pass
         cards = list_cards(folder=folder, include_disabled=include_disabled, use_cache=False)
         # Every card id, independent of the folder filter, so the picker can
         # drop selections that were deleted or moved outside the current folder.
@@ -1476,6 +1560,47 @@ async def get_presets_endpoint(request):
         )
     except Exception as exc:
         return web.json_response({"error": str(exc)}, status=500)
+
+
+@routes.post("/saturnnodes/character_presets/reset_cycle")
+async def reset_character_cycle_endpoint(request):
+    """Clear this picker's Sequential/Random cycle counters."""
+    if not is_authenticated_local_request(request):
+        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    node_id = str(payload.get("node_id", "")).strip()
+    try:
+        removed = reset_cycle_state(node_id)
+        return web.json_response({"status": "ok", "removed": removed})
+    except Exception as exc:
+        return web.json_response({"status": "error", "message": str(exc)}, status=500)
+
+
+@routes.post("/saturnnodes/character_presets/reset_usage")
+async def reset_character_usage_endpoint(request):
+    """Empty character_usage.json (usage badges, rank borders and sorting)."""
+    if not is_authenticated_local_request(request):
+        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    try:
+        reset_usage_file()
+        return web.json_response({"status": "ok"})
+    except Exception as exc:
+        return web.json_response({"status": "error", "message": str(exc)}, status=500)
+
+
+@routes.post("/saturnnodes/character_presets/clear_cache")
+async def clear_character_cache_endpoint(request):
+    """Delete cached WebP thumbnails (regenerated on demand)."""
+    if not is_authenticated_local_request(request):
+        return web.json_response({"error": "Forbidden: Local authenticated access only"}, status=403)
+    try:
+        removed = clear_thumbnail_cache()
+        return web.json_response({"status": "ok", "removed": removed})
+    except Exception as exc:
+        return web.json_response({"status": "error", "message": str(exc)}, status=500)
 
 
 @routes.get("/saturnnodes/character_presets/get_preview")
@@ -1545,6 +1670,8 @@ async def save_card_endpoint(request):
         saved = save_card(card_id, card)
     except Exception as exc:
         return web.json_response({"error": str(exc)}, status=500)
+
+    _maybe_start_scraping(payload)
 
     if original_id and original_id != card_id:
         try:
@@ -1789,6 +1916,7 @@ async def import_loras_endpoint(request):
         return web.json_response({"error": str(exc)}, status=400)
     except Exception as exc:
         return web.json_response({"error": str(exc)}, status=500)
+    _maybe_start_scraping(payload)
     return web.json_response({"status": "ok", **result})
 
 

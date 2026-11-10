@@ -98,6 +98,14 @@ const app = {
         extension.nodeCreated = candidate.nodeCreated;
     },
     graph: { _nodes: [], links: {}, getNodeById: () => null, setDirtyCanvas() {} },
+    ui: {
+        settings: {
+            values: {},
+            getSettingValue(id) {
+                return this.values[id];
+            },
+        },
+    },
 };
 
 const importCalls = [];
@@ -216,6 +224,7 @@ function makeNode() {
         ["sort_folders_by", "Name (A-Z)"],
         ["folder_position", "Folders First"],
         ["display_mode", "Scrollable"],
+        ["content_alignment", "Left Aligned"],
     ];
     specs.forEach(([name, value]) => node.addWidget(typeof value === "boolean" ? "toggle" : "text", name, value));
     return node;
@@ -281,19 +290,130 @@ assert.equal(ui.grid.querySelectorAll(".saturn-char-folder-grid").length, 2, "ti
 const controlLabels = ui.container
     .querySelectorAll(".saturn-char-control-label")
     .map((node) => node.textContent);
-assert.deepEqual(controlLabels, ["Mode:", "Sort:", "Folders:", "View:"], "the control bar exposes the loader-style controls");
+assert.deepEqual(
+    controlLabels,
+    ["Mode:", "Sort:", "Folders:", "Align:", "View:", "Reset:"],
+    "the control bar exposes the loader-style controls"
+);
 const toggleLabels = ui.container
     .querySelectorAll(".saturn-char-toggle-btn")
     .map((node) => node.textContent);
 assert.deepEqual(
     toggleLabels,
-    ["Scroll", "Show All", "\uFF0B", "\u21BB", "\uD83D\uDCC2"],
+    [
+        "Left",
+        "Right",
+        "Scroll",
+        "Show All",
+        "\u21BA Counter",
+        "\uD83E\uDDF9 Usage",
+        "\uD83D\uDDD1 Cache",
+        "\uFF0B",
+        "\u21BB",
+        "\uD83D\uDCC2",
+    ],
     "the extra picker actions use icon buttons"
 );
-["selection_mode", "sort_presets_by", "sort_folders_by", "display_mode"].forEach((name) => {
+["selection_mode", "sort_presets_by", "sort_folders_by", "content_alignment", "display_mode", "_scrape_on_new"].forEach((name) => {
     const widget = node.widgets.find((item) => item.name === name);
     assert.ok(widget.hidden, `${name} is replaced by the in-node control bar`);
 });
+
+// Content alignment mirrors the Visual LoRA Loader: Left keeps the normal
+// flow, Right anchors folder headers and tiles to the right edge.
+const alignWidget = node.widgets.find((widget) => widget.name === "content_alignment");
+ui.rightAlignButton.click();
+assert.equal(alignWidget.value, "Right Aligned", "Right alignment updates content_alignment");
+assert.ok(ui.container.classList.contains("saturn-char-right-aligned"), "Right alignment toggles the root class");
+assert.ok(ui.rightAlignButton.classList.contains("active"), "Right button is active");
+assert.ok(!ui.leftAlignButton.classList.contains("active"), "Left button is inactive");
+ui.leftAlignButton.click();
+assert.equal(alignWidget.value, "Left Aligned", "Left alignment restores content_alignment");
+assert.ok(!ui.container.classList.contains("saturn-char-right-aligned"), "Left alignment removes the root class");
+
+// Selection count is shown under the rendered grid.
+hidden.value = JSON.stringify(["char1", "char2"]);
+ui.updateSelectionStyles();
+assert.equal(ui.selectionCountEl.textContent, "2 cards selected", "selection count mirrors the hidden selection");
+hidden.value = JSON.stringify(["char1"]);
+ui.updateSelectionStyles();
+assert.equal(ui.selectionCountEl.textContent, "1 card selected", "single selection uses the singular label");
+hidden.value = "[]";
+ui.updateSelectionStyles();
+assert.equal(ui.selectionCountEl.textContent, "No cards selected", "empty selection is explicit");
+
+// Rank borders: the most-used card gets the gold ring; usage badges are
+// replaced while the setting is enabled.
+assert.equal(
+    ui.grid.querySelector('[data-card-id="char2"]').classList.contains("rank-1"),
+    true,
+    "the most-used card gets the rank-1 border"
+);
+assert.equal(
+    ui.grid.querySelector('[data-card-id="char2"] .saturn-char-badge.usage'),
+    null,
+    "rank borders replace usage count badges"
+);
+
+// A 1000+ usage card gets the animated RGB border instead of a badge.
+const originalUsage = CARDS[0].usage;
+CARDS[0].usage = 1200;
+ui.render();
+assert.equal(
+    ui.grid.querySelector('[data-card-id="char1"]').classList.contains("usage-1k"),
+    true,
+    "1000+ usage adds the RGB border class"
+);
+assert.equal(
+    ui.grid.querySelector('[data-card-id="char1"] .saturn-char-badge.usage'),
+    null,
+    "the 1k border also suppresses the usage badge"
+);
+
+// Disabling the setting restores plain usage badges and removes rank rings.
+app.ui.settings.values["SaturnNodes.🖼️ Visual Loaders.05b_CharacterRankBorders"] = false;
+CARDS[0].usage = 5;
+ui.render();
+assert.ok(
+    ui.grid.querySelector('[data-card-id="char1"] .saturn-char-badge.usage'),
+    "disabled rank borders restore the usage badge"
+);
+assert.equal(
+    ui.grid.querySelector('[data-card-id="char1"]').classList.contains("rank-1"),
+    false,
+    "disabled rank borders remove rank classes"
+);
+app.ui.settings.values["SaturnNodes.🖼️ Visual Loaders.05b_CharacterRankBorders"] = true;
+CARDS[0].usage = originalUsage;
+ui.render();
+
+// Maintenance buttons ask first and call the picker reset endpoints.
+const beforeResets = importCalls.length;
+ui.cycleResetButton.click();
+await sleep(0);
+const cycleReset = importCalls.slice(beforeResets).find((call) => call.url.includes("character_presets/reset_cycle"));
+assert.ok(cycleReset, "the counter button calls reset_cycle");
+assert.equal(cycleReset.body.node_id, "3", "the cycle reset targets this picker");
+const beforeUsage = importCalls.length;
+ui.usageResetButton.click();
+await sleep(40);
+assert.ok(
+    importCalls.slice(beforeUsage).some((call) => call.url.includes("character_presets/reset_usage")),
+    "the usage button calls reset_usage"
+);
+const beforeCache = importCalls.length;
+ui.cacheResetButton.click();
+await sleep(40);
+assert.ok(
+    importCalls.slice(beforeCache).some((call) => call.url.includes("character_presets/clear_cache")),
+    "the cache button calls clear_cache"
+);
+
+assert.match(styleTextForNow(), /saturn-char-rgb-border/, "the RGB rank animation is defined");
+
+function styleTextForNow() {
+    return document.getElementById("saturn-character-presets-style").textContent;
+}
 
 const styleText = document.getElementById("saturn-character-presets-style").textContent;
 assert.match(styleText, /width:\s*var\(--saturn-char-tile-size, 80px\)/, "tiles use a fixed width");

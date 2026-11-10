@@ -379,6 +379,33 @@ class TestPickerNode(CharacterPresetTestCase):
         _, _, positive, _, _ = self.node.pick(text="Off", include_disabled=True)
         self.assertEqual(positive, "hidden")
 
+    def test_input_types_expose_alignment_and_hidden_scrape_flag(self):
+        inputs = CharacterPresetPicker.INPUT_TYPES()
+        self.assertEqual(
+            inputs["required"]["content_alignment"][0],
+            ["Left Aligned", "Right Aligned"],
+        )
+        self.assertIn("_scrape_on_new", inputs["hidden"])
+        # Both are appended after the legacy widgets so saved positional
+        # widget_values keep matching their original combo boxes.
+        self.assertEqual(list(inputs["required"])[-1], "content_alignment")
+
+    def test_pick_accepts_new_alignment_and_scrape_arguments(self):
+        _, _, positive, _, _ = self.node.pick(
+            selection_mode="All",
+            content_alignment="Right Aligned",
+            _scrape_on_new="false",
+            _selected_presets='["char1"]',
+        )
+        self.assertEqual(positive, "red hair")
+
+    def test_maybe_start_scraping_respects_the_hidden_flag(self):
+        with patch("nodes.lora_loader.start_async_scraping") as start:
+            self.assertTrue(cp._maybe_start_scraping({"scrape_on_new": "true"}))
+            start.assert_called_once()
+            self.assertFalse(cp._maybe_start_scraping({"scrape_on_new": "false"}))
+            self.assertEqual(start.call_count, 1)
+
 
 class TestApplierNode(CharacterPresetTestCase):
     def test_applier_is_a_noop_without_stack(self):
@@ -637,6 +664,46 @@ class TestCharacterUsage(CharacterPresetTestCase):
         with patch.object(cp, "get_env_setting", return_value="true"):
             cards = cp.list_cards(folder="", use_cache=False)
         self.assertEqual(cards[0]["usage"], 7, "enabled tracking shows stored counts")
+
+
+class TestMaintenanceHelpers(CharacterPresetTestCase):
+    def test_reset_cycle_only_clears_the_requested_picker(self):
+        state = {
+            "card_seq_3_abc": {"pool": [], "assigned": {}},
+            "card_rand_3_abc": {"pool": [], "assigned": {}},
+            "card_seq_9_xyz": {"pool": [], "assigned": {}},
+            "other": {"pool": [], "assigned": {}},
+        }
+        cp._save_cycle_state(state)
+        self.assertEqual(cp.reset_cycle_state("3"), 2)
+        remaining = cp._load_cycle_state()
+        self.assertIn("card_seq_9_xyz", remaining)
+        self.assertIn("other", remaining)
+
+    def test_reset_usage_empties_character_usage_only(self):
+        with open(cp.USAGE_FILE, "w", encoding="utf-8") as handle:
+            json.dump({"char1": 12, "char2": 3}, handle)
+        cp.reset_usage_file()
+        self.assertEqual(cp.load_usage(), {})
+
+    def test_clear_cache_removes_shared_thumbnails(self):
+        cache_dir = os.path.join(self.temp_dir, "thumbnails")
+        os.makedirs(cache_dir, exist_ok=True)
+        cached = os.path.join(cache_dir, "thumb_test.webp")
+        with open(cached, "wb") as handle:
+            handle.write(b"webp")
+        with patch("nodes.lora_loader.THUMBNAILS_DIR", cache_dir):
+            self.assertEqual(cp.clear_thumbnail_cache(), 1)
+        self.assertFalse(os.path.exists(cached))
+
+    def test_clear_cache_rejects_paths_outside_the_user_dir(self):
+        outside = os.path.join(tempfile.mkdtemp(prefix="saturn_outside_"), "thumbs")
+        os.makedirs(outside, exist_ok=True)
+        self.addCleanup(shutil.rmtree, os.path.dirname(outside), True)
+        with patch("nodes.lora_loader.THUMBNAILS_DIR", outside):
+            with self.assertRaises(PermissionError):
+                cp.clear_thumbnail_cache()
+
 
 
 if __name__ == "__main__":

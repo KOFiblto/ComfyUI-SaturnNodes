@@ -23,6 +23,20 @@ const SORT_FOLDERS = [
     "Total LoRAs (Most First)",
 ];
 const MATCH_MODES = ["Whole Word", "Contains", "Exact"];
+const ALIGN_MODES = ["Left Aligned", "Right Aligned"];
+const RANK_BORDERS_SETTING = "SaturnNodes.🖼️ Visual Loaders.05b_CharacterRankBorders";
+
+function getRankBordersEnabled() {
+    try {
+        const value = app?.ui?.settings?.getSettingValue?.(RANK_BORDERS_SETTING);
+        if (typeof value === "boolean") return value;
+    } catch (_) {}
+    try {
+        const raw = globalThis.localStorage?.getItem(`Comfy.Settings.${RANK_BORDERS_SETTING}`);
+        if (raw !== null && raw !== undefined) return JSON.parse(raw) !== false;
+    } catch (_) {}
+    return true;
+}
 
 const MODE_HINTS = {
     Sequential: "Cycles through the selected cards, one per run.",
@@ -255,6 +269,20 @@ const PICKER_CSS = `
     gap: 8px;
     padding: 4px 2px;
 }
+.saturn-char-right-aligned .saturn-char-folder-grid {
+    justify-content: flex-end;
+}
+.saturn-char-right-aligned .saturn-char-folder-header {
+    flex-direction: row-reverse;
+}
+.saturn-char-right-aligned .saturn-char-folder-toggle {
+    margin-right: 0;
+    margin-left: 8px;
+}
+.saturn-char-right-aligned .saturn-char-folder-count {
+    margin-right: 0;
+    margin-left: 10px;
+}
 .saturn-char-folder-container.collapsed .saturn-char-folder-grid {
     display: none !important;
 }
@@ -415,6 +443,42 @@ const PICKER_CSS = `
 }
 .saturn-char-badge.warn {
     background: rgba(168, 0, 0, 0.9);
+}
+/* Rank borders replace the usage badges: gold / silver / bronze for the
+   three most-used cards, plus an animated RGB ring at 1000+ uses. */
+.saturn-char-tile.rank-1:not(.selected) {
+    border-color: #ffd700 !important;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.55);
+}
+.saturn-char-tile.rank-2:not(.selected) {
+    border-color: #d7dde6 !important;
+    box-shadow: 0 0 10px rgba(215, 221, 230, 0.5);
+}
+.saturn-char-tile.rank-3:not(.selected) {
+    border-color: #cd7f32 !important;
+    box-shadow: 0 0 10px rgba(205, 127, 50, 0.5);
+}
+.saturn-char-tile.usage-1k:not(.selected) {
+    border-color: #ff0055 !important;
+    animation: saturn-char-rgb-border 4s linear infinite !important;
+}
+@keyframes saturn-char-rgb-border {
+    0% { border-color: #ff0055 !important; box-shadow: 0 0 12px rgba(255, 0, 85, 0.8); }
+    25% { border-color: #ffb300 !important; box-shadow: 0 0 12px rgba(255, 179, 0, 0.8); }
+    50% { border-color: #19e68c !important; box-shadow: 0 0 12px rgba(25, 230, 140, 0.8); }
+    75% { border-color: #00a3ff !important; box-shadow: 0 0 12px rgba(0, 163, 255, 0.8); }
+    100% { border-color: #ff0055 !important; box-shadow: 0 0 12px rgba(255, 0, 85, 0.8); }
+}
+.saturn-char-selection-count {
+    flex: 0 0 auto;
+    padding: 4px 6px 0;
+    color: #9c8471;
+    font-size: 10.5px;
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .saturn-char-actions {
     position: absolute;
@@ -894,11 +958,13 @@ class CharacterPickerUI {
         this.lastDetectSignature = null;
         this.destroyed = false;
         this.modal = null;
+        this.cacheBust = 0;
 
         this.folderWidget = getWidget(node, "folder");
         this.selectionWidget = getWidget(node, "selection_mode");
         this.sortWidget = getWidget(node, "sort_presets_by");
         this.sortFoldersWidget = getWidget(node, "sort_folders_by");
+        this.contentAlignmentWidget = getWidget(node, "content_alignment");
         this.folderPositionWidget = getWidget(node, "folder_position");
         this.displayWidget = getWidget(node, "display_mode");
         this.matchModeWidget = getWidget(node, "match_mode");
@@ -906,6 +972,7 @@ class CharacterPickerUI {
         this.caseWidget = getWidget(node, "case_sensitive");
         this.includeDisabledWidget = getWidget(node, "include_disabled");
         this.hiddenWidget = this.ensureHiddenWidget();
+        this.scrapeOnNewWidget = this.ensureHiddenWidget("_scrape_on_new", "true");
 
         this.normalizeWidgetValues();
         this.build();
@@ -928,12 +995,13 @@ class CharacterPickerUI {
         fix(this.sortFoldersWidget, SORT_FOLDERS, SORT_FOLDERS[0]);
         fix(this.folderPositionWidget, ["Folders First", "Root Presets First"], "Folders First");
         fix(this.matchModeWidget, MATCH_MODES, "Whole Word");
+        fix(this.contentAlignmentWidget, ALIGN_MODES, "Left Aligned");
     }
 
-    ensureHiddenWidget() {
-        let widget = getWidget(this.node, "_selected_presets");
+    ensureHiddenWidget(name = "_selected_presets", defaultValue = "[]") {
+        let widget = getWidget(this.node, name);
         if (!widget) {
-            widget = this.node.addWidget("text", "_selected_presets", "[]", () => {}, { serialize: true });
+            widget = this.node.addWidget("text", name, defaultValue, () => {}, { serialize: true });
         }
         widget.hidden = true;
         widget.type = "hidden";
@@ -1011,6 +1079,18 @@ class CharacterPickerUI {
         folderSortGroup.appendChild(this.sortFoldersSelect);
         controlBar.appendChild(folderSortGroup);
 
+        // Alignment: drives the hidden content_alignment widget.
+        const alignGroup = el("div", "saturn-char-control-group");
+        alignGroup.appendChild(el("span", "saturn-char-control-label", "Align:"));
+        this.leftAlignButton = el("button", "saturn-char-toggle-btn active", "Left");
+        this.leftAlignButton.title = "Align folder contents to the left";
+        this.leftAlignButton.addEventListener("click", () => this.setContentAlignment("Left Aligned"));
+        this.rightAlignButton = el("button", "saturn-char-toggle-btn", "Right");
+        this.rightAlignButton.title = "Align folder contents to the right";
+        this.rightAlignButton.addEventListener("click", () => this.setContentAlignment("Right Aligned"));
+        alignGroup.append(this.leftAlignButton, this.rightAlignButton);
+        controlBar.appendChild(alignGroup);
+
         // View: drives the hidden display_mode widget.
         const viewGroup = el("div", "saturn-char-control-group");
         viewGroup.appendChild(el("span", "saturn-char-control-label", "View:"));
@@ -1022,6 +1102,21 @@ class CharacterPickerUI {
         this.showAllButton.addEventListener("click", () => this.setDisplayMode("Show All"));
         viewGroup.append(this.scrollButton, this.showAllButton);
         controlBar.appendChild(viewGroup);
+
+        // Maintenance: reset cycle counter, usage history and thumbnail cache.
+        const maintenanceGroup = el("div", "saturn-char-control-group");
+        maintenanceGroup.appendChild(el("span", "saturn-char-control-label", "Reset:"));
+        this.cycleResetButton = el("button", "saturn-char-toggle-btn", "\u21ba Counter");
+        this.cycleResetButton.title = "Reset this picker's Sequential/Random cycle counter";
+        this.cycleResetButton.addEventListener("click", () => this.resetMaintenance("cycle"));
+        this.usageResetButton = el("button", "saturn-char-toggle-btn", "\ud83e\uddf9 Usage");
+        this.usageResetButton.title = "Reset all character usage counters and rank borders";
+        this.usageResetButton.addEventListener("click", () => this.resetMaintenance("usage"));
+        this.cacheResetButton = el("button", "saturn-char-toggle-btn", "\ud83d\uddd1 Cache");
+        this.cacheResetButton.title = "Delete cached character thumbnails (regenerated automatically)";
+        this.cacheResetButton.addEventListener("click", () => this.resetMaintenance("cache"));
+        maintenanceGroup.append(this.cycleResetButton, this.usageResetButton, this.cacheResetButton);
+        controlBar.appendChild(maintenanceGroup);
 
         const actionGroup = el("div", "saturn-char-control-group");
         this.newButton = el("button", "saturn-char-toggle-btn icon", "\uFF0B");
@@ -1060,6 +1155,8 @@ class CharacterPickerUI {
         container.style.setProperty("box-sizing", "border-box", "important");
 
         container.append(controlBar, this.statusEl, this.grid);
+        this.selectionCountEl = el("div", "saturn-char-selection-count", "No cards selected");
+        container.appendChild(this.selectionCountEl);
 
         // Tile size slider, added as a native ComfyUI widget like the visual
         // LoRA loader so it is saved per node and drawn under the node body.
@@ -1111,8 +1208,10 @@ class CharacterPickerUI {
         this.hideWidget(this.selectionWidget);
         this.hideWidget(this.sortWidget);
         this.hideWidget(this.sortFoldersWidget);
+        this.hideWidget(this.contentAlignmentWidget);
         this.hideWidget(this.displayWidget);
         this.applyDisplayMode();
+        this.applyContentAlignment();
 
         const originalResize = this.node.onResize;
         this.node.onResize = function (size) {
@@ -1166,6 +1265,9 @@ class CharacterPickerUI {
         if (this.folderPositionWidget) {
             this.folderPositionWidget.callback = () => this.render();
         }
+        if (this.contentAlignmentWidget) {
+            this.contentAlignmentWidget.callback = () => this.applyContentAlignment();
+        }
         if (this.displayWidget) {
             this.displayWidget.callback = () => this.applyDisplayMode();
         }
@@ -1198,6 +1300,7 @@ class CharacterPickerUI {
             this.sortFoldersSelect.value = this.sortFoldersWidget.value || SORT_FOLDERS[0];
         }
         this.applyDisplayMode();
+        this.applyContentAlignment();
     }
 
     setDisplayMode(mode) {
@@ -1238,6 +1341,89 @@ class CharacterPickerUI {
         }
     }
 
+    setContentAlignment(mode) {
+        const value = ALIGN_MODES.includes(mode) ? mode : ALIGN_MODES[0];
+        if (this.contentAlignmentWidget) this.contentAlignmentWidget.value = value;
+        this.applyContentAlignment();
+    }
+
+    applyContentAlignment() {
+        const mode = ALIGN_MODES.includes(this.contentAlignmentWidget?.value)
+            ? this.contentAlignmentWidget.value
+            : ALIGN_MODES[0];
+        const right = mode === "Right Aligned";
+        this.container?.classList.toggle("saturn-char-right-aligned", right);
+        this.leftAlignButton?.classList.toggle("active", !right);
+        this.rightAlignButton?.classList.toggle("active", right);
+    }
+
+    async resetMaintenance(kind) {
+        const configs = {
+            cycle: {
+                path: "reset_cycle",
+                message: "Reset this picker's Sequential/Random cycle counters?\n\nThe next run starts from the first card again.",
+                success: "Cycle counters reset.",
+            },
+            usage: {
+                path: "reset_usage",
+                message: "Reset ALL character usage counters?\n\nUsage badges, rank borders and Usage sorting restart from zero. Character cards and LoRA files are not touched.",
+                success: "Character usage counters reset.",
+            },
+            cache: {
+                path: "clear_cache",
+                message: "Delete the cached thumbnail images?\n\nThey are regenerated automatically the next time the picker renders.",
+                success: "Thumbnail cache cleared.",
+            },
+        };
+        const config = configs[kind];
+        if (!config) return;
+        if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm(config.message)) {
+            return;
+        }
+        try {
+            const body = kind === "cycle" ? { node_id: String(this.node.id ?? "") } : {};
+            const result = await postJson(config.path, body);
+            if (kind === "cache") this.cacheBust = Date.now();
+            this.setStatus(config.success, "ok");
+            if (kind === "usage" || kind === "cache") await this.refresh();
+        } catch (error) {
+            this.setStatus(`Reset failed: ${error.message || error}`, "error");
+        }
+    }
+
+    computeTopUsageRanks(cards) {
+        const counts = [...new Set((cards || []).map((card) => Number(card.usage) || 0).filter((count) => count > 0))]
+            .sort((a, b) => b - a);
+        const ranks = new Map();
+        counts.slice(0, 3).forEach((count, index) => ranks.set(count, index + 1));
+        return ranks;
+    }
+
+    refreshRankBorders() {
+        if (!this.grid) return;
+        const cards = this.renderedCards || this.visibleCards();
+        const byId = new Map(cards.map((card) => [card.id, card]));
+        const enabled = getRankBordersEnabled();
+        const ranks = enabled ? this.computeTopUsageRanks(cards) : new Map();
+        this.grid.querySelectorAll(".saturn-char-tile").forEach((tile) => {
+            tile.classList.remove("rank-1", "rank-2", "rank-3", "usage-1k");
+            if (!enabled) return;
+            const card = byId.get(tile.getAttribute("data-card-id"));
+            if (!card) return;
+            const rank = ranks.get(Number(card.usage) || 0);
+            if (rank) tile.classList.add(`rank-${rank}`);
+            if ((Number(card.usage) || 0) >= 1000) tile.classList.add("usage-1k");
+        });
+    }
+
+    updateSelectionCount() {
+        if (!this.selectionCountEl) return;
+        const count = readSelected(this.hiddenWidget).length;
+        this.selectionCountEl.textContent = count === 0
+            ? "No cards selected"
+            : `${count} card${count === 1 ? "" : "s"} selected`;
+    }
+
     updateSelectionHint() {
         if (this.detectActive) return;
         const mode = this.selectionWidget?.value || "Sequential";
@@ -1255,7 +1441,7 @@ class CharacterPickerUI {
         const includeDisabled = this.includeDisabledWidget?.value === true;
         try {
             const response = await api.fetchApi(
-                `${API_BASE}/get_presets?folder=${encodeURIComponent(folder)}&include_disabled=${includeDisabled ? "true" : "false"}`
+                `${API_BASE}/get_presets?folder=${encodeURIComponent(folder)}&include_disabled=${includeDisabled ? "true" : "false"}&scrape_on_new=${this.scrapeOnNewWidget?.value === "false" ? "false" : "true"}`
             );
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
@@ -1376,6 +1562,8 @@ class CharacterPickerUI {
                 "No character presets in this folder. Use the + button to create one, or clear the folder filter."
             );
             this.grid.appendChild(empty);
+            this.refreshRankBorders();
+            this.updateSelectionCount();
             this.updateDetectPreview();
             return;
         }
@@ -1388,6 +1576,8 @@ class CharacterPickerUI {
             fragment.appendChild(this.renderFolderGroup(group, selected, selectedIds));
         });
         this.grid.appendChild(fragment);
+        this.refreshRankBorders();
+        this.updateSelectionCount();
         this.updateFolderCheckboxes();
         this.updateDetectPreview();
     }
@@ -1487,7 +1677,7 @@ class CharacterPickerUI {
             const img = el("img");
             img.loading = "lazy";
             img.alt = card.name;
-            img.src = `${API_BASE}/get_preview?id=${encodeURIComponent(card.id)}&v=${Math.round(card.mtime || 0)}`;
+            img.src = `${API_BASE}/get_preview?id=${encodeURIComponent(card.id)}&v=${Math.round(card.mtime || 0)}&cb=${this.cacheBust || 0}`;
             img.addEventListener("error", () => {
                 img.remove();
                 thumb.insertBefore(el("div", "saturn-char-fallback", initials(card.name)), thumb.firstChild);
@@ -1506,8 +1696,8 @@ class CharacterPickerUI {
         if (missing.length) {
             badge = el("div", "saturn-char-badge warn", `\u26a0 ${missing.length}`);
             badge.title = `Missing LoRA files:\n${missing.join("\n")}`;
-        } else if (card.usage) {
-            badge = el("div", "saturn-char-badge", String(card.usage));
+        } else if (card.usage && !getRankBordersEnabled()) {
+            badge = el("div", "saturn-char-badge usage", String(card.usage));
             badge.title = `Used ${card.usage} time${card.usage === 1 ? "" : "s"}`;
         }
 
@@ -1621,6 +1811,7 @@ class CharacterPickerUI {
             }
         });
         this.updateFolderCheckboxes();
+        this.updateSelectionCount();
     }
 
     startDetectWatcher() {
@@ -1946,6 +2137,7 @@ class CharacterPickerUI {
                     overwrite: overwriteInput.checked,
                     loras: chosen.map((row) => row.entry.lora),
                     overrides,
+                    scrape_on_new: this.scrapeOnNewWidget?.value !== "false",
                 });
                 const created = Array.isArray(data.created) ? data.created.length : 0;
                 const failed = Array.isArray(data.failed) ? data.failed.length : 0;
@@ -2288,6 +2480,7 @@ class CharacterPickerUI {
                 },
                 thumbnail_data_url: pendingThumb || null,
                 remove_thumbnail: removeThumb,
+                scrape_on_new: this.scrapeOnNewWidget?.value !== "false",
             };
             saveButton.disabled = true;
             try {
