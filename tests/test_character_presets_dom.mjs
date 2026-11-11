@@ -281,7 +281,7 @@ assert.ok(node.widgets.find((widget) => widget.name === "tile_size"), "the picke
 const tiles = ui.grid.querySelectorAll(".saturn-char-tile");
 assert.equal(tiles.length, 3, "every card renders a tile");
 assert.equal(ui.grid.querySelectorAll(".saturn-char-trigger").length, 0, "tiles no longer show a trigger line");
-assert.ok(tiles[0].querySelector(".saturn-char-actions"), "tile actions live in the top overlay");
+assert.equal(tiles[0].querySelector(".saturn-char-actions"), null, "tile actions moved out of the tile overlays");
 assert.ok(ui.grid.classList.contains("scrollable"), "default display mode scrolls");
 assert.equal(ui.grid.querySelectorAll(".saturn-char-folder-grid").length, 2, "tiles live in folder groups");
 
@@ -311,6 +311,9 @@ assert.deepEqual(
         "\uFF0B",
         "\u21BB",
         "\uD83D\uDCC2",
+        "\u270e",
+        "\u29c9",
+        "\u2715",
     ],
     "the extra picker actions use icon buttons"
 );
@@ -342,21 +345,53 @@ hidden.value = "[]";
 ui.updateSelectionStyles();
 assert.equal(ui.selectionCountEl.textContent, "No cards selected", "empty selection is explicit");
 
-// Rank borders: the most-used card gets the gold ring; usage badges are
-// replaced while the setting is enabled.
+// Edit/Duplicate/Delete live in the top control bar and stay disabled unless
+// exactly one card is selected.
+hidden.value = "[]";
+ui.updateSelectionStyles();
+assert.ok(ui.editCardButton.disabled && ui.duplicateCardButton.disabled && ui.deleteCardButton.disabled,
+    "card actions are disabled with no selection");
+hidden.value = JSON.stringify(["char1", "char2"]);
+ui.updateSelectionStyles();
+assert.ok(ui.editCardButton.disabled && ui.duplicateCardButton.disabled && ui.deleteCardButton.disabled,
+    "card actions are disabled with a multi-selection");
+hidden.value = JSON.stringify(["char1"]);
+ui.updateSelectionStyles();
+assert.ok(!ui.editCardButton.disabled && !ui.duplicateCardButton.disabled && !ui.deleteCardButton.disabled,
+    "card actions enable for exactly one selected card");
+ui.editCardButton.click();
+await sleep(0);
+assert.ok(ui.modal, "the edit action opens the selected card's editor");
+ui.modal.remove();
+ui.modal = null;
+hidden.value = "[]";
+ui.updateSelectionStyles();
+
+// Rank borders: the most-used card gets the gold ring while normal badges
+// (including the missing-LoRA warning) stay visible.
 assert.equal(
     ui.grid.querySelector('[data-card-id="char2"]').classList.contains("rank-1"),
     true,
     "the most-used card gets the rank-1 border"
 );
-assert.equal(
-    ui.grid.querySelector('[data-card-id="char2"] .saturn-char-badge.usage'),
-    null,
-    "rank borders replace usage count badges"
+assert.ok(
+    ui.grid.querySelector('[data-card-id="char2"] .saturn-char-badge.warn'),
+    "warning badges remain visible with rank borders enabled"
 );
 
-// A 1000+ usage card gets the animated RGB border instead of a badge.
+// Usage badges are kept and scale with the usage count.
 const originalUsage = CARDS[0].usage;
+CARDS[0].usage = 5;
+ui.render();
+const rankedUsage = ui.grid.querySelector('[data-card-id="char1"] .saturn-char-badge.usage');
+assert.ok(rankedUsage, "usage badges are kept when rank borders are enabled");
+assert.equal(rankedUsage.textContent, "5", "the usage badge shows the count");
+assert.ok(
+    parseFloat(rankedUsage.style.getPropertyValue("--usage-scale")) > 1,
+    "the usage badge grows with the usage count"
+);
+
+// A 1000+ usage card gets the animated RGB border and keeps its badge.
 CARDS[0].usage = 1200;
 ui.render();
 assert.equal(
@@ -364,19 +399,20 @@ assert.equal(
     true,
     "1000+ usage adds the RGB border class"
 );
-assert.equal(
-    ui.grid.querySelector('[data-card-id="char1"] .saturn-char-badge.usage'),
-    null,
-    "the 1k border also suppresses the usage badge"
+const bigBadge = ui.grid.querySelector('[data-card-id="char1"] .saturn-char-badge.usage');
+assert.ok(bigBadge, "the 1k border keeps the usage badge");
+assert.ok(
+    parseFloat(bigBadge.style.getPropertyValue("--usage-scale")) > 1.5,
+    "large usage counts make the corner badge noticeably bigger"
 );
 
-// Disabling the setting restores plain usage badges and removes rank rings.
+// Disabling the setting keeps the badges and removes the rank rings.
 app.ui.settings.values["SaturnNodes.🖼️ Visual Loaders.05b_CharacterRankBorders"] = false;
 CARDS[0].usage = 5;
 ui.render();
 assert.ok(
     ui.grid.querySelector('[data-card-id="char1"] .saturn-char-badge.usage'),
-    "disabled rank borders restore the usage badge"
+    "usage badges stay visible with rank borders disabled"
 );
 assert.equal(
     ui.grid.querySelector('[data-card-id="char1"]').classList.contains("rank-1"),

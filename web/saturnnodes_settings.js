@@ -1154,19 +1154,29 @@ app.registerExtension({
             }
         });
 
-        // 10.3 Auto-Hide Dock When Idle (default: false)
+        // 10.3 Dock Mode when Idle (default: Auto-Hide)
         app.ui.settings.addSetting({
-            id: "SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle",
-            name: "Auto-Hide Dock When Idle",
-            type: "boolean",
-            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", false),
-            tooltip: "When enabled, the floating dock automatically hides when generation is idle and appears when sampling begins.",
+            id: "SaturnNodes.👁️ Live Preview.03_DockModeWhenIdle",
+            name: "Dock Mode when Idle",
+            type: "combo",
+            options: ["Auto-Hide", "Keep Dock Visible", "View Image"],
+            defaultValue: getInitialSetting("SaturnNodes.👁️ Live Preview.03_DockModeWhenIdle", "Auto-Hide"),
+            tooltip:
+                "Auto-Hide: hide the dock when idle and show it when sampling. " +
+                "Keep Dock Visible: always show the dock. " +
+                "View Image: after a run finishes, show the decoded final output image until the next run's first latent.",
             onChange(value) {
                 if (typeof localStorage !== "undefined") {
                     try {
-                        localStorage.setItem("Comfy.Settings.SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", JSON.stringify(Boolean(value)));
+                        localStorage.setItem(
+                            "Comfy.Settings.SaturnNodes.👁️ Live Preview.03_DockModeWhenIdle",
+                            JSON.stringify(String(value))
+                        );
                     } catch (_) {}
                 }
+                try {
+                    window.dispatchEvent(new CustomEvent("saturnnodes:dock-mode-change", { detail: { mode: value } }));
+                } catch (_) {}
             }
         });
 

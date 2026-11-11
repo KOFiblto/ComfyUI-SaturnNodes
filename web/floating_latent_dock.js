@@ -13,10 +13,17 @@ import { PreviewManager } from "./js/preview_manager.js";
  *    - Pinned fully to the right (8px).
  * 3. Takes the exact shape/aspect ratio of the latent being generated.
  * 4. Full pixel-quality rendering on high-DPI canvas without compression or blur.
- * 5. Configurable settings (enable/disable, max size, auto-hide when idle).
+ * 5. Configurable settings (enable/disable, max size, idle mode: Auto-Hide,
+ *    Keep Dock Visible, or View Image).
  */
 
 const STORAGE_KEY_VISIBLE = "SaturnNodes.LivePreview.FloatingDockVisible";
+
+// Idle behaviour for the dock. Replaces the old boolean auto-hide setting.
+const DOCK_MODE_KEY = "SaturnNodes.👁️ Live Preview.03_DockModeWhenIdle";
+const DOCK_MODE_AUTO_HIDE = "Auto-Hide";
+const DOCK_MODE_KEEP = "Keep Dock Visible";
+const DOCK_MODE_VIEW_IMAGE = "View Image";
 
 // Absolute dock size bounds ("extreme but not absurd"): 100px .. 2000px
 const DOCK_MIN_SIZE = 100;
@@ -39,6 +46,16 @@ class FloatingLatentDock {
         this.isVisible = this.loadInitialVisibility();
         this.isGenerating = false;
         this.latestSamplerId = null;
+
+        // Idle-mode state. `idleHidden` is a transient overlay on top of the
+        // user's visibility preference; `runSawLatent` tracks whether the
+        // current run has produced a preview yet; `displayedFinalImage` marks
+        // that the canvas currently shows a decoded output image.
+        this.idleHidden = false;
+        this.runSawLatent = false;
+        this.displayedFinalImage = false;
+        this.pendingFinalImage = false;
+        this.finalImageToken = 0;
 
         // Inspecting Lightbox state (matching ComfyUI core MediaLightbox)
         this.lightboxEl = null;
@@ -67,6 +84,9 @@ class FloatingLatentDock {
                 localStorage.setItem(STORAGE_KEY_VISIBLE, String(val));
             } catch (_) {}
         }
+        // Manually toggling the dock on always reveals it, even when the
+        // current idle mode would normally keep it hidden.
+        if (val) this.idleHidden = false;
         this.updateVisibility();
     }
 
@@ -76,6 +96,14 @@ class FloatingLatentDock {
             if (val !== undefined && val !== null) return val;
         }
         return defaultVal;
+    }
+
+    getDockMode() {
+        const raw = this.getSetting(DOCK_MODE_KEY, DOCK_MODE_AUTO_HIDE);
+        const value = String(raw || "").trim().toLowerCase();
+        if (value === DOCK_MODE_KEEP.toLowerCase() || value === "keep dock visible") return DOCK_MODE_KEEP;
+        if (value === DOCK_MODE_VIEW_IMAGE.toLowerCase() || value === "view image") return DOCK_MODE_VIEW_IMAGE;
+        return DOCK_MODE_AUTO_HIDE;
     }
 
     getScreenProfileKey() {
@@ -113,22 +141,48 @@ class FloatingLatentDock {
 
     init() {
         this.injectStyles();
+        // Auto-Hide and View Image both start hidden until the first latent
+        // of the session arrives; Keep Dock Visible starts shown.
+        this.idleHidden = this.getDockMode() !== DOCK_MODE_KEEP;
         this.buildDockElement();
         this.registerWithPreviewManager();
         this.setupExecutionListeners();
         this.setupPositionObserver();
         this.injectToolbarButtonLoop();
         this.setupScreenProfileWatcher();
+        this.applyDockMode();
+        // The SaturnNodes settings extension may register after this one on
+        // some frontend builds. Re-apply once the persisted setting is loaded.
+        setTimeout(() => {
+            if (this.dockEl) this.applyDockMode();
+        }, 1000);
+    }
+
+    // Recompute the transient idle visibility from the current mode.
+    applyDockMode() {
+        const mode = this.getDockMode();
+        if (mode === DOCK_MODE_KEEP) {
+            this.idleHidden = false;
+        } else if (this.isGenerating && this.runSawLatent) {
+            this.idleHidden = false;
+        } else if (mode === DOCK_MODE_VIEW_IMAGE && this.displayedFinalImage && !this.isGenerating) {
+            this.idleHidden = false;
+        } else {
+            this.idleHidden = true;
+        }
+        this.updateVisibility();
+        if (!this.idleHidden) this.requestPositionUpdate();
     }
 
     setupScreenProfileWatcher() {
         let lastScreenKey = this.getScreenProfileKey();
+        window.addEventListener("saturnnodes:dock-mode-change", () => this.applyDockMode());
         window.addEventListener("resize", () => {
             const currentKey = this.getScreenProfileKey();
             if (currentKey !== lastScreenKey) {
                 lastScreenKey = currentKey;
                 if (this.currentImg) {
-                    this.onNewPreview(this.currentImg, this.latestSamplerId);
+                    this.renderImageToDock(this.currentImg);
                 } else if (this.placeholderEl && this.dockEl) {
                     const mw = this.getMaxWidth();
                     const mh = this.getMaxHeight();
@@ -615,7 +669,7 @@ class FloatingLatentDock {
 
                 // Snap back to the exact latent fit within the new limits
                 if (this.currentImg) {
-                    this.onNewPreview(this.currentImg, this.latestSamplerId);
+                    this.renderImageToDock(this.currentImg);
                 }
             };
 
@@ -813,10 +867,21 @@ class FloatingLatentDock {
         }
 
         if (this.lightboxBadge) {
-            const statusText = this.isGenerating ? "● Sampling" : "● Live Latent";
+            let statusText = "● Live Latent";
+            let statusColor = "#10b981";
+            if (this.isGenerating) {
+                statusText = "● Sampling";
+                statusColor = "#f59e0b";
+            } else if (this.pendingFinalImage && !this.displayedFinalImage) {
+                statusText = "● Finalizing";
+                statusColor = "#f59e0b";
+            } else if (this.displayedFinalImage) {
+                statusText = "● Final Image";
+                statusColor = "#10b981";
+            }
             const dimsText = (nw && nh) ? `${nw}×${nh}` : "";
             this.lightboxBadge.innerHTML = `
-                <span style="color: ${this.isGenerating ? '#f59e0b' : '#10b981'}; font-weight: 600;">${statusText}</span>
+                <span style="color: ${statusColor}; font-weight: 600;">${statusText}</span>
                 ${dimsText ? `<span style="opacity: 0.5;">|</span><span>${dimsText}</span>` : ""}
             `;
         }
@@ -859,16 +924,22 @@ class FloatingLatentDock {
 
         api.addEventListener("execution_start", () => {
             this.isGenerating = true;
+            this.runSawLatent = false;
+            this.pendingFinalImage = false;
+            // Cancel any still-pending output load from the previous run, but
+            // keep an already displayed final image on screen until this run's
+            // first latent replaces it.
+            this.finalImageToken += 1;
             if (this.statusBadge) {
                 this.statusBadge.textContent = "Sampling";
                 this.statusBadge.classList.add("generating");
             }
-            if (this.getSetting("SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", false) && this.isVisible) {
-                // The canvas still holds the previous run's latent. Keep the dock
-                // hidden until the first fresh preview of this run arrives, so it
-                // never pops up showing stale pixels.
-                this.dockEl?.classList.add("saturn-dock-hidden");
+            // Auto-Hide clears immediately. View Image keeps the previous
+            // final image on screen until this run's first latent arrives.
+            if (this.getDockMode() === DOCK_MODE_AUTO_HIDE) {
+                this.idleHidden = true;
             }
+            this.updateVisibility();
             if (this.lightboxEl) {
                 this.updateLightbox();
             }
@@ -880,13 +951,23 @@ class FloatingLatentDock {
                 this.statusBadge.textContent = "Done";
                 this.statusBadge.classList.remove("generating");
             }
-            if (this.getSetting("SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", false)) {
-                this.dockEl?.classList.add("saturn-dock-hidden");
+            const mode = this.getDockMode();
+            if (mode === DOCK_MODE_AUTO_HIDE) {
+                this.idleHidden = true;
+            } else if (mode === DOCK_MODE_VIEW_IMAGE) {
+                // Stay visible with the last latent until the decoded output
+                // image replaces it. If nothing was drawn this run, keep the
+                // previous final image (or stay hidden if there is none).
+                this.pendingFinalImage = !this.displayedFinalImage;
+                this.idleHidden = !this.runSawLatent && !this.displayedFinalImage;
             }
+            this.updateVisibility();
             if (this.lightboxEl) {
                 this.updateLightbox();
             }
         };
+
+        api.addEventListener("executed", (event) => this.onExecuted(event));
 
         api.addEventListener("status", (e) => {
             const queueRemaining = e.detail?.exec_info?.queue_remaining ?? 0;
@@ -899,14 +980,73 @@ class FloatingLatentDock {
         api.addEventListener("execution_error", handleExecutionEnd);
     }
 
+    // View Image mode: once the final output is decoded, swap the dock canvas
+    // over to it and keep it there until the next run's first latent.
+    onExecuted(event) {
+        if (this.getDockMode() !== DOCK_MODE_VIEW_IMAGE) return;
+        const output = event?.detail?.output;
+        const images = Array.isArray(output?.images) ? output.images : [];
+        if (!images.length) return;
+        // Prefer saved output images over temporary previews.
+        const chosen =
+            [...images].reverse().find((item) => item && item.filename && (item.type === "output" || !item.type)) ||
+            [...images].reverse().find((item) => item && item.filename);
+        if (!chosen) return;
+
+        const token = ++this.finalImageToken;
+        const img = new Image();
+        img.onload = () => {
+            if (token !== this.finalImageToken) return;
+            this.displayedFinalImage = true;
+            this.pendingFinalImage = false;
+            this.idleHidden = false;
+            this.currentImg = img;
+            if (this.titleTextEl) this.titleTextEl.textContent = "Final Image";
+            this.renderImageToDock(img);
+            this.updateVisibility();
+            this.requestPositionUpdate();
+        };
+        img.src = this.buildViewUrl(chosen);
+    }
+
+    buildViewUrl(image) {
+        const params = new URLSearchParams({
+            filename: image.filename || "",
+            subfolder: image.subfolder || "",
+            type: image.type || "output",
+        });
+        const path = `/view?${params.toString()}`;
+        try {
+            if (api?.apiURL) return api.apiURL(path);
+        } catch (_) {}
+        return path;
+    }
+
     onNewPreview(img, samplerId) {
         if (!img || !this.canvasEl) return;
         this.currentImg = img;
         this.latestSamplerId = samplerId;
+        if (!this.renderImageToDock(img)) return;
+
+        this.runSawLatent = true;
+        this.displayedFinalImage = false;
+        this.pendingFinalImage = false;
+        if (this.titleTextEl) this.titleTextEl.textContent = "Live Latent";
+        // The dock only appears once this run's first fresh latent is drawn,
+        // never on execution_start with the previous run's image on screen.
+        this.idleHidden = false;
+        this.updateVisibility();
+        this.requestPositionUpdate();
+    }
+
+    // Shared canvas renderer used by both live latents and the final decoded
+    // output image in View Image mode.
+    renderImageToDock(img) {
+        if (!img || !this.canvasEl) return false;
 
         const nw = img.naturalWidth || img.width;
         const nh = img.naturalHeight || img.height;
-        if (!nw || !nh) return;
+        if (!nw || !nh) return false;
 
         const maxW = this.getMaxWidth();
         const maxH = this.getMaxHeight();
@@ -954,27 +1094,12 @@ class FloatingLatentDock {
         if (this.lightboxEl) {
             this.updateLightbox();
         }
-
-        // Auto-hide mode: the dock only appears once this run's first fresh
-        // latent is drawn, never on execution_start with the previous run's
-        // image still on the canvas.
-        this.maybeRevealForPreview();
-
-        this.requestPositionUpdate();
-    }
-
-    maybeRevealForPreview() {
-        if (!this.isGenerating) return false;
-        if (!this.isVisible) return false;
-        if (!this.getSetting("SaturnNodes.👁️ Live Preview.01_EnableFloatingDock", true)) return false;
-        if (!this.getSetting("SaturnNodes.👁️ Live Preview.03_AutoHideWhenIdle", false)) return false;
-        this.dockEl?.classList.remove("saturn-dock-hidden");
         return true;
     }
 
     updateVisibility() {
         const isMasterEnabled = this.getSetting("SaturnNodes.👁️ Live Preview.01_EnableFloatingDock", true);
-        const shouldShow = isMasterEnabled && this.isVisible;
+        const shouldShow = isMasterEnabled && this.isVisible && !this.idleHidden;
 
         if (this.dockEl) {
             if (shouldShow) {
@@ -1062,7 +1187,7 @@ class FloatingLatentDock {
     }
 
     requestPositionUpdate() {
-        if (!this.dockEl || this.dockEl.classList.contains("saturn-dock-hidden") || !this.isVisible) return;
+        if (!this.dockEl || this.dockEl.classList.contains("saturn-dock-hidden") || !this.isVisible || this.idleHidden) return;
         if (this._posUpdatePending) return;
         this._posUpdatePending = true;
         requestAnimationFrame(() => {

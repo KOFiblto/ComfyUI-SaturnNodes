@@ -38,6 +38,15 @@ function getRankBordersEnabled() {
     return true;
 }
 
+// The corner usage badge grows with the usage count. A logarithmic curve keeps
+// low counts subtle while letting heavily used cards stand out, capped so the
+// label never swallows the thumbnail.
+function usageBadgeScale(usage) {
+    const n = Math.max(0, Number(usage) || 0);
+    if (n <= 0) return 1;
+    return Math.min(2.1, 1 + Math.log10(n + 1) * 0.42);
+}
+
 const MODE_HINTS = {
     Sequential: "Cycles through the selected cards, one per run.",
     Random: "Picks one random card from the selection each run.",
@@ -426,48 +435,57 @@ const PICKER_CSS = `
     z-index: 3;
 }
 .saturn-char-tile.matched .saturn-char-match-pill { display: block; }
+/* Usage badge: a corner flap flush with the top and right edges, rounded
+   along the inner (bottom-left) edge. Its size grows with the usage count
+   via the --usage-scale custom property. */
 .saturn-char-badge {
     position: absolute;
-    top: 4px;
-    right: 4px;
+    top: 0;
+    right: 0;
     z-index: 2;
-    padding: 1px 4px;
-    border-radius: 8px;
-    background: rgba(0, 122, 204, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: calc(2px * var(--usage-scale, 1)) calc(6px * var(--usage-scale, 1)) calc(3px * var(--usage-scale, 1)) calc(9px * var(--usage-scale, 1));
+    border-radius: 0 0 0 calc(11px * var(--usage-scale, 1));
+    background: rgba(0, 122, 204, 0.9);
     color: #fff;
-    font-size: 8px;
+    font-size: calc(8px * var(--usage-scale, 1));
     font-weight: bold;
+    line-height: 1.15;
     pointer-events: none;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    box-shadow: -1px 1px 3px rgba(0, 0, 0, 0.35);
 }
 .saturn-char-badge.warn {
+    --usage-scale: 1;
     background: rgba(168, 0, 0, 0.9);
 }
-/* Rank borders replace the usage badges: gold / silver / bronze for the
-   three most-used cards, plus an animated RGB ring at 1000+ uses. */
+/* Rank borders add gold / silver / bronze rings for the three most-used
+   cards, plus an animated RGB ring at 1000+ uses. They are 150% of the
+   normal tile border thickness (2px -> 3px). */
 .saturn-char-tile.rank-1:not(.selected) {
+    border-width: 3px !important;
     border-color: #ffd700 !important;
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.55);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.55);
 }
 .saturn-char-tile.rank-2:not(.selected) {
+    border-width: 3px !important;
     border-color: #d7dde6 !important;
-    box-shadow: 0 0 10px rgba(215, 221, 230, 0.5);
+    box-shadow: 0 0 15px rgba(215, 221, 230, 0.5);
 }
 .saturn-char-tile.rank-3:not(.selected) {
+    border-width: 3px !important;
     border-color: #cd7f32 !important;
-    box-shadow: 0 0 10px rgba(205, 127, 50, 0.5);
+    box-shadow: 0 0 15px rgba(205, 127, 50, 0.5);
 }
 .saturn-char-tile.usage-1k:not(.selected) {
+    border-width: 3px !important;
     border-color: #ff0055 !important;
     animation: saturn-char-rgb-border 4s linear infinite !important;
 }
 @keyframes saturn-char-rgb-border {
-    0% { border-color: #ff0055 !important; box-shadow: 0 0 12px rgba(255, 0, 85, 0.8); }
-    25% { border-color: #ffb300 !important; box-shadow: 0 0 12px rgba(255, 179, 0, 0.8); }
-    50% { border-color: #19e68c !important; box-shadow: 0 0 12px rgba(25, 230, 140, 0.8); }
-    75% { border-color: #00a3ff !important; box-shadow: 0 0 12px rgba(0, 163, 255, 0.8); }
-    100% { border-color: #ff0055 !important; box-shadow: 0 0 12px rgba(255, 0, 85, 0.8); }
+    0% { border-color: #ff0055 !important; box-shadow: 0 0 18px rgba(255, 0, 85, 0.8); }
+    25% { border-color: #ffb300 !important; box-shadow: 0 0 18px rgba(255, 179, 0, 0.8); }
+    50% { border-color: #19e68c !important; box-shadow: 0 0 18px rgba(25, 230, 140, 0.8); }
+    75% { border-color: #00a3ff !important; box-shadow: 0 0 18px rgba(0, 163, 255, 0.8); }
+    100% { border-color: #ff0055 !important; box-shadow: 0 0 18px rgba(255, 0, 85, 0.8); }
 }
 .saturn-char-selection-count {
     flex: 0 0 auto;
@@ -480,33 +498,6 @@ const PICKER_CSS = `
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.saturn-char-actions {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    display: none;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 3px;
-    padding: 3px;
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0));
-    z-index: 4;
-}
-.saturn-char-tile:hover .saturn-char-actions { display: flex; }
-.saturn-char-actions button {
-    width: 18px;
-    height: 18px;
-    padding: 0;
-    border: 1px solid #353535;
-    border-radius: 4px;
-    background: rgba(32, 32, 32, 0.95);
-    color: #fff;
-    font-size: 10px;
-    line-height: 1;
-    cursor: pointer;
-}
-.saturn-char-actions button:hover { background: #007acc; border-color: #0098ff; }
 .saturn-char-empty {
     width: 100%;
     padding: 14px 8px;
@@ -1140,7 +1131,44 @@ class CharacterPickerUI {
             }
         });
 
-        actionGroup.append(this.newButton, this.refreshButton, this.openFolderButton);
+        // Card actions operate on the single selected card. They sit in the
+        // top control bar and stay disabled unless exactly one card is
+        // selected.
+        this.editCardButton = el("button", "saturn-char-toggle-btn icon", "\u270e");
+        this.editCardButton.title = "Edit the selected card (select exactly one card)";
+        this.editCardButton.setAttribute?.("aria-label", "Edit selected card");
+        this.editCardButton.disabled = true;
+        this.editCardButton.addEventListener("click", () => {
+            const card = this.getSingleSelectedCard();
+            if (card) this.openEditor(card);
+        });
+
+        this.duplicateCardButton = el("button", "saturn-char-toggle-btn icon", "\u29c9");
+        this.duplicateCardButton.title = "Duplicate the selected card (select exactly one card)";
+        this.duplicateCardButton.setAttribute?.("aria-label", "Duplicate selected card");
+        this.duplicateCardButton.disabled = true;
+        this.duplicateCardButton.addEventListener("click", () => {
+            const card = this.getSingleSelectedCard();
+            if (card) this.duplicateCard(card);
+        });
+
+        this.deleteCardButton = el("button", "saturn-char-toggle-btn icon", "\u2715");
+        this.deleteCardButton.title = "Delete the selected card (select exactly one card)";
+        this.deleteCardButton.setAttribute?.("aria-label", "Delete selected card");
+        this.deleteCardButton.disabled = true;
+        this.deleteCardButton.addEventListener("click", () => {
+            const card = this.getSingleSelectedCard();
+            if (card) this.deleteCard(card);
+        });
+
+        actionGroup.append(
+            this.newButton,
+            this.refreshButton,
+            this.openFolderButton,
+            this.editCardButton,
+            this.duplicateCardButton,
+            this.deleteCardButton
+        );
         controlBar.appendChild(actionGroup);
 
         this.statusEl = el("div", "saturn-char-status", "");
@@ -1416,9 +1444,21 @@ class CharacterPickerUI {
         });
     }
 
+    getSingleSelectedCard() {
+        const selected = readSelected(this.hiddenWidget);
+        if (selected.length !== 1) return null;
+        const pool = this.renderedCards || this.cards || [];
+        return pool.find((card) => card.id === selected[0]) || null;
+    }
+
     updateSelectionCount() {
+        const selected = readSelected(this.hiddenWidget);
+        const single = selected.length === 1 ? this.getSingleSelectedCard() : null;
+        if (this.editCardButton) this.editCardButton.disabled = !single;
+        if (this.duplicateCardButton) this.duplicateCardButton.disabled = !single;
+        if (this.deleteCardButton) this.deleteCardButton.disabled = !single;
         if (!this.selectionCountEl) return;
-        const count = readSelected(this.hiddenWidget).length;
+        const count = selected.length;
         this.selectionCountEl.textContent = count === 0
             ? "No cards selected"
             : `${count} card${count === 1 ? "" : "s"} selected`;
@@ -1696,38 +1736,17 @@ class CharacterPickerUI {
         if (missing.length) {
             badge = el("div", "saturn-char-badge warn", `\u26a0 ${missing.length}`);
             badge.title = `Missing LoRA files:\n${missing.join("\n")}`;
-        } else if (card.usage && !getRankBordersEnabled()) {
+        } else if (card.usage) {
             badge = el("div", "saturn-char-badge usage", String(card.usage));
+            badge.style.setProperty("--usage-scale", String(usageBadgeScale(card.usage)));
             badge.title = `Used ${card.usage} time${card.usage === 1 ? "" : "s"}`;
         }
 
         const label = el("div", "saturn-char-label");
         label.appendChild(el("div", "saturn-char-name", card.name));
 
-        const actions = el("div", "saturn-char-actions");
-        const editButton = el("button", null, "\u270e");
-        editButton.title = "Edit card";
-        editButton.addEventListener("click", (event) => {
-            event.stopPropagation();
-            this.openEditor(card);
-        });
-        const duplicateButton = el("button", null, "\u29c9");
-        duplicateButton.title = "Duplicate card";
-        duplicateButton.addEventListener("click", (event) => {
-            event.stopPropagation();
-            this.duplicateCard(card);
-        });
-        const deleteButton = el("button", null, "\u2715");
-        deleteButton.title = "Delete card";
-        deleteButton.addEventListener("click", (event) => {
-            event.stopPropagation();
-            this.deleteCard(card);
-        });
-        actions.append(editButton, duplicateButton, deleteButton);
-
         tile.append(thumb, label, orderBadge, matchPill);
         if (badge) tile.appendChild(badge);
-        tile.appendChild(actions);
 
         if (selected.has(card.id)) tile.classList.add("selected");
         if (this.matchedIds.has(card.id)) tile.classList.add("matched");

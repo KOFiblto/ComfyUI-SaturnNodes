@@ -130,64 +130,96 @@ document.body.appendChild(toolbar);
 FloatingLatentDock.prototype.updatePosition.call(dock);
 assert.equal(dock.dockEl.style.bottom, "88px", "dock must sit 8px above the canvas toolbar");
 
-// 5. Auto-hide: a run start must not reveal the dock (it would show the
-//    previous run's latent). Only a fresh preview of the current run reveals it.
-const makeAutoHideDock = () => {
+// 5. Idle dock modes: Auto-Hide and View Image start hidden and only show
+//    once a fresh latent arrives; Keep Dock Visible always shows. View Image
+//    additionally stays up when a decoded final image is displayed.
+let apiHandlers = {};
+const makeModeDock = (mode) => {
     const dockEl = document.createElement("div");
     dockEl.classList.add("saturn-dock-hidden");
     const settings = {
-        "03_AutoHideWhenIdle": true,
+        "03_DockModeWhenIdle": mode,
         "01_EnableFloatingDock": true,
     };
     return {
         dockEl,
+        btnEl: null,
         isVisible: true,
         isGenerating: false,
+        idleHidden: true,
+        runSawLatent: false,
+        displayedFinalImage: false,
+        pendingFinalImage: false,
         statusBadge: null,
         lightboxEl: null,
         getSetting(id, fallback) {
             const key = Object.keys(settings).find(name => id.includes(name));
             return key ? settings[key] : fallback;
         },
+        updateVisibility: FloatingLatentDock.prototype.updateVisibility,
+        requestPositionUpdate() {},
+        updatePosition() {},
+        applyDockMode: FloatingLatentDock.prototype.applyDockMode,
+        getDockMode: FloatingLatentDock.prototype.getDockMode,
+        onExecuted: FloatingLatentDock.prototype.onExecuted,
     };
 };
-
-const autoDock = makeAutoHideDock();
-const apiHandlers = {};
-context.api.addEventListener = (name, callback) => {
-    apiHandlers[name] = callback;
+const registerHandlers = (target) => {
+    apiHandlers = {};
+    context.api.addEventListener = (name, callback) => {
+        apiHandlers[name] = callback;
+    };
+    FloatingLatentDock.prototype.setupExecutionListeners.call(target);
 };
-FloatingLatentDock.prototype.setupExecutionListeners.call(autoDock);
-assert.equal(typeof apiHandlers.execution_start, "function", "execution_start handler must register");
 
-assert.equal(
-    FloatingLatentDock.prototype.maybeRevealForPreview.call(autoDock),
-    false,
-    "a preview outside a running prompt (page-load replay) must not reveal the dock"
-);
-assert.ok(autoDock.dockEl.classList.contains("saturn-dock-hidden"));
+const autoDock = makeModeDock("Auto-Hide");
+autoDock.applyDockMode();
+assert.ok(autoDock.dockEl.classList.contains("saturn-dock-hidden"), "Auto-Hide starts hidden");
+
+registerHandlers(autoDock);
+assert.equal(typeof apiHandlers.execution_start, "function", "execution_start handler must register");
+assert.equal(typeof apiHandlers.executed, "function", "executed handler must register");
 
 apiHandlers.execution_start();
 assert.ok(
     autoDock.dockEl.classList.contains("saturn-dock-hidden"),
-    "execution_start must keep the dock hidden instead of revealing the stale latent"
+    "execution_start must keep Auto-Hide hidden until the first fresh latent"
 );
 
-autoDock.isGenerating = true;
-assert.equal(
-    FloatingLatentDock.prototype.maybeRevealForPreview.call(autoDock),
-    true,
-    "the first fresh preview of the run reveals the dock"
-);
-assert.ok(!autoDock.dockEl.classList.contains("saturn-dock-hidden"));
+// Simulate the first fresh latent of the run.
+autoDock.runSawLatent = true;
+autoDock.idleHidden = false;
+autoDock.updateVisibility();
+assert.ok(!autoDock.dockEl.classList.contains("saturn-dock-hidden"), "first latent reveals Auto-Hide");
 
-autoDock.isVisible = false;
-autoDock.dockEl.classList.add("saturn-dock-hidden");
-assert.equal(
-    FloatingLatentDock.prototype.maybeRevealForPreview.call(autoDock),
-    false,
-    "a user-hidden dock must stay hidden"
+apiHandlers.status({ detail: { exec_info: { queue_remaining: 0 } } });
+assert.ok(autoDock.dockEl.classList.contains("saturn-dock-hidden"), "Auto-Hide hides when the queue finishes");
+
+const keepDock = makeModeDock("Keep Dock Visible");
+keepDock.applyDockMode();
+assert.ok(!keepDock.dockEl.classList.contains("saturn-dock-hidden"), "Keep Dock Visible starts shown");
+registerHandlers(keepDock);
+apiHandlers.execution_start();
+assert.ok(!keepDock.dockEl.classList.contains("saturn-dock-hidden"), "Keep Dock Visible never auto-hides");
+
+const viewDock = makeModeDock("View Image");
+viewDock.applyDockMode();
+assert.ok(viewDock.dockEl.classList.contains("saturn-dock-hidden"), "View Image starts hidden");
+
+viewDock.displayedFinalImage = true;
+viewDock.isGenerating = false;
+viewDock.applyDockMode();
+assert.ok(!viewDock.dockEl.classList.contains("saturn-dock-hidden"), "View Image shows a decoded final image while idle");
+
+viewDock.displayedFinalImage = false;
+viewDock.idleHidden = true;
+viewDock.isGenerating = false;
+viewDock.updateVisibility();
+registerHandlers(viewDock);
+apiHandlers.execution_start();
+assert.ok(
+    viewDock.dockEl.classList.contains("saturn-dock-hidden"),
+    "View Image stays hidden until the next run's first latent when no final image is shown"
 );
-assert.ok(autoDock.dockEl.classList.contains("saturn-dock-hidden"));
 
 console.log("floating dock DOM regression test passed");
